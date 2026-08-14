@@ -1,0 +1,6 @@
+version: "3.8"
+
+# 数据库已改为本机 MySQL / MongoDB，不再使用 Docker 容器。
+# 此文件暂为空模板，后续如需新增服务（如 Judge0）可在此补充。
+
+services:
