@@ -7,12 +7,25 @@
         <router-link to="/student/home">考试首页</router-link>
         <router-link to="/student/scores">我的成绩</router-link>
       </nav>
+      <button class="logout" @click="logout">退出登录</button>
     </aside>
     <main class="content">
       <router-view />
     </main>
   </div>
 </template>
+
+<script setup>
+import { useRouter } from 'vue-router'
+import { clearAuth } from '../../utils/auth'
+
+const router = useRouter()
+
+function logout() {
+  clearAuth()
+  router.replace('/student/login')
+}
+</script>
 
 <style scoped>
 .layout {
@@ -48,6 +61,22 @@
 .sidebar a.router-link-active {
   background: #2563eb;
   color: #fff;
+}
+
+.sidebar .logout {
+  margin-top: 24px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.sidebar .logout:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .content {

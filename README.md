@@ -93,7 +93,7 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 mvn package -DskipTests
 /usr/lib/jvm/java-17-openjdk-amd64/bin/java -jar target/codejudge-backend-0.0.1-SNAPSHOT.jar
 ```
 
-验证接口：
+验证接口（业务接口已接入鉴权，先登录 `POST /api/auth/login` 拿 token）：
 
 ```bash
 curl http://localhost:8080/api/student/questions
@@ -117,14 +117,12 @@ npm run dev
 
 ### 数据库（MySQL + MongoDB）
 
-使用 Docker Compose 一键启动：
+数据库使用本机服务（账号统一 `test / 123456`，库名 `codejudge`）：
 
-```bash
-docker-compose up -d
-```
+- MySQL：端口 `3306`，账号 `test / 123456`，数据库 `codejudge`
+- MongoDB：端口 `27017`，账号 `test / 123456`（admin 库 root 角色），数据库 `codejudge`
 
-- MySQL：端口 `3306`，数据库 `codejudge`，账号 `test / 123456`
-- MongoDB：端口 `27017`，数据库 `codejudge`，账号 `test / 123456`
+> 已弃用 Docker 容器方式：`docker-compose.yml` 中的 mysql/mongodb 服务已移除，文件暂为空模板，供后续 Judge0 等服务使用。
 
 后端默认连接本机 `3306`/`27017`，也可通过环境变量覆盖：
 
@@ -146,7 +144,7 @@ curl http://localhost:8080/api/admin/db/check
 
 ## 下一步
 
-1. 补充数据库迁移脚本与更多业务实体
-2. 接入 Spring Security，实现登录鉴权与 RBAC 权限控制
-3. 将已完成的 Java 原型 demo 按后端分层迁移到 Spring Boot 项目中
+1. 补充数据库迁移脚本（Flyway）与更多业务实体
+2. ~~接入 Spring Security，实现登录鉴权与 RBAC~~（✅ 已完成，见 M1）
+3. 补齐 service / DTO 分层，将占位接口替换为真实业务
 4. 补充 Judge0 评测链路、AI 评审、反作弊与学情分析模块

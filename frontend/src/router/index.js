@@ -1,22 +1,44 @@
-// 路由配置：按角色（学生/教师/管理端）分为三组，各自挂载独立布局与页面
+// 路由配置：三个端各自独立的登录页 + 布局页面，通过全局前置守卫做登录校验与角色隔离
 import { createRouter, createWebHistory } from 'vue-router'
 import StudentLayout from '../layouts/student/StudentLayout.vue'
 import TeacherLayout from '../layouts/teacher/TeacherLayout.vue'
 import AdminLayout from '../layouts/admin/AdminLayout.vue'
 import StudentHome from '../views/student/StudentHome.vue'
 import StudentScores from '../views/student/StudentScores.vue'
+import StudentLogin from '../views/student/StudentLogin.vue'
 import TeacherHome from '../views/teacher/TeacherHome.vue'
 import TeacherQuestions from '../views/teacher/TeacherQuestions.vue'
+import TeacherLogin from '../views/teacher/TeacherLogin.vue'
 import AdminHome from '../views/admin/AdminHome.vue'
 import AdminUsers from '../views/admin/AdminUsers.vue'
+import AdminLogin from '../views/admin/AdminLogin.vue'
+import { getToken, getUser } from '../utils/auth'
+
+// 角色 → 对应端首页
+const ROLE_HOME = {
+  ADMIN: '/admin/home',
+  TEACHER: '/teacher/home',
+  STUDENT: '/student/home'
+}
+
+// 路径前缀 → 对应端登录页
+const LOGIN_PATH = {
+  student: '/student/login',
+  teacher: '/teacher/login',
+  admin: '/admin/login'
+}
 
 const routes = [
-  // 默认跳转到学生端首页
-  { path: '/', redirect: '/student/home' },
+  { path: '/', redirect: '/student/login' },
+  // 三个登录页
+  { path: '/student/login', component: StudentLogin },
+  { path: '/teacher/login', component: TeacherLogin },
+  { path: '/admin/login', component: AdminLogin },
   // 学生端
   {
     path: '/student',
     component: StudentLayout,
+    meta: { requiresAuth: true, roles: ['STUDENT'] },
     children: [
       { path: '', redirect: '/student/home' },
       { path: 'home', component: StudentHome },
@@ -27,6 +49,7 @@ const routes = [
   {
     path: '/teacher',
     component: TeacherLayout,
+    meta: { requiresAuth: true, roles: ['TEACHER'] },
     children: [
       { path: '', redirect: '/teacher/home' },
       { path: 'home', component: TeacherHome },
@@ -37,6 +60,7 @@ const routes = [
   {
     path: '/admin',
     component: AdminLayout,
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
     children: [
       { path: '', redirect: '/admin/home' },
       { path: 'home', component: AdminHome },
@@ -45,7 +69,39 @@ const routes = [
   }
 ]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes
 })
+
+// 全局前置守卫
+router.beforeEach((to, from, next) => {
+  const token = getToken()
+  const user = getUser()
+
+  // 已登录访问任意登录页 → 跳对应角色首页
+  if (to.path.endsWith('/login')) {
+    if (token && user) {
+      next(ROLE_HOME[user.role] || '/student/home')
+    } else {
+      next()
+    }
+    return
+  }
+
+  // 受保护路由：未登录 → 对应端登录页；角色不符 → 回自己端
+  if (to.meta.requiresAuth) {
+    if (!token) {
+      next(LOGIN_PATH[to.path.split('/')[1]] || '/student/login')
+      return
+    }
+    if (to.meta.roles && user && !to.meta.roles.includes(user.role)) {
+      next(ROLE_HOME[user.role] || '/student/home')
+      return
+    }
+  }
+
+  next()
+})
+
+export default router
