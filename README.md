@@ -142,6 +142,61 @@ curl http://localhost:8080/api/admin/db/check
 
 详细库表结构见 [docs/database-design.md](docs/database-design.md)。
 
+## 生产部署与反向代理
+
+生产环境建议使用 Nginx 作为统一入口，同时负责前端静态资源和后端 API 反向代理。Vite 中的 `/api` 代理仅用于本地开发，`npm run build` 后不会生效。
+
+### 构建前端
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+构建产物位于 `frontend/dist`。将 `dist` 部署到 Nginx 服务器的 `/var/www/codejudge-frontend/dist`，后端 Spring Boot 服务继续监听 `8080` 端口。
+
+### Nginx 配置
+
+```nginx
+server {
+    listen 80;
+    server_name codejudge.example.com;
+
+    root /var/www/codejudge-frontend/dist;
+    index index.html;
+
+    # Vue Router 使用 history 模式，刷新时回退到 index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 将前端 /api 请求转发到 Spring Boot
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+如果后端部署在其他服务器，将 `proxy_pass` 中的 `127.0.0.1:8080` 替换为后端服务器内网地址，例如 `http://192.168.1.10:8080/api/`。
+
+### 多客户端部署
+
+学生端、教师端和管理端共用同一个前端构建包，通过不同路径访问：
+
+```text
+学生端：http://codejudge.example.com/student/login
+教师端：http://codejudge.example.com/teacher/login
+管理端：http://codejudge.example.com/admin/login
+```
+
+角色权限由前端路由和后端 Spring Security 双重校验。多台客户端电脑可以直接访问同一个 Nginx 地址，也可以各自部署同一份 `dist`，只需把各自 Nginx 的 `/api/` 指向集中部署的后端服务。后端和数据库应保持一套，避免多份数据不一致。
+
 ## 下一步
 
 1. 补充数据库迁移脚本（Flyway）与更多业务实体
