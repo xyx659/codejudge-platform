@@ -13,18 +13,39 @@
 
 库名：`codejudge`
 
-### users（用户表）
+### 用户表（按角色分表）
 
-存储学生、教师、管理员三类账号，通过 `role` 字段区分。
+学生、教师、管理员三类账号分表存储，不再使用 `role` 字段区分（表名即角色）。
+
+**students（学生表）**
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
-| `id` | BIGINT | 主键，自增 | 用户 ID |
+| `id` | BIGINT | 主键，自增 | 学生 ID |
 | `username` | VARCHAR(50) | 非空，唯一 | 登录账号 |
 | `name` | VARCHAR(50) | 非空 | 姓名 |
-| `password` | VARCHAR(100) | 非空 | 登录密码（后续改为加密存储） |
-| `role` | VARCHAR(20) | 非空 | 角色：`ADMIN` / `TEACHER` / `STUDENT` |
+| `password` | VARCHAR(100) | 非空 | 登录密码（BCrypt 加密存储） |
 | `student_no` | VARCHAR(20) | 可空 | 学号，仅学生使用，是学号的唯一权威来源 |
+| `created_at` | DATETIME | 非空 | 创建时间 |
+
+**teachers（教师表）**
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | 主键，自增 | 教师 ID |
+| `username` | VARCHAR(50) | 非空，唯一 | 登录账号 |
+| `name` | VARCHAR(50) | 非空 | 姓名 |
+| `password` | VARCHAR(100) | 非空 | 登录密码（BCrypt 加密存储） |
+| `created_at` | DATETIME | 非空 | 创建时间 |
+
+**admins（管理员表）**
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | 主键，自增 | 管理员 ID |
+| `username` | VARCHAR(50) | 非空，唯一 | 登录账号 |
+| `name` | VARCHAR(50) | 非空 | 姓名 |
+| `password` | VARCHAR(100) | 非空 | 登录密码（BCrypt 加密存储） |
 | `created_at` | DATETIME | 非空 | 创建时间 |
 
 ### submissions（提交记录元数据表）
@@ -35,7 +56,7 @@
 | --- | --- | --- | --- |
 | `id` | BIGINT | 主键，自增 | 提交 ID |
 | `question_id` | VARCHAR(50) | 非空 | 题目 ID（对应 MongoDB `questions._id`） |
-| `student_id` | BIGINT | 非空 | 学生 ID（对应 `users.id`） |
+| `student_id` | BIGINT | 非空 | 学生 ID（对应 `students.id`） |
 | `judge_status` | VARCHAR(30) | 可空 | 判卷状态：`PENDING` / `RUN_COMPLETED` / `COMPILE_ERROR` / `TIMEOUT` |
 | `score` | INT | 可空 | 最终得分 |
 | `created_at` | DATETIME | 非空 | 提交时间 |
@@ -100,14 +121,16 @@
 }
 ```
 
-说明：`submission_details` 通过 `studentId` 关联 MySQL `users`，通过 `questionId` 关联本库 `questions`；学号只在 `users.student_no` 保存一份。
+说明：`submission_details` 通过 `studentId` 关联 MySQL `students`，通过 `questionId` 关联本库 `questions`；学号只在 `students.student_no` 保存一份。
 
 ## 数据归属对照
 
 | 业务数据 | 存储位置 | 说明 |
 | --- | --- | --- |
-| 学生/教师/管理员账号 | MySQL `users` | 通过 `role` 区分 |
-| 学号 | MySQL `users.student_no` | 唯一权威来源 |
+| 学生账号 | MySQL `students` | 分表存储 |
+| 教师账号 | MySQL `teachers` | 分表存储 |
+| 管理员账号 | MySQL `admins` | 分表存储 |
+| 学号 | MySQL `students.student_no` | 唯一权威来源 |
 | 提交记录元数据 | MySQL `submissions` | 判卷摘要，便于统计 |
 | 题目与测试用例 | MongoDB `questions` | 结构灵活，便于扩展 |
 | 提交答案、测试结果、AI 评审 | MongoDB `submission_details` | 一个提交一个文档 |

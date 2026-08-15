@@ -45,8 +45,6 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
-const ROLE_LABEL = { ADMIN: '管理端', TEACHER: '教师端', STUDENT: '学生端' }
-
 async function handleLogin() {
   if (!username.value || !password.value) {
     error.value = '请输入账号和密码'
@@ -55,13 +53,8 @@ async function handleLogin() {
   loading.value = true
   error.value = ''
   try {
-    const res = await login(username.value, password.value)
+    const res = await login(username.value, password.value, props.role)
     const data = res.data
-    // 角色不匹配：拒绝并提示到对应端登录
-    if (data.role !== props.role) {
-      error.value = `该账号是${ROLE_LABEL[data.role] || data.role}账号，请到对应端登录`
-      return
-    }
     setAuth(data.token, { username: data.username, name: data.name, role: data.role })
     router.replace(props.homePath)
   } catch (e) {
