@@ -16,15 +16,6 @@ import java.util.Map;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    /** 用户管理（占位） */
-    @GetMapping("/users")
-    public ApiResponse<Map<String, Object>> users() {
-        return ApiResponse.ok(Map.of(
-                "endpoint", "用户管理",
-                "status", "基础框架已就绪"
-        ));
-    }
-
     /** 考试监控（占位） */
     @GetMapping("/monitor")
     public ApiResponse<Map<String, Object>> monitor() {

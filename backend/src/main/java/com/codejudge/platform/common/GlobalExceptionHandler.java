@@ -3,6 +3,7 @@ package com.codejudge.platform.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -43,6 +44,28 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleNotFoundException(NotFoundException e) {
         return ApiResponse.error(404, e.getMessage());
+    }
+
+    /** 业务参数或状态不合法：返回 400 */
+    @ExceptionHandler(BadRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleBadRequestException(BadRequestException e) {
+        return ApiResponse.error(400, e.getMessage());
+    }
+
+    /** 配置等数据发生并发修改冲突：返回 409 */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleOptimisticLocking(
+            ObjectOptimisticLockingFailureException e) {
+        return ApiResponse.error(409, "数据已被其他管理员修改，请刷新后重试");
+    }
+
+    /** 超过接口限流阈值：返回 429 */
+    @ExceptionHandler(RateLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ApiResponse<Void> handleRateLimitExceeded(RateLimitExceededException e) {
+        return ApiResponse.error(429, e.getMessage());
     }
 
     /** 兜底处理：记录完整堆栈到日志，对外只返回通用错误信息 */

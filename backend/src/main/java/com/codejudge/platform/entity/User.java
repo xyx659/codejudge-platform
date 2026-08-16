@@ -5,6 +5,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 
@@ -16,6 +18,8 @@ import java.time.LocalDateTime;
  */
 @MappedSuperclass
 public abstract class User {
+
+    private static final Logger log = LoggerFactory.getLogger(User.class);
 
     /** 用户 ID，自增主键 */
     @Id
@@ -68,5 +72,24 @@ public abstract class User {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    /** 更新登录账号与姓名，创建时间和主键保持不变 */
+    public void updateProfile(String username, String name) {
+        log.debug("更新用户资料：id={}, role={}, username={}, name={}",
+                getId(), getRole(), username, name);
+        this.username = username;
+        this.name = name;
+    }
+
+    /** 更新密码，调用方应传入 BCrypt 加密后的密码 */
+    public void updatePassword(String password) {
+        log.debug("更新用户密码：id={}, role={}", getId(), getRole());
+        this.password = password;
+    }
+
+    /** 角色迁移时复制原记录的创建时间，保证新角色记录仍显示原注册时间 */
+    public void copyCreatedAtFrom(User source) {
+        this.createdAt = source.getCreatedAt();
     }
 }

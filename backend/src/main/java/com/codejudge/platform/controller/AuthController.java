@@ -1,6 +1,8 @@
 package com.codejudge.platform.controller;
 
 import com.codejudge.platform.common.ApiResponse;
+import com.codejudge.platform.common.AuditOperation;
+import com.codejudge.platform.common.ClientIpUtil;
 import com.codejudge.platform.dto.LoginRequest;
 import com.codejudge.platform.dto.LoginResponse;
 import com.codejudge.platform.entity.User;
@@ -8,6 +10,8 @@ import com.codejudge.platform.repository.AdminRepository;
 import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.TeacherRepository;
 import com.codejudge.platform.security.JwtUtil;
+import com.codejudge.platform.service.RateLimitService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,22 +35,35 @@ public class AuthController {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final AdminRepository adminRepository;
+    private final RateLimitService rateLimitService;
 
     public AuthController(JwtUtil jwtUtil,
                           PasswordEncoder passwordEncoder,
                           StudentRepository studentRepository,
                           TeacherRepository teacherRepository,
-                          AdminRepository adminRepository) {
+                          AdminRepository adminRepository,
+                          RateLimitService rateLimitService) {
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.adminRepository = adminRepository;
+        this.rateLimitService = rateLimitService;
     }
 
     /** 登录，返回 JWT token */
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    @AuditOperation(
+            module = "认证",
+            operation = "LOGIN",
+            description = "用户登录",
+            recordRequest = false)
+    public ApiResponse<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest) {
+        rateLimitService.checkLogin(
+                request.username(),
+                ClientIpUtil.resolve(servletRequest));
         User user = findByRole(request.role(), request.username());
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BadCredentialsException("用户名或密码错误");

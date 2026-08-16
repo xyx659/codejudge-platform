@@ -17,4 +17,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
      * 自动生成查询（where student_id = ?），再配合 Pageable 实现分页。</p>
      */
     Page<Submission> findByStudentId(Long studentId, Pageable pageable);
+
+    /** 判断学生是否已经产生提交记录 */
+    boolean existsByStudentId(Long studentId);
 }

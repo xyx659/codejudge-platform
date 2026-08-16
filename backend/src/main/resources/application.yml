@@ -24,11 +24,19 @@ spring:
   data:
     mongodb:
       uri: ${MONGO_URI:mongodb://test:123456@localhost:27017/codejudge?authSource=admin}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 # JWT 配置（secret 需 >= 32 字节，生产环境务必更换）
 jwt:
   secret: codejudge-platform-jwt-secret-key-change-in-production-2026
   expiration: 86400000
+
+system:
+  config:
+    encryption-key: ${SYSTEM_CONFIG_ENCRYPTION_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
 
 logging:
   file:
@@ -36,3 +44,4 @@ logging:
   level:
     root: info
     com.codejudge.platform: debug
+    org.springframework.web.servlet.mvc.method.annotation: warn

@@ -60,3 +60,51 @@ export function post(path, data) {
     body: JSON.stringify(data)
   })
 }
+
+/** PUT 请求（JSON 请求体） */
+export function put(path, data) {
+  return request(path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+}
+
+/** DELETE 请求 */
+export function del(path) {
+  return request(path, { method: 'DELETE' })
+}
+
+/** multipart 文件上传请求 */
+export function upload(path, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request(path, {
+    method: 'POST',
+    body: formData
+  })
+}
+
+/** 带 JWT 下载文件并触发浏览器保存 */
+export async function download(path, filename) {
+  const headers = {}
+  const token = getToken()
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, { headers })
+  if (!response.ok) {
+    throw new Error(`文件下载失败：${response.status}`)
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}

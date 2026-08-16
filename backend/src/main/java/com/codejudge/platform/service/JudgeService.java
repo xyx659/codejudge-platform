@@ -16,6 +16,12 @@ public class JudgeService {
 
     private static final Logger log = LoggerFactory.getLogger(JudgeService.class);
 
+    private final SystemConfigService systemConfigService;
+
+    public JudgeService(SystemConfigService systemConfigService) {
+        this.systemConfigService = systemConfigService;
+    }
+
     /**
      * 触发评测。
      *
@@ -25,7 +31,12 @@ public class JudgeService {
      * @param submissionId 提交记录 ID（MySQL 的 submissions.id）
      */
     public void trigger(Long submissionId) {
-        // 占位实现：将来在这里把 submissionId 交给评测引擎处理
-        log.info("已触发评测：submissionId={}（评测引擎待接入，当前状态保持 PENDING）", submissionId);
+        JudgeRuntimeConfig config = systemConfigService.getJudgeRuntimeConfig();
+        log.info(
+                "触发评测：submissionId={}, timeoutMs={}, memoryMb={}, maxConcurrent={}",
+                submissionId,
+                config.timeoutMs(),
+                config.memoryMb(),
+                config.maxConcurrent());
     }
 }

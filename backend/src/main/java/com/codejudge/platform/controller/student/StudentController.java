@@ -1,6 +1,7 @@
 package com.codejudge.platform.controller.student;
 
 import com.codejudge.platform.common.ApiResponse;
+import com.codejudge.platform.common.ClientIpUtil;
 import com.codejudge.platform.common.PageResult;
 import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
@@ -8,7 +9,9 @@ import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
 import com.codejudge.platform.dto.SubmissionResult;
 import com.codejudge.platform.dto.SubmissionSummary;
+import com.codejudge.platform.service.RateLimitService;
 import com.codejudge.platform.service.StudentService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * 学生端接口（对外地址都以 {@code /api/student} 开头）。
@@ -28,9 +32,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentController {
 
     private final StudentService studentService;
+    private final RateLimitService rateLimitService;
 
-    public StudentController(StudentService studentService) {
+    public StudentController(StudentService studentService,
+                             RateLimitService rateLimitService) {
         this.studentService = studentService;
+        this.rateLimitService = rateLimitService;
     }
 
     /**
@@ -81,7 +88,15 @@ public class StudentController {
      * @return 提交结果（提交 ID + 判卷状态）
      */
     @PostMapping("/submissions")
-    public ApiResponse<SubmissionResponse> submit(@Valid @RequestBody SubmissionRequest request) {
+    public ApiResponse<SubmissionResponse> submit(
+            @Valid @RequestBody SubmissionRequest request,
+            HttpServletRequest servletRequest) {
+        String username = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+        rateLimitService.checkSubmission(
+                username,
+                ClientIpUtil.resolve(servletRequest));
         return ApiResponse.ok(studentService.submit(request));
     }
 

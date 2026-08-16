@@ -6,6 +6,8 @@
       <nav>
         <router-link to="/admin/home">工作台</router-link>
         <router-link to="/admin/users">用户管理</router-link>
+        <router-link to="/admin/system-config">系统配置</router-link>
+        <router-link to="/admin/audit-logs">审计日志</router-link>
       </nav>
       <button class="logout" @click="logout">退出登录</button>
     </aside>

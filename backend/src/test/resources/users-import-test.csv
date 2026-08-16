@@ -1,0 +1,7 @@
+role,username,name,password,studentNo
+STUDENT,test-student-01,测试学生一,123456,S001
+TEACHER,test-teacher-01,测试教师一,teacher123,
+STUDENT,test-student-02,测试学生二,123456,S002
+ADMIN,test-admin-invalid,非法管理员,admin123,
+STUDENT,test-student-no-password,缺少密码学生,,
+TEACHER,test-teacher-extra-no,带学号教师,teacher123,T999

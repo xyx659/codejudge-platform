@@ -10,6 +10,8 @@ import TeacherHome from '../views/teacher/TeacherHome.vue'
 import TeacherQuestions from '../views/teacher/TeacherQuestions.vue'
 import TeacherLogin from '../views/teacher/TeacherLogin.vue'
 import AdminHome from '../views/admin/AdminHome.vue'
+import AdminAuditLogs from '../views/admin/AdminAuditLogs.vue'
+import AdminSystemConfig from '../views/admin/AdminSystemConfig.vue'
 import AdminUsers from '../views/admin/AdminUsers.vue'
 import AdminLogin from '../views/admin/AdminLogin.vue'
 import { getToken, getUser } from '../utils/auth'
@@ -64,7 +66,9 @@ const routes = [
     children: [
       { path: '', redirect: '/admin/home' },
       { path: 'home', component: AdminHome },
-      { path: 'users', component: AdminUsers }
+      { path: 'users', component: AdminUsers },
+      { path: 'system-config', component: AdminSystemConfig },
+      { path: 'audit-logs', component: AdminAuditLogs }
     ]
   }
 ]
