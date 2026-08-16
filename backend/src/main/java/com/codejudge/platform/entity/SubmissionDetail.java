@@ -26,6 +26,9 @@ public class SubmissionDetail {
     /** 题目 ID（对应 questions._id） */
     private String questionId;
 
+    /** 提交 ID（对应 MySQL 的 submissions.id，用来把两个库的记录关联起来） */
+    private Long submissionId;
+
     /** 提交的完整源码 */
     private String sourceCode;
 
@@ -62,6 +65,14 @@ public class SubmissionDetail {
 
     public void setQuestionId(String questionId) {
         this.questionId = questionId;
+    }
+
+    public Long getSubmissionId() {
+        return submissionId;
+    }
+
+    public void setSubmissionId(Long submissionId) {
+        this.submissionId = submissionId;
     }
 
     public String getSourceCode() {

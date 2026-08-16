@@ -64,9 +64,9 @@ public class DataInitializer implements CommandLineRunner {
             teacherRepository.save(new Teacher("teacher", "王老师", passwordEncoder.encode("teacher123")));
         }
         if (studentRepository.count() == 0) {
-            Student zhang = new Student("zhang", "张小明", passwordEncoder.encode("123456"));
-            zhang.setStudentNo("20260001");
-            studentRepository.save(zhang);
+            Student student = new Student("test", "张小明", passwordEncoder.encode("123456"));
+            student.setStudentNo("20260001");
+            studentRepository.save(student);
         }
 
         // 2. 初始化一道示例题目（含两个测试用例）
@@ -88,21 +88,21 @@ public class DataInitializer implements CommandLineRunner {
         }
         final Question finalQuestion = question;
 
-        // 3. 初始化一条提交元数据（MySQL，判卷摘要）
-        if (submissionRepository.count() == 0 && finalQuestion != null) {
-            studentRepository.findByUsername("zhang").ifPresent(zhang -> {
-                Submission submission = new Submission(finalQuestion.getId(), zhang.getId());
-                submission.setJudgeStatus("RUN_COMPLETED");
-                submission.setScore(91);
-                submissionRepository.save(submission);
-            });
-        }
+        // 3. 初始化一条提交元数据（MySQL，判卷摘要），
+        //    并紧接着初始化对应的提交明细（MongoDB），通过 submissionId 把两者关联起来。
+        Student student = studentRepository.findByUsername("test").orElse(null);
+        if (student != null && finalQuestion != null && submissionRepository.count() == 0) {
+            Submission submission = new Submission(finalQuestion.getId(), student.getId());
+            submission.setJudgeStatus("RUN_COMPLETED");
+            submission.setScore(91);
+            submission = submissionRepository.save(submission);
 
-        // 4. 初始化一条提交明细（MongoDB，含源码、测试结果与 AI 评审）
-        if (submissionDetailRepository.count() == 0 && finalQuestion != null) {
-            studentRepository.findByUsername("zhang").ifPresent(zhang -> {
+            // 4. 初始化一条提交明细（MongoDB，含源码、测试结果与 AI 评审），
+            //    并用 submission.getId() 关联上面的提交记录。
+            if (submissionDetailRepository.count() == 0) {
                 SubmissionDetail detail = new SubmissionDetail();
-                detail.setStudentId(zhang.getId());
+                detail.setSubmissionId(submission.getId());
+                detail.setStudentId(student.getId());
                 detail.setQuestionId(finalQuestion.getId());
                 detail.setSourceCode("public class Solution {\n"
                         + "    public static int sum(int a, int b) {\n"
@@ -120,7 +120,7 @@ public class DataInitializer implements CommandLineRunner {
                         "白盒分析：代码简洁，建议补充注释。"
                 )));
                 submissionDetailRepository.save(detail);
-            });
+            }
         }
     }
 }
