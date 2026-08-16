@@ -6,70 +6,57 @@
 
 | 层 | 选型 |
 | --- | --- |
-| 前端 | Vue 3 + Vite + Vue Router + Pinia |
+| 前端 | Vue 3 + Vite + Vue Router |
 | 后端 | Java 17 + Spring Boot 3 + Spring Security |
-| 数据 | MySQL（用户、提交元数据）+ MongoDB（题目、提交答案、AI 评审） |
+| 数据 | MySQL（用户、提交、系统配置、审计日志）+ MongoDB（题目、提交明细、AI 评审） |
 | 评测 | Judge0 CE + Docker 沙箱 |
 | AI | DeepSeek API 或本地千问大模型 |
-| 部署 | Docker Compose，支持本地机房 / 云端双部署 |
+| 部署 | Nginx + Docker Compose，支持本地机房 / 云端双部署 |
 
 ## 目录结构
 
 ```text
 codejudge-platform/
 ├── README.md                 # 项目说明（本文件）
-├── docs/                     # 设计文档、数据库设计、申报书、会议记录等
-├── scripts/                  # 构建、部署、运维脚本
+├── docs/                     # 设计文档、数据库设计、开发记录、安全评审
 ├── frontend/                 # Vue 3 前端
-│   ├── public/               # 静态资源
 │   └── src/
-│       ├── api/              # 后端接口封装（按角色分包）
-│       │   ├── student/      # 学生端接口
-│       │   ├── teacher/      # 教师端接口
-│       │   └── admin/        # 管理端接口
-│       ├── assets/           # 图片、样式等资源
-│       ├── components/       # 公共组件 + 按角色组件
-│       │   ├── student/
-│       │   ├── teacher/
-│       │   └── admin/
-│       ├── router/           # 路由（按角色做权限路由）
-│       ├── stores/           # Pinia 状态管理
-│       ├── layouts/          # 角色布局
-│       │   ├── student/
-│       │   ├── teacher/
-│       │   └── admin/
-│       ├── views/            # 页面（按角色分包）
-│       │   ├── student/      # 学生端：在线编程、提交、成绩反馈
-│       │   ├── teacher/      # 教师端：题库、考试、学情、监考
-│       │   └── admin/        # 管理端：用户、系统配置、审计
+│       ├── api/              # 后端接口封装
+│       │   ├── admin.js
+│       │   ├── auditLog.js
+│       │   ├── auth.js
+│       │   ├── http.js
+│       │   └── systemConfig.js
+│       ├── components/       # 公共组件
+│       ├── layouts/          # 学生、教师、管理员布局
+│       ├── router/           # 角色路由和路由守卫
+│       ├── utils/            # 登录状态等工具
+│       ├── views/            # 学生端、教师端、管理端页面
 │       ├── App.vue
 │       └── main.js
 └── backend/                  # Java Spring Boot 后端
     └── src/
         ├── main/
         │   ├── java/com/codejudge/platform/
-        │   │   ├── common/        # 通用工具、异常、统一返回
-        │   │   ├── config/        # 配置类（Redis、CORS、WebSocket 等）
-        │   │   ├── controller/    # REST 接口层（按角色分包）
-        │   │   │   ├── student/   # 学生端接口
-        │   │   │   ├── teacher/   # 教师端接口
-        │   │   │   └── admin/     # 管理端接口
-        │   │   ├── service/       # 业务服务层
-        │   │   ├── repository/    # 数据访问层
-        │   │   ├── entity/        # 数据库实体
-        │   │   ├── dto/           # 请求/响应对象
-        │   │   ├── security/      # 登录鉴权、RBAC
+        │   │   ├── common/        # 统一响应、异常、审计切面、配置键
+        │   │   ├── config/        # 密码、异步执行器等配置
+        │   │   ├── controller/    # REST 接口层
+        │   │   ├── service/       # 业务服务、限流、配置读取
+        │   │   ├── repository/    # MySQL / MongoDB 数据访问
+        │   │   ├── entity/        # JPA 实体
+        │   │   ├── dto/           # 请求 / 响应对象
+        │   │   ├── security/      # JWT、RBAC
         │   │   └── CodejudgeApplication.java
         │   └── resources/
         │       ├── application.yml
-        │       └── db/migration/  # 数据库迁移脚本
-        └── test/java/com/codejudge/platform/  # 单元/集成测试
+        │       └── schema.sql
+        └── test/java/com/codejudge/platform/  # 单元 / 集成测试
 ```
 
 ## 模块规划
 
 - 用户端：学生端（在线编程、提交、成绩与 AI 反馈）、教师端（题库、考试、监考、学情）、管理端（用户、系统配置、审计）
-- 网关与鉴权：统一请求入口，登录鉴权、RBAC 权限控制、限流、操作日志
+- 网关与鉴权：JWT 登录、RBAC、登录 / 提交限流、操作审计、配置审计
 - 评测链路：提交进入队列，Docker 沙箱内 Judge0 编译测试（黑盒），AI 白盒评审，结果实时推送
 - 反作弊：切屏检测、全屏锁定、行为分析、代码查重
 - 学情分析：成绩统计、能力画像、教学诊断，形成"教学 → 考核 → 学情分析 → 反馈改进"闭环
@@ -113,7 +100,7 @@ npm run dev
 
 - 学生端：`/student/home`、`/student/scores`
 - 教师端：`/teacher/home`、`/teacher/questions`
-- 管理端：`/admin/home`、`/admin/users`
+- 管理端：`/admin/home`、`/admin/users`、`/admin/system-config`、`/admin/audit-logs`
 
 ### 数据库（MySQL + MongoDB）
 
@@ -199,7 +186,8 @@ server {
 
 ## 下一步
 
-1. 补充数据库迁移脚本（Flyway）与更多业务实体
-2. ~~接入 Spring Security，实现登录鉴权与 RBAC~~（✅ 已完成，见 M1）
-3. 补齐 service / DTO 分层，将占位接口替换为真实业务
-4. 补充 Judge0 评测链路、AI 评审、反作弊与学情分析模块
+1. 完成管理端数据库监控页面
+2. 实现学生端真实题目列表、答题和成绩页面
+3. 实现教师端题库、考试、监考和学情分析
+4. 接入 Judge0 评测链路与 AI 评审
+5. 补充 Flyway、多环境配置和部署自动化
