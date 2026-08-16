@@ -38,6 +38,13 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(400, message);
     }
 
+    /** 资源不存在：返回 404（如题目、提交记录查不到，或无权访问） */
+    @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNotFoundException(NotFoundException e) {
+        return ApiResponse.error(404, e.getMessage());
+    }
+
     /** 兜底处理：记录完整堆栈到日志，对外只返回通用错误信息 */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

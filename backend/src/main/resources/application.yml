@@ -31,6 +31,8 @@ jwt:
   expiration: 86400000
 
 logging:
+  file:
+    name: logs/codejudge.log
   level:
     root: info
     com.codejudge.platform: debug
