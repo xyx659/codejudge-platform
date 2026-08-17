@@ -104,6 +104,38 @@ CREATE TABLE IF NOT EXISTS operation_audit_logs (
     KEY idx_operation_audit_module (module, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '业务操作审计日志表';
 
+CREATE TABLE IF NOT EXISTS database_monitor_records (
+    id                            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '监控快照 ID',
+    collected_at                  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '采集时间',
+    mysql_status                  VARCHAR(20)  NULL COMMENT 'MySQL 状态',
+    mysql_version                 VARCHAR(100) NULL COMMENT 'MySQL 版本',
+    mysql_uptime_seconds          BIGINT       NULL COMMENT 'MySQL 运行时长',
+    mysql_max_connections         INT          NULL COMMENT 'MySQL 最大连接数',
+    mysql_current_connections     INT          NULL COMMENT 'MySQL 当前连接数',
+    mysql_connection_usage_percent DOUBLE      NULL COMMENT 'MySQL 连接使用率',
+    mysql_database_size_mb        DOUBLE       NULL COMMENT 'MySQL 当前数据库大小',
+    mysql_slow_queries            BIGINT       NULL COMMENT 'MySQL 慢查询数',
+    mysql_replication_delay_ms    BIGINT       NULL COMMENT 'MySQL 复制延迟',
+    mysql_disk_total_mb           DOUBLE       NULL COMMENT 'MySQL 数据目录磁盘总量',
+    mysql_disk_free_mb            DOUBLE       NULL COMMENT 'MySQL 数据目录磁盘剩余量',
+    mysql_tables_json             TEXT         NULL COMMENT 'MySQL 表统计 JSON',
+    mysql_slow_queries_json       TEXT         NULL COMMENT 'MySQL 慢查询详情 JSON',
+    mysql_error_message           VARCHAR(255) NULL COMMENT 'MySQL 采集错误',
+    mongo_status                  VARCHAR(20)  NULL COMMENT 'MongoDB 状态',
+    mongo_version                 VARCHAR(100) NULL COMMENT 'MongoDB 版本',
+    mongo_uptime_seconds          BIGINT       NULL COMMENT 'MongoDB 运行时长',
+    mongo_current_connections     INT          NULL COMMENT 'MongoDB 当前连接数',
+    mongo_resident_memory_mb      DOUBLE       NULL COMMENT 'MongoDB 常驻内存',
+    mongo_database_size_mb        DOUBLE       NULL COMMENT 'MongoDB 当前数据库大小',
+    mongo_disk_total_mb           DOUBLE       NULL COMMENT 'MongoDB 数据目录磁盘总量',
+    mongo_disk_free_mb            DOUBLE       NULL COMMENT 'MongoDB 数据目录磁盘剩余量',
+    mongo_opcounters_json         TEXT         NULL COMMENT 'MongoDB opcounters JSON',
+    mongo_collections_json        TEXT         NULL COMMENT 'MongoDB 集合统计 JSON',
+    mongo_error_message           VARCHAR(255) NULL COMMENT 'MongoDB 采集错误',
+    PRIMARY KEY (id),
+    KEY idx_database_monitor_collected (collected_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '数据库监控历史快照表';
+
 INSERT IGNORE INTO system_configs
     (config_key, config_value, value_type, encrypted, description)
 VALUES

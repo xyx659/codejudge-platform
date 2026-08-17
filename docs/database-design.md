@@ -83,6 +83,14 @@
     { "name": "负数 -5+5", "input": "-5 5", "expected": "0" }
   ],
   "published": true,
+  "sourcePlatform": "LEETCODE_CN",
+  "sourceId": "two-sum",
+  "sourceUrl": "https://leetcode.cn/problems/two-sum/",
+  "sourceMetadata": {
+    "questionId": "1",
+    "titleSlug": "two-sum",
+    "originalDifficulty": "Easy"
+  },
   "createdAt": "2026-08-13T22:40:00"
 }
 ```
@@ -229,3 +237,37 @@ AI API Key 等敏感配置不会把明文旧值、新值写入审计表。
 | `created_at` | DATETIME | 非空 | 操作时间 |
 
 密码、代码、AI Key、token 等敏感参数在写入前统一脱敏。
+
+### database_monitor_records（数据库监控历史快照表）
+
+保存 MySQL 和 MongoDB 的定时监控快照。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | 主键，自增 | 快照 ID |
+| `collected_at` | DATETIME | 非空 | 采集时间 |
+| `mysql_status` | VARCHAR(20) | 可空 | MySQL 状态 |
+| `mysql_version` | VARCHAR(100) | 可空 | MySQL 版本 |
+| `mysql_uptime_seconds` | BIGINT | 可空 | MySQL 运行时长 |
+| `mysql_max_connections` | INT | 可空 | 最大连接数 |
+| `mysql_current_connections` | INT | 可空 | 当前连接数 |
+| `mysql_connection_usage_percent` | DOUBLE | 可空 | 连接使用率 |
+| `mysql_database_size_mb` | DOUBLE | 可空 | 数据库大小 |
+| `mysql_slow_queries` | BIGINT | 可空 | 慢查询数 |
+| `mysql_replication_delay_ms` | BIGINT | 可空 | 复制延迟 |
+| `mysql_disk_total_mb` | DOUBLE | 可空 | 磁盘总量 |
+| `mysql_disk_free_mb` | DOUBLE | 可空 | 磁盘剩余量 |
+| `mysql_tables_json` | TEXT | 可空 | 表统计 JSON |
+| `mysql_slow_queries_json` | TEXT | 可空 | 慢查询详情 JSON |
+| `mysql_error_message` | VARCHAR(255) | 可空 | MySQL 采集错误 |
+| `mongo_status` | VARCHAR(20) | 可空 | MongoDB 状态 |
+| `mongo_version` | VARCHAR(100) | 可空 | MongoDB 版本 |
+| `mongo_uptime_seconds` | BIGINT | 可空 | MongoDB 运行时长 |
+| `mongo_current_connections` | INT | 可空 | 当前连接数 |
+| `mongo_resident_memory_mb` | DOUBLE | 可空 | 常驻内存 |
+| `mongo_database_size_mb` | DOUBLE | 可空 | 数据库大小 |
+| `mongo_disk_total_mb` | DOUBLE | 可空 | 磁盘总量 |
+| `mongo_disk_free_mb` | DOUBLE | 可空 | 磁盘剩余量 |
+| `mongo_opcounters_json` | TEXT | 可空 | opcounters JSON |
+| `mongo_collections_json` | TEXT | 可空 | 集合统计 JSON |
+| `mongo_error_message` | VARCHAR(255) | 可空 | MongoDB 采集错误 |

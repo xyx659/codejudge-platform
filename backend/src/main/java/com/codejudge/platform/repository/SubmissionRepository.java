@@ -20,4 +20,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     /** 判断学生是否已经产生提交记录 */
     boolean existsByStudentId(Long studentId);
+
+    /** 判断题目是否已经产生提交记录 */
+    boolean existsByQuestionId(String questionId);
 }

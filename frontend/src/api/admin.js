@@ -41,3 +41,8 @@ export function importUsers(file) {
 export function downloadTemplate() {
   return download('/admin/users/import-template', 'user-import-template.csv')
 }
+
+/** 查询管理端工作台统计 */
+export function getAdminDashboard() {
+  return get('/admin/dashboard')
+}

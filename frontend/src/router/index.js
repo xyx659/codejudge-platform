@@ -11,6 +11,8 @@ import TeacherQuestions from '../views/teacher/TeacherQuestions.vue'
 import TeacherLogin from '../views/teacher/TeacherLogin.vue'
 import AdminHome from '../views/admin/AdminHome.vue'
 import AdminAuditLogs from '../views/admin/AdminAuditLogs.vue'
+import AdminDatabaseMonitor from '../views/admin/AdminDatabaseMonitor.vue'
+import AdminQuestions from '../views/admin/AdminQuestions.vue'
 import AdminSystemConfig from '../views/admin/AdminSystemConfig.vue'
 import AdminUsers from '../views/admin/AdminUsers.vue'
 import AdminLogin from '../views/admin/AdminLogin.vue'
@@ -67,8 +69,10 @@ const routes = [
       { path: '', redirect: '/admin/home' },
       { path: 'home', component: AdminHome },
       { path: 'users', component: AdminUsers },
+      { path: 'questions', component: AdminQuestions },
       { path: 'system-config', component: AdminSystemConfig },
-      { path: 'audit-logs', component: AdminAuditLogs }
+      { path: 'audit-logs', component: AdminAuditLogs },
+      { path: 'database-monitor', component: AdminDatabaseMonitor }
     ]
   }
 ]

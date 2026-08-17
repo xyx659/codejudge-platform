@@ -1,11 +1,11 @@
 package com.codejudge.platform.controller.admin;
 
 import com.codejudge.platform.common.ApiResponse;
+import com.codejudge.platform.dto.AdminDashboardResponse;
+import com.codejudge.platform.service.AdminDashboardService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 /**
  * 管理端接口。
@@ -16,12 +16,15 @@ import java.util.Map;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    /** 考试监控（占位） */
-    @GetMapping("/monitor")
-    public ApiResponse<Map<String, Object>> monitor() {
-        return ApiResponse.ok(Map.of(
-                "endpoint", "考试监控",
-                "status", "基础框架已就绪"
-        ));
+    private final AdminDashboardService adminDashboardService;
+
+    public AdminController(AdminDashboardService adminDashboardService) {
+        this.adminDashboardService = adminDashboardService;
+    }
+
+    /** 管理端工作台真实统计概览 */
+    @GetMapping("/dashboard")
+    public ApiResponse<AdminDashboardResponse> dashboard() {
+        return ApiResponse.ok(adminDashboardService.getDashboard());
     }
 }

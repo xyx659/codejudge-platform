@@ -5,7 +5,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 题目实体，对应 MongoDB 集合 {@code questions}。
@@ -44,6 +46,18 @@ public class Question {
     /** 是否已发布（仅发布后的题目对学生可见） */
     private Boolean published = false;
 
+    /** 来源平台：CODEFORCES / LEETCODE，手工题可为空 */
+    private String sourcePlatform;
+
+    /** 来源平台内的稳定 ID，如 Codeforces 的 contestId+index、LeetCode 的 titleSlug */
+    private String sourceId;
+
+    /** 原题链接 */
+    private String sourceUrl;
+
+    /** 来源平台返回的原始元数据，便于排查和后续同步 */
+    private Map<String, Object> sourceMetadata = new LinkedHashMap<String, Object>();
+
     /** 创建时间 */
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -64,12 +78,24 @@ public class Question {
         return title;
     }
 
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
     public String getDescription() {
         return description;
     }
 
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public String getMethodName() {
         return methodName;
+    }
+
+    public void setMethodName(String methodName) {
+        this.methodName = methodName;
     }
 
     public String getLanguage() {
@@ -110,6 +136,38 @@ public class Question {
 
     public void setPublished(Boolean published) {
         this.published = published;
+    }
+
+    public String getSourcePlatform() {
+        return sourcePlatform;
+    }
+
+    public void setSourcePlatform(String sourcePlatform) {
+        this.sourcePlatform = sourcePlatform;
+    }
+
+    public String getSourceId() {
+        return sourceId;
+    }
+
+    public void setSourceId(String sourceId) {
+        this.sourceId = sourceId;
+    }
+
+    public String getSourceUrl() {
+        return sourceUrl;
+    }
+
+    public void setSourceUrl(String sourceUrl) {
+        this.sourceUrl = sourceUrl;
+    }
+
+    public Map<String, Object> getSourceMetadata() {
+        return sourceMetadata;
+    }
+
+    public void setSourceMetadata(Map<String, Object> sourceMetadata) {
+        this.sourceMetadata = sourceMetadata;
     }
 
     public LocalDateTime getCreatedAt() {
