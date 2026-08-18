@@ -6,6 +6,12 @@
       <nav>
         <router-link to="/teacher/home">工作台</router-link>
         <router-link to="/teacher/questions">题库管理</router-link>
+        <!-- ===== 教师端（M3）新增导航 ===== -->
+        <router-link to="/teacher/categories">分类管理</router-link>
+        <router-link to="/teacher/exams">考试管理</router-link>
+        <router-link to="/teacher/monitor">考试监考</router-link>
+        <router-link to="/teacher/analytics">学情分析</router-link>
+        <!-- ===== 教师端（M3）新增导航结束 ===== -->
       </nav>
       <button class="logout" @click="logout">退出登录</button>
     </aside>

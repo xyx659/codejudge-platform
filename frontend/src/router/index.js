@@ -8,6 +8,12 @@ import StudentScores from '../views/student/StudentScores.vue'
 import StudentLogin from '../views/student/StudentLogin.vue'
 import TeacherHome from '../views/teacher/TeacherHome.vue'
 import TeacherQuestions from '../views/teacher/TeacherQuestions.vue'
+// ===== 教师端（M3）新增页面 =====
+import TeacherCategories from '../views/teacher/TeacherCategories.vue'
+import TeacherExams from '../views/teacher/TeacherExams.vue'
+import TeacherMonitor from '../views/teacher/TeacherMonitor.vue'
+import TeacherAnalytics from '../views/teacher/TeacherAnalytics.vue'
+// ===== 教师端（M3）新增页面结束 =====
 import TeacherLogin from '../views/teacher/TeacherLogin.vue'
 import AdminHome from '../views/admin/AdminHome.vue'
 import AdminAuditLogs from '../views/admin/AdminAuditLogs.vue'
@@ -57,7 +63,13 @@ const routes = [
     children: [
       { path: '', redirect: '/teacher/home' },
       { path: 'home', component: TeacherHome },
-      { path: 'questions', component: TeacherQuestions }
+      { path: 'questions', component: TeacherQuestions },
+      // ===== 教师端（M3）新增路由 =====
+      { path: 'categories', component: TeacherCategories },
+      { path: 'exams', component: TeacherExams },
+      { path: 'monitor', component: TeacherMonitor },
+      { path: 'analytics', component: TeacherAnalytics }
+      // ===== 教师端（M3）新增路由结束 =====
     ]
   },
   // 管理端
