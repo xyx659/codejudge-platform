@@ -1,35 +1,23 @@
-<!-- 教师端：题库管理（列表、搜索、增删改、发布、测试用例维护） -->
+<!-- 教师端：考试管理（组卷、发布、关闭） -->
 <template>
   <div class="page">
     <header class="page-header">
       <div>
-        <h1>题库管理</h1>
-        <p>上传题目、维护测试用例与分类</p>
+        <h1>考试管理</h1>
+        <p>组卷、发布考试并跟踪状态</p>
       </div>
-      <button type="button" class="primary" @click="openCreate">新增题目</button>
+      <button type="button" class="primary" @click="openCreate">新建考试</button>
     </header>
 
     <section class="toolbar">
-      <input
-        v-model.trim="keyword"
-        type="text"
-        placeholder="搜索标题或描述"
-        @keyup.enter="applyFilters"
-      />
-      <select v-model="difficulty" @change="applyFilters">
-        <option value="">全部难度</option>
-        <option v-for="d in difficultyOptions" :key="d" :value="d">{{ d }}</option>
+      <select v-model="status" @change="applyFilters">
+        <option value="">全部状态</option>
+        <option v-for="s in statusOptions" :key="s" :value="s">{{ statusText[s] }}</option>
       </select>
       <select v-model="categoryId" @change="applyFilters">
         <option value="">全部分类</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
-      <input
-        v-model.trim="tag"
-        type="text"
-        placeholder="按标签筛选"
-        @keyup.enter="applyFilters"
-      />
       <button type="button" class="secondary" @click="applyFilters">查询</button>
     </section>
 
@@ -40,11 +28,11 @@
         <thead>
           <tr>
             <th>标题</th>
-            <th>难度</th>
-            <th>分类</th>
-            <th>标签</th>
             <th>状态</th>
-            <th>创建时间</th>
+            <th>目标班级</th>
+            <th>开始时间</th>
+            <th>题目数</th>
+            <th>总分</th>
             <th class="actions-column">操作</th>
           </tr>
         </thead>
@@ -52,28 +40,39 @@
           <tr v-if="loading">
             <td colspan="7" class="empty-cell">加载中...</td>
           </tr>
-          <tr v-else-if="questions.length === 0">
-            <td colspan="7" class="empty-cell">暂无题目</td>
+          <tr v-else-if="exams.length === 0">
+            <td colspan="7" class="empty-cell">暂无考试</td>
           </tr>
           <template v-else>
-            <tr v-for="q in questions" :key="q.id">
-              <td>{{ q.title }}</td>
-              <td>{{ q.difficulty || '-' }}</td>
-              <td>{{ categoryName(q.categoryId) }}</td>
-              <td>{{ (q.tags || []).join('、') || '-' }}</td>
+            <tr v-for="exam in exams" :key="exam.id">
+              <td>{{ exam.title }}</td>
               <td>
-                <span class="status-badge" :class="q.published ? 'published' : 'draft'">
-                  {{ q.published ? '已发布' : '草稿' }}
+                <span class="status-badge" :class="statusClass(exam.status)">
+                  {{ statusText[exam.status] || exam.status }}
                 </span>
               </td>
-              <td>{{ formatDate(q.createdAt) }}</td>
+              <td>{{ exam.targetClass || '-' }}</td>
+              <td>{{ formatDate(exam.startTime) }}</td>
+              <td>{{ exam.questionCount }}</td>
+              <td>{{ exam.totalScore }}</td>
               <td>
                 <div class="row-actions">
-                  <button type="button" @click="openEdit(q)">编辑</button>
-                  <button type="button" @click="togglePublish(q)">
-                    {{ q.published ? '下架' : '发布' }}
+                  <button type="button" @click="openEdit(exam)">编辑</button>
+                  <button
+                    v-if="exam.status === 'DRAFT'"
+                    type="button"
+                    @click="publish(exam)"
+                  >
+                    发布
                   </button>
-                  <button type="button" class="danger" @click="openDelete(q)">删除</button>
+                  <button
+                    v-if="exam.status === 'PUBLISHED'"
+                    type="button"
+                    @click="close(exam)"
+                  >
+                    关闭
+                  </button>
+                  <button type="button" class="danger" @click="openDelete(exam)">删除</button>
                 </div>
               </td>
             </tr>
@@ -93,66 +92,83 @@
       <span class="total">共 {{ total }} 条</span>
     </div>
 
-    <!-- 新增 / 编辑弹窗 -->
+    <!-- 新建 / 编辑弹窗 -->
     <div v-if="formOpen" class="modal-backdrop" @click.self="closeForm">
       <section class="modal" role="dialog" aria-modal="true">
         <header class="modal-header">
-          <h2>{{ editing ? '编辑题目' : '新增题目' }}</h2>
+          <h2>{{ editing ? '编辑考试' : '新建考试' }}</h2>
           <button type="button" class="close-button" @click="closeForm">关闭</button>
         </header>
         <form @submit.prevent="submitForm">
           <label class="field">
-            <span>题目标题</span>
+            <span>考试标题</span>
             <input v-model.trim="form.title" type="text" maxlength="100" />
           </label>
           <label class="field">
-            <span>题目描述</span>
-            <textarea v-model="form.description" rows="3"></textarea>
+            <span>考试说明</span>
+            <textarea v-model="form.description" rows="2"></textarea>
           </label>
           <div class="field-row">
             <label class="field">
-              <span>方法名（如 sum）</span>
-              <input v-model.trim="form.methodName" type="text" maxlength="50" />
-            </label>
-            <label class="field">
-              <span>编程语言</span>
-              <input v-model.trim="form.language" type="text" maxlength="20" />
-            </label>
-            <label class="field">
-              <span>难度</span>
-              <select v-model="form.difficulty">
-                <option v-for="d in difficultyOptions" :key="d" :value="d">{{ d }}</option>
+              <span>分类</span>
+              <select v-model="form.categoryId">
+                <option value="">未分类</option>
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
             </label>
+            <label class="field">
+              <span>目标班级</span>
+              <input v-model.trim="form.targetClass" type="text" placeholder="如 软件工程2101班" />
+            </label>
           </div>
-          <label class="field">
-            <span>分类</span>
-            <select v-model="form.categoryId">
-              <option value="">未分类</option>
-              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>标签（用逗号分隔）</span>
-            <input v-model.trim="form.tagsStr" type="text" placeholder="数学、基础" />
-          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>开始时间</span>
+              <input v-model="form.startTime" type="datetime-local" />
+            </label>
+            <label class="field">
+              <span>结束时间</span>
+              <input v-model="form.endTime" type="datetime-local" />
+            </label>
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>考试时长（分钟）</span>
+              <input v-model.number="form.durationMinutes" type="number" min="1" />
+            </label>
+            <label class="field">
+              <span>及格分</span>
+              <input v-model.number="form.passScore" type="number" min="0" />
+            </label>
+          </div>
 
-          <!-- 测试用例编辑 -->
+          <!-- 组卷：勾选题目并给每题赋分 -->
           <div class="field">
-            <span>测试用例</span>
-            <div v-for="(tc, index) in form.testCases" :key="index" class="testcase-row">
-              <input v-model.trim="tc.name" type="text" placeholder="用例名" />
-              <input v-model.trim="tc.input" type="text" placeholder="输入" />
-              <input v-model.trim="tc.expected" type="text" placeholder="期望输出" />
-              <button type="button" class="danger" @click="removeTestCase(index)">删除</button>
+            <span>组卷（勾选题目并填写分值，只显示已发布题目）</span>
+            <div v-if="candidateLoading" class="picker-loading">题目加载中...</div>
+            <div v-else-if="candidates.length === 0" class="picker-loading">暂无已发布题目，请先在题库发布题目</div>
+            <div v-else class="question-picker">
+              <div v-for="q in candidates" :key="q.id" class="picker-row">
+                <label class="picker-label">
+                  <input
+                    type="checkbox"
+                    :checked="isSelected(q.id)"
+                    @change="toggle(q.id)"
+                  />
+                  <span class="picker-title">{{ q.title }}</span>
+                  <span class="picker-meta">{{ q.difficulty || '-' }}</span>
+                </label>
+                <input
+                  v-if="isSelected(q.id)"
+                  :value="scoreOf(q.id)"
+                  type="number"
+                  min="0"
+                  class="score-input"
+                  @input="(e) => setScore(q.id, e.target.value)"
+                />
+              </div>
             </div>
-            <button type="button" class="secondary" @click="addTestCase">添加测试用例</button>
           </div>
-
-          <label class="checkbox-field">
-            <input v-model="form.published" type="checkbox" />
-            <span>立即发布（发布后学生可见）</span>
-          </label>
 
           <p v-if="formError" class="form-error">{{ formError }}</p>
           <footer class="modal-footer">
@@ -169,11 +185,11 @@
     <div v-if="confirmOpen" class="modal-backdrop" @click.self="closeConfirm">
       <section class="modal compact" role="dialog" aria-modal="true">
         <header class="modal-header">
-          <h2>删除题目</h2>
+          <h2>删除考试</h2>
           <button type="button" class="close-button" @click="closeConfirm">关闭</button>
         </header>
         <div class="confirm-body">
-          <p>确认删除题目 <strong>{{ action?.title }}</strong> 吗？</p>
+          <p>确认删除考试 <strong>{{ action?.title }}</strong> 吗？</p>
           <p v-if="confirmError" class="form-error">{{ confirmError }}</p>
         </div>
         <footer class="modal-footer">
@@ -190,43 +206,50 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
-  createQuestion,
-  deleteQuestion,
-  getQuestion,
+  closeExam,
+  createExam,
+  deleteExam,
+  getExam,
   listCategories,
+  listExams,
   listQuestions,
-  publishQuestion,
-  updateQuestion
+  publishExam,
+  updateExam
 } from '../../api/teacher'
 
-const difficultyOptions = ['简单', '中等', '困难']
+const statusOptions = ['DRAFT', 'PUBLISHED', 'CLOSED']
+const statusText = {
+  DRAFT: '草稿',
+  PUBLISHED: '已发布',
+  CLOSED: '已结束'
+}
 
-const questions = ref([])
+const exams = ref([])
 const total = ref(0)
 const page = ref(0)
 const size = ref(10)
 const pageInput = ref('1')
-const keyword = ref('')
-const difficulty = ref('')
+const status = ref('')
 const categoryId = ref('')
-const tag = ref('')
 const loading = ref(false)
 const error = ref('')
 
 const categories = ref([])
+const candidates = ref([])
+const candidateLoading = ref(false)
 
 const formOpen = ref(false)
 const editing = ref(null)
 const form = reactive({
   title: '',
   description: '',
-  methodName: '',
-  language: 'Java',
-  difficulty: '简单',
   categoryId: '',
-  tagsStr: '',
-  testCases: [],
-  published: false
+  targetClass: '',
+  startTime: '',
+  endTime: '',
+  durationMinutes: 60,
+  passScore: 60,
+  questions: []
 })
 const formError = ref('')
 const submitting = ref(false)
@@ -238,10 +261,12 @@ const confirming = ref(false)
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / size.value)))
 
-function categoryName(id) {
-  if (!id) return '-'
-  const found = categories.value.find((c) => c.id === id)
-  return found ? found.name : '-'
+function statusClass(s) {
+  return {
+    'status-draft': s === 'DRAFT',
+    'status-published': s === 'PUBLISHED',
+    'status-closed': s === 'CLOSED'
+  }
 }
 
 function formatDate(value) {
@@ -254,27 +279,25 @@ async function loadCategories() {
     const res = await listCategories()
     categories.value = res.data || []
   } catch (e) {
-    // 分类加载失败不阻塞主流程
+    // 忽略
   }
 }
 
-async function loadQuestions() {
+async function loadExams() {
   loading.value = true
   error.value = ''
   try {
-    const res = await listQuestions({
+    const res = await listExams({
       page: page.value,
       size: size.value,
-      keyword: keyword.value,
-      difficulty: difficulty.value,
-      categoryId: categoryId.value,
-      tag: tag.value
+      status: status.value,
+      categoryId: categoryId.value
     })
-    questions.value = res.data.list || []
+    exams.value = res.data.list || []
     total.value = res.data.total || 0
     pageInput.value = String(page.value + 1)
   } catch (e) {
-    error.value = e.message || '题目列表加载失败'
+    error.value = e.message || '考试列表加载失败'
   } finally {
     loading.value = false
   }
@@ -283,20 +306,20 @@ async function loadQuestions() {
 function applyFilters() {
   page.value = 0
   pageInput.value = '1'
-  loadQuestions()
+  loadExams()
 }
 
 function previousPage() {
   if (page.value > 0) {
     page.value -= 1
-    loadQuestions()
+    loadExams()
   }
 }
 
 function nextPage() {
   if (page.value < pageCount.value - 1) {
     page.value += 1
-    loadQuestions()
+    loadExams()
   }
 }
 
@@ -307,19 +330,56 @@ function goToPage() {
     return
   }
   page.value = target - 1
-  loadQuestions()
+  loadExams()
+}
+
+// 加载「已发布」题目作为组卷候选
+async function loadCandidates() {
+  candidateLoading.value = true
+  try {
+    const res = await listQuestions({ size: 1000 })
+    candidates.value = (res.data.list || []).filter((q) => q.published)
+  } catch (e) {
+    candidates.value = []
+  } finally {
+    candidateLoading.value = false
+  }
+}
+
+function isSelected(qid) {
+  return form.questions.some((q) => q.questionId === qid)
+}
+
+function toggle(qid) {
+  if (isSelected(qid)) {
+    form.questions = form.questions.filter((q) => q.questionId !== qid)
+  } else {
+    form.questions.push({ questionId: qid, score: 0 })
+  }
+}
+
+function scoreOf(qid) {
+  const found = form.questions.find((q) => q.questionId === qid)
+  return found ? found.score : 0
+}
+
+function setScore(qid, value) {
+  const found = form.questions.find((q) => q.questionId === qid)
+  if (found) {
+    found.score = Number(value) || 0
+  }
 }
 
 function resetForm() {
   form.title = ''
   form.description = ''
-  form.methodName = ''
-  form.language = 'Java'
-  form.difficulty = '简单'
   form.categoryId = ''
-  form.tagsStr = ''
-  form.testCases = []
-  form.published = false
+  form.targetClass = ''
+  form.startTime = ''
+  form.endTime = ''
+  form.durationMinutes = 60
+  form.passScore = 60
+  form.questions = []
   formError.value = ''
 }
 
@@ -329,25 +389,29 @@ function openCreate() {
   formOpen.value = true
 }
 
-async function openEdit(q) {
-  editing.value = q
+// datetime-local 输入需要 "YYYY-MM-DDTHH:mm" 格式（去掉秒）
+function toLocalInput(value) {
+  return value ? String(value).slice(0, 16) : ''
+}
+
+async function openEdit(exam) {
+  editing.value = exam
   formError.value = ''
-  // 详情接口带描述和测试用例，用于回显完整内容
   try {
-    const res = await getQuestion(q.id)
+    const res = await getExam(exam.id)
     const d = res.data
     form.title = d.title || ''
     form.description = d.description || ''
-    form.methodName = d.methodName || ''
-    form.language = d.language || 'Java'
-    form.difficulty = d.difficulty || '简单'
     form.categoryId = d.categoryId || ''
-    form.tagsStr = (d.tags || []).join(',')
-    form.testCases = (d.testCases || []).map((tc) => ({ ...tc }))
-    form.published = !!d.published
+    form.targetClass = d.targetClass || ''
+    form.startTime = toLocalInput(d.startTime)
+    form.endTime = toLocalInput(d.endTime)
+    form.durationMinutes = d.durationMinutes || 60
+    form.passScore = d.passScore || 0
+    form.questions = (d.questions || []).map((q) => ({ questionId: q.questionId, score: q.score || 0 }))
     formOpen.value = true
   } catch (e) {
-    error.value = e.message || '题目详情加载失败'
+    error.value = e.message || '考试详情加载失败'
   }
 }
 
@@ -356,25 +420,19 @@ function closeForm() {
   editing.value = null
 }
 
-function addTestCase() {
-  form.testCases.push({ name: '', input: '', expected: '' })
-}
-
-function removeTestCase(index) {
-  form.testCases.splice(index, 1)
+// 补全秒，避免 Jackson 解析 LocalDateTime 时报错
+function normalizeDateTime(value) {
+  if (!value) return null
+  return value.length === 16 ? `${value}:00` : value
 }
 
 function validateForm() {
   if (!form.title) {
-    formError.value = '题目标题不能为空'
+    formError.value = '考试标题不能为空'
     return false
   }
-  if (!form.description) {
-    formError.value = '题目描述不能为空'
-    return false
-  }
-  if (!form.methodName) {
-    formError.value = '方法名不能为空'
+  if (form.questions.length === 0) {
+    formError.value = '请至少选择一道题目'
     return false
   }
   return true
@@ -388,24 +446,24 @@ async function submitForm() {
     const payload = {
       title: form.title,
       description: form.description,
-      methodName: form.methodName,
-      language: form.language,
-      difficulty: form.difficulty,
       categoryId: form.categoryId || null,
-      tags: form.tagsStr
-        .split(/[,，]/)
-        .map((t) => t.trim())
-        .filter(Boolean),
-      testCases: form.testCases,
-      published: form.published
+      targetClass: form.targetClass,
+      startTime: normalizeDateTime(form.startTime),
+      endTime: normalizeDateTime(form.endTime),
+      durationMinutes: Number(form.durationMinutes) || null,
+      passScore: Number(form.passScore) || 0,
+      questions: form.questions.map((q) => ({
+        questionId: q.questionId,
+        score: Number(q.score) || 0
+      }))
     }
     if (editing.value) {
-      await updateQuestion(editing.value.id, payload)
+      await updateExam(editing.value.id, payload)
     } else {
-      await createQuestion(payload)
+      await createExam(payload)
     }
     closeForm()
-    await loadQuestions()
+    await loadExams()
   } catch (e) {
     formError.value = e.message || '保存失败'
   } finally {
@@ -413,17 +471,26 @@ async function submitForm() {
   }
 }
 
-async function togglePublish(q) {
+async function publish(exam) {
   try {
-    await publishQuestion(q.id, !q.published)
-    await loadQuestions()
+    await publishExam(exam.id)
+    await loadExams()
   } catch (e) {
-    error.value = e.message || '操作失败'
+    error.value = e.message || '发布失败'
   }
 }
 
-function openDelete(q) {
-  action.value = q
+async function close(exam) {
+  try {
+    await closeExam(exam.id)
+    await loadExams()
+  } catch (e) {
+    error.value = e.message || '关闭失败'
+  }
+}
+
+function openDelete(exam) {
+  action.value = exam
   confirmError.value = ''
   confirmOpen.value = true
 }
@@ -438,9 +505,9 @@ async function confirmDelete() {
   confirming.value = true
   confirmError.value = ''
   try {
-    await deleteQuestion(action.value.id)
+    await deleteExam(action.value.id)
     closeConfirm()
-    await loadQuestions()
+    await loadExams()
   } catch (e) {
     confirmError.value = e.message || '删除失败'
   } finally {
@@ -450,7 +517,8 @@ async function confirmDelete() {
 
 onMounted(() => {
   loadCategories()
-  loadQuestions()
+  loadExams()
+  loadCandidates()
 })
 </script>
 
@@ -478,7 +546,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.header-actions,
 .row-actions,
 .modal-footer {
   display: flex;
@@ -487,12 +554,12 @@ onMounted(() => {
 }
 
 button,
-.toolbar input,
 .toolbar select,
 .field input,
 .field select,
 .field textarea,
-.page-input input {
+.page-input input,
+.score-input {
   min-height: 36px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
@@ -547,13 +614,8 @@ button:disabled {
   margin-bottom: 14px;
 }
 
-.toolbar input[type='text'],
 .toolbar select {
   padding: 0 10px;
-}
-
-.toolbar input[type='text'] {
-  min-width: 180px;
 }
 
 .error-banner,
@@ -591,7 +653,7 @@ th {
 }
 
 .actions-column {
-  width: 220px;
+  width: 210px;
 }
 
 .row-actions {
@@ -612,14 +674,19 @@ th {
   font-weight: 600;
 }
 
-.status-badge.published {
+.status-draft {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.status-published {
   background: #d1fae5;
   color: #047857;
 }
 
-.status-badge.draft {
-  background: #f3f4f6;
-  color: #4b5563;
+.status-closed {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .empty-cell {
@@ -659,7 +726,7 @@ th {
 }
 
 .modal {
-  width: min(680px, 100%);
+  width: min(720px, 100%);
   max-height: 90vh;
   overflow: auto;
   padding: 20px;
@@ -704,13 +771,13 @@ th {
 
 .field textarea {
   padding: 8px 10px;
-  min-height: 60px;
+  min-height: 50px;
   resize: vertical;
 }
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
@@ -720,26 +787,54 @@ th {
   }
 }
 
-.testcase-row {
+.picker-loading {
+  padding: 14px;
+  color: #6b7280;
+  font-size: 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.question-picker {
   display: grid;
-  grid-template-columns: 1.2fr 1.5fr 1.5fr auto;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
 }
 
-.testcase-row input {
-  width: 100%;
-  padding: 0 8px;
-  min-height: 32px;
+.picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.checkbox-field {
+.picker-label {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
-  color: #4b5563;
+  flex: 1;
+  cursor: pointer;
+}
+
+.picker-title {
   font-size: 14px;
+  color: #1f2937;
+}
+
+.picker-meta {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.score-input {
+  width: 80px;
+  padding: 0 8px;
+  min-height: 30px;
 }
 
 .modal-footer {

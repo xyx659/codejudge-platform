@@ -83,6 +83,7 @@
     { "name": "负数 -5+5", "input": "-5 5", "expected": "0" }
   ],
   "published": true,
+  "categoryId": null,
   "sourcePlatform": "LEETCODE_CN",
   "sourceId": "two-sum",
   "sourceUrl": "https://leetcode.cn/problems/two-sum/",
@@ -92,6 +93,48 @@
     "originalDifficulty": "Easy"
   },
   "createdAt": "2026-08-13T22:40:00"
+}
+```
+
+### categories（题目分类集合）
+
+教师端题库分类，与 `questions` 的 `categoryId` 关联。分类数据放在 MongoDB，便于与题目、考试同库协作，避免扩充 MySQL `schema.sql`。
+
+```json
+{
+  "_id": "ObjectId",
+  "name": "基础语法",
+  "description": "基础语法相关题目",
+  "sortOrder": 1
+}
+```
+
+### exams（考试集合）
+
+考试由组卷题目、考试时间、及格分、目标班级等组成。组卷时保存题目标题、难度、分值的快照，发布后不随题库修改而变化。
+
+```json
+{
+  "_id": "ObjectId",
+  "title": "第一次单元测验",
+  "description": "覆盖基础语法和数组",
+  "categoryId": "ObjectId",
+  "startTime": "2026-08-20T09:00:00",
+  "endTime": "2026-08-20T10:30:00",
+  "durationMinutes": 90,
+  "passScore": 60,
+  "targetClass": "软件工程2101班",
+  "status": "DRAFT",
+  "questions": [
+    {
+      "questionId": "ObjectId",
+      "score": 20,
+      "title": "两数之和",
+      "difficulty": "简单"
+    }
+  ],
+  "createdAt": "2026-08-18T10:00:00",
+  "updatedAt": "2026-08-18T10:00:00"
 }
 ```
 
@@ -141,12 +184,14 @@
 | 学号 | MySQL `students.student_no` | 唯一权威来源 |
 | 提交记录元数据 | MySQL `submissions` | 判卷摘要，便于统计 |
 | 题目与测试用例 | MongoDB `questions` | 结构灵活，便于扩展 |
+| 题库分类 | MongoDB `categories` | 教师端题目分类 |
+| 考试与组卷快照 | MongoDB `exams` | 考试元信息与题目快照 |
 | 提交答案、测试结果、AI 评审 | MongoDB `submission_details` | 一个提交一个文档 |
 
 ## 后续扩展
 
-- MySQL 补充：考试表、题库分类表、反作弊事件表、学情统计表
-- MongoDB 补充：试卷快照、能力画像、教学诊断报告
+- MySQL 补充：反作弊事件表、学情统计表
+- MongoDB 补充：能力画像、教学诊断报告
 - 使用 Flyway 管理 MySQL 表结构变更
 
 ## 系统配置表
