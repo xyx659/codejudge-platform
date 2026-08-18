@@ -142,31 +142,96 @@
             </label>
           </div>
 
-          <!-- 组卷：勾选题目并给每题赋分 -->
+          <!-- 组卷：左栏搜索/筛选/分页选题目，右栏已选列表里赋分 -->
           <div class="field">
-            <span>组卷（勾选题目并填写分值，只显示已发布题目）</span>
-            <div v-if="candidateLoading" class="picker-loading">题目加载中...</div>
-            <div v-else-if="candidates.length === 0" class="picker-loading">暂无已发布题目，请先在题库发布题目</div>
-            <div v-else class="question-picker">
-              <div v-for="q in candidates" :key="q.id" class="picker-row">
-                <label class="picker-label">
+            <span>组卷（左栏搜索、筛选并勾选题目，右栏为每题赋分；仅显示已发布题目）</span>
+            <div class="question-picker">
+              <!-- 左栏：候选题目 -->
+              <section class="picker-column">
+                <div class="picker-filters">
                   <input
-                    type="checkbox"
-                    :checked="isSelected(q.id)"
-                    @change="toggle(q.id)"
+                    v-model.trim="candidateKeyword"
+                    type="text"
+                    class="picker-search"
+                    placeholder="搜索标题 / 描述…"
+                    @keyup.enter="searchCandidates"
                   />
-                  <span class="picker-title">{{ q.title }}</span>
-                  <span class="picker-meta">{{ q.difficulty || '-' }}</span>
-                </label>
-                <input
-                  v-if="isSelected(q.id)"
-                  :value="scoreOf(q.id)"
-                  type="number"
-                  min="0"
-                  class="score-input"
-                  @input="(e) => setScore(q.id, e.target.value)"
-                />
-              </div>
+                  <div class="picker-filter-row">
+                    <select v-model="candidateDifficulty" @change="onCandidateFilterChange">
+                      <option value="">全部难度</option>
+                      <option>简单</option>
+                      <option>中等</option>
+                      <option>困难</option>
+                    </select>
+                    <select v-model="candidateCategoryId" @change="onCandidateFilterChange">
+                      <option value="">全部分类</option>
+                      <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    </select>
+                    <button type="button" class="secondary" @click="searchCandidates">搜索</button>
+                  </div>
+                </div>
+                <div class="picker-head">可选题目（共 {{ candidateTotal }} 道）</div>
+                <div class="picker-list">
+                  <div v-if="candidateLoading && candidates.length === 0" class="picker-empty">题目加载中...</div>
+                  <div v-else-if="candidateTotal === 0" class="picker-empty">
+                    {{ candidateKeyword || candidateDifficulty || candidateCategoryId ? '无匹配题目' : '暂无已发布题目，请先在题库发布题目' }}
+                  </div>
+                  <template v-else>
+                    <div v-for="q in candidates" :key="q.id" class="picker-row">
+                      <label class="picker-label">
+                        <input
+                          type="checkbox"
+                          :checked="isSelected(q.id)"
+                          @change="toggle(q)"
+                        />
+                        <span class="picker-title" :title="q.title">{{ q.title }}</span>
+                        <span class="picker-meta">{{ q.difficulty || '-' }}</span>
+                      </label>
+                    </div>
+                  </template>
+                </div>
+                <div class="picker-pagination">
+                  <button
+                    type="button"
+                    :disabled="candidatePage <= 0 || candidateLoading"
+                    @click="candidatePrevPage"
+                  >
+                    上一页
+                  </button>
+                  <span>第 {{ candidatePage + 1 }} / {{ candidatePageCount }} 页</span>
+                  <button
+                    type="button"
+                    :disabled="candidatePage >= candidatePageCount - 1 || candidateLoading"
+                    @click="candidateNextPage"
+                  >
+                    下一页
+                  </button>
+                </div>
+              </section>
+
+              <!-- 右栏：已选题目，填写分值 -->
+              <section class="picker-column">
+                <div class="picker-head picker-total">
+                  已选 {{ form.questions.length }} 道 · 总分 {{ totalScore }}
+                </div>
+                <div class="picker-list">
+                  <div v-if="form.questions.length === 0" class="picker-empty">尚未选择题目</div>
+                  <template v-else>
+                    <div v-for="q in form.questions" :key="q.questionId" class="selected-row">
+                      <span class="selected-title" :title="titleOf(q.questionId)">{{ titleOf(q.questionId) }}</span>
+                      <input
+                        :value="q.score"
+                        type="number"
+                        min="0"
+                        class="score-input"
+                        placeholder="分值"
+                        @input="(e) => setScore(q.questionId, e.target.value)"
+                      />
+                      <button type="button" class="remove-btn" @click="removeQuestion(q.questionId)">移除</button>
+                    </div>
+                  </template>
+                </div>
+              </section>
             </div>
           </div>
 
@@ -237,6 +302,15 @@ const error = ref('')
 const categories = ref([])
 const candidates = ref([])
 const candidateLoading = ref(false)
+// 组卷左栏的搜索 / 筛选 / 分页状态（走服务端筛选 + 分页，避免一次拉全部题目）
+const candidateKeyword = ref('')
+const candidateDifficulty = ref('')
+const candidateCategoryId = ref('')
+const candidatePage = ref(0)
+const candidateSize = ref(10)
+const candidateTotal = ref(0)
+// 题目 ID -> 标题 缓存，供右栏「已选」列表跨页 / 编辑回显时显示标题
+const titleMap = reactive({})
 
 const formOpen = ref(false)
 const editing = ref(null)
@@ -260,6 +334,12 @@ const confirmError = ref('')
 const confirming = ref(false)
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / size.value)))
+const candidatePageCount = computed(() =>
+  Math.max(1, Math.ceil(candidateTotal.value / candidateSize.value))
+)
+const totalScore = computed(() =>
+  form.questions.reduce((sum, q) => sum + (Number(q.score) || 0), 0)
+)
 
 function statusClass(s) {
   return {
@@ -333,16 +413,56 @@ function goToPage() {
   loadExams()
 }
 
-// 加载「已发布」题目作为组卷候选
+// 加载「已发布」题目作为组卷候选（服务端筛选 + 分页，只拉当前页）
 async function loadCandidates() {
   candidateLoading.value = true
   try {
-    const res = await listQuestions({ size: 1000 })
-    candidates.value = (res.data.list || []).filter((q) => q.published)
+    const res = await listQuestions({
+      page: candidatePage.value,
+      size: candidateSize.value,
+      published: true,
+      keyword: candidateKeyword.value,
+      difficulty: candidateDifficulty.value,
+      categoryId: candidateCategoryId.value
+    })
+    const list = res.data.list || []
+    candidates.value = list
+    candidateTotal.value = res.data.total || 0
+    // 把本页题目标题写入缓存，右栏「已选」列表跨页也能显示标题
+    list.forEach((q) => {
+      titleMap[q.id] = q.title
+    })
   } catch (e) {
     candidates.value = []
+    candidateTotal.value = 0
   } finally {
     candidateLoading.value = false
+  }
+}
+
+// 点击「搜索」或回车：回到第一页重新查询
+function searchCandidates() {
+  candidatePage.value = 0
+  loadCandidates()
+}
+
+// 切换难度 / 分类筛选：回到第一页重新查询
+function onCandidateFilterChange() {
+  candidatePage.value = 0
+  loadCandidates()
+}
+
+function candidatePrevPage() {
+  if (candidatePage.value > 0) {
+    candidatePage.value -= 1
+    loadCandidates()
+  }
+}
+
+function candidateNextPage() {
+  if (candidatePage.value < candidatePageCount.value - 1) {
+    candidatePage.value += 1
+    loadCandidates()
   }
 }
 
@@ -350,17 +470,25 @@ function isSelected(qid) {
   return form.questions.some((q) => q.questionId === qid)
 }
 
-function toggle(qid) {
+// 勾选 / 取消勾选一道题（q 为题目对象，便于缓存标题）
+function toggle(q) {
+  const qid = q.id
   if (isSelected(qid)) {
-    form.questions = form.questions.filter((q) => q.questionId !== qid)
+    form.questions = form.questions.filter((item) => item.questionId !== qid)
   } else {
+    titleMap[qid] = q.title
     form.questions.push({ questionId: qid, score: 0 })
   }
 }
 
-function scoreOf(qid) {
-  const found = form.questions.find((q) => q.questionId === qid)
-  return found ? found.score : 0
+// 右栏「移除」按钮：从已选列表去掉一道题
+function removeQuestion(qid) {
+  form.questions = form.questions.filter((item) => item.questionId !== qid)
+}
+
+// 根据题目 ID 取标题（右栏已选列表显示用，缓存未命中则回退显示 ID）
+function titleOf(qid) {
+  return titleMap[qid] || qid
 }
 
 function setScore(qid, value) {
@@ -368,6 +496,32 @@ function setScore(qid, value) {
   if (found) {
     found.score = Number(value) || 0
   }
+}
+
+// 打开弹窗前把左栏搜索 / 筛选 / 分页重置为默认状态
+function prepareCandidates() {
+  candidateKeyword.value = ''
+  candidateDifficulty.value = ''
+  candidateCategoryId.value = ''
+  candidatePage.value = 0
+  loadCandidates()
+}
+
+// 编辑已有考试时，为已选题补全标题（这些题可能不在当前候选页里）
+async function resolveQuestionTitles(questions) {
+  const missing = questions
+    .map((q) => q.questionId)
+    .filter((id) => !titleMap[id])
+  await Promise.all(
+    missing.map(async (id) => {
+      try {
+        const res = await getQuestion(id)
+        titleMap[id] = res.data.title || id
+      } catch (e) {
+        titleMap[id] = id
+      }
+    })
+  )
 }
 
 function resetForm() {
@@ -387,6 +541,7 @@ function openCreate() {
   editing.value = null
   resetForm()
   formOpen.value = true
+  prepareCandidates()
 }
 
 // datetime-local 输入需要 "YYYY-MM-DDTHH:mm" 格式（去掉秒）
@@ -410,6 +565,8 @@ async function openEdit(exam) {
     form.passScore = d.passScore || 0
     form.questions = (d.questions || []).map((q) => ({ questionId: q.questionId, score: q.score || 0 }))
     formOpen.value = true
+    prepareCandidates()
+    await resolveQuestionTitles(form.questions)
   } catch (e) {
     error.value = e.message || '考试详情加载失败'
   }
@@ -726,7 +883,7 @@ th {
 }
 
 .modal {
-  width: min(720px, 100%);
+  width: min(880px, 100%);
   max-height: 90vh;
   overflow: auto;
   padding: 20px;
@@ -787,30 +944,86 @@ th {
   }
 }
 
-.picker-loading {
-  padding: 14px;
-  color: #6b7280;
-  font-size: 13px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-}
-
+/* 组卷：左右两栏穿梭框 */
 .question-picker {
   display: grid;
-  gap: 6px;
-  max-height: 260px;
-  overflow: auto;
-  padding: 8px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.picker-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #f9fafb;
 }
 
+.picker-filters {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.picker-search {
+  width: 100%;
+  padding: 0 10px;
+  min-height: 34px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.picker-filter-row {
+  display: flex;
+  gap: 8px;
+}
+
+.picker-filter-row select {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding: 0 8px;
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.picker-filter-row .secondary {
+  flex: none;
+  padding: 0 10px;
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.picker-head {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.picker-total {
+  color: #059669;
+}
+
+.picker-list {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+}
+
 .picker-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
 }
 
 .picker-label {
@@ -818,23 +1031,89 @@ th {
   align-items: center;
   gap: 8px;
   flex: 1;
+  min-width: 0;
   cursor: pointer;
 }
 
 .picker-title {
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .picker-meta {
+  flex: none;
   font-size: 12px;
   color: #9ca3af;
 }
 
-.score-input {
-  width: 80px;
+.picker-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.picker-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.picker-pagination button {
+  padding: 0 8px;
+  min-height: 28px;
+  font-size: 13px;
+}
+
+/* 右栏：已选题目行 */
+.selected-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.question-picker .score-input {
+  width: 70px;
+  flex: none;
   padding: 0 8px;
   min-height: 30px;
+}
+
+.remove-btn {
+  flex: none;
+  padding: 0 8px;
+  min-height: 30px;
+  font-size: 13px;
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fff;
+}
+
+@media (max-width: 600px) {
+  .question-picker {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modal-footer {

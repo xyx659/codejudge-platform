@@ -49,7 +49,8 @@ public class TeacherQuestionService {
             String keyword,
             String difficulty,
             String categoryId,
-            String tag) {
+            String tag,
+            Boolean published) {
         List<Criteria> conditions = new ArrayList<Criteria>();
 
         if (keyword != null && !keyword.isBlank()) {
@@ -68,6 +69,10 @@ public class TeacherQuestionService {
         }
         if (tag != null && !tag.isBlank()) {
             conditions.add(Criteria.where("tags").in(tag));
+        }
+        // 发布状态筛选（组卷时传 published=true，只让老师挑学生可见的已发布题目）
+        if (published != null) {
+            conditions.add(Criteria.where("published").is(published));
         }
 
         Query query = new Query();

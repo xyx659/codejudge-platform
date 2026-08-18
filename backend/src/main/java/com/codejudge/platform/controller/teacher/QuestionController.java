@@ -44,8 +44,9 @@ public class QuestionController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String difficulty,
             @RequestParam(required = false) String categoryId,
-            @RequestParam(required = false) String tag) {
-        return ApiResponse.ok(questionService.list(page, size, keyword, difficulty, categoryId, tag));
+            @RequestParam(required = false) String tag,
+            @RequestParam(required = false) Boolean published) {
+        return ApiResponse.ok(questionService.list(page, size, keyword, difficulty, categoryId, tag, published));
     }
 
     /** 题目详情（含测试用例，供编辑回显） */
