@@ -142,96 +142,31 @@
             </label>
           </div>
 
-          <!-- 组卷：左栏搜索/筛选/分页选题目，右栏已选列表里赋分 -->
+          <!-- 组卷：添加题目按钮 + 已选列表 -->
           <div class="field">
-            <span>组卷（左栏搜索、筛选并勾选题目，右栏为每题赋分；仅显示已发布题目）</span>
-            <div class="question-picker">
-              <!-- 左栏：候选题目 -->
-              <section class="picker-column">
-                <div class="picker-filters">
-                  <input
-                    v-model.trim="candidateKeyword"
-                    type="text"
-                    class="picker-search"
-                    placeholder="搜索标题 / 描述…"
-                    @keyup.enter="searchCandidates"
-                  />
-                  <div class="picker-filter-row">
-                    <select v-model="candidateDifficulty" @change="onCandidateFilterChange">
-                      <option value="">全部难度</option>
-                      <option>简单</option>
-                      <option>中等</option>
-                      <option>困难</option>
-                    </select>
-                    <select v-model="candidateCategoryId" @change="onCandidateFilterChange">
-                      <option value="">全部分类</option>
-                      <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-                    </select>
-                    <button type="button" class="secondary" @click="searchCandidates">搜索</button>
+            <span>组卷（点击「添加题目」选择题库，并为每题赋分；仅显示已发布题目）</span>
+            <div class="selected-panel">
+              <div class="picker-head picker-total">
+                已选 {{ form.questions.length }} 道 · 总分 {{ totalScore }}
+              </div>
+              <div class="picker-list">
+                <div v-if="form.questions.length === 0" class="picker-empty">尚未选择题目，点击下方按钮添加</div>
+                <template v-else>
+                  <div v-for="q in form.questions" :key="q.questionId" class="selected-row">
+                    <span class="selected-title" :title="titleOf(q.questionId)">{{ titleOf(q.questionId) }}</span>
+                    <input
+                      :value="q.score"
+                      type="number"
+                      min="0"
+                      class="score-input"
+                      placeholder="分值"
+                      @input="(e) => setScore(q.questionId, e.target.value)"
+                    />
+                    <button type="button" class="remove-btn" @click="removeQuestion(q.questionId)">移除</button>
                   </div>
-                </div>
-                <div class="picker-head">可选题目（共 {{ candidateTotal }} 道）</div>
-                <div class="picker-list">
-                  <div v-if="candidateLoading && candidates.length === 0" class="picker-empty">题目加载中...</div>
-                  <div v-else-if="candidateTotal === 0" class="picker-empty">
-                    {{ candidateKeyword || candidateDifficulty || candidateCategoryId ? '无匹配题目' : '暂无已发布题目，请先在题库发布题目' }}
-                  </div>
-                  <template v-else>
-                    <div v-for="q in candidates" :key="q.id" class="picker-row">
-                      <label class="picker-label">
-                        <input
-                          type="checkbox"
-                          :checked="isSelected(q.id)"
-                          @change="toggle(q)"
-                        />
-                        <span class="picker-title" :title="q.title">{{ q.title }}</span>
-                        <span class="picker-meta">{{ q.difficulty || '-' }}</span>
-                      </label>
-                    </div>
-                  </template>
-                </div>
-                <div class="picker-pagination">
-                  <button
-                    type="button"
-                    :disabled="candidatePage <= 0 || candidateLoading"
-                    @click="candidatePrevPage"
-                  >
-                    上一页
-                  </button>
-                  <span>第 {{ candidatePage + 1 }} / {{ candidatePageCount }} 页</span>
-                  <button
-                    type="button"
-                    :disabled="candidatePage >= candidatePageCount - 1 || candidateLoading"
-                    @click="candidateNextPage"
-                  >
-                    下一页
-                  </button>
-                </div>
-              </section>
-
-              <!-- 右栏：已选题目，填写分值 -->
-              <section class="picker-column">
-                <div class="picker-head picker-total">
-                  已选 {{ form.questions.length }} 道 · 总分 {{ totalScore }}
-                </div>
-                <div class="picker-list">
-                  <div v-if="form.questions.length === 0" class="picker-empty">尚未选择题目</div>
-                  <template v-else>
-                    <div v-for="q in form.questions" :key="q.questionId" class="selected-row">
-                      <span class="selected-title" :title="titleOf(q.questionId)">{{ titleOf(q.questionId) }}</span>
-                      <input
-                        :value="q.score"
-                        type="number"
-                        min="0"
-                        class="score-input"
-                        placeholder="分值"
-                        @input="(e) => setScore(q.questionId, e.target.value)"
-                      />
-                      <button type="button" class="remove-btn" @click="removeQuestion(q.questionId)">移除</button>
-                    </div>
-                  </template>
-                </div>
-              </section>
+                </template>
+              </div>
+              <button type="button" class="add-question-btn" @click="openPicker">＋ 添加题目</button>
             </div>
           </div>
 
@@ -243,6 +178,83 @@
             </button>
           </footer>
         </form>
+      </section>
+    </div>
+
+    <!-- 选题目弹窗 -->
+    <div v-if="pickerOpen" class="modal-backdrop" @click.self="closePicker">
+      <section class="modal" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <h2>添加题目</h2>
+          <button type="button" class="close-button" @click="closePicker">关闭</button>
+        </header>
+        <div class="picker-filters">
+          <input
+            v-model.trim="candidateKeyword"
+            type="text"
+            class="picker-search"
+            placeholder="搜索标题 / 描述…"
+            @keyup.enter="searchCandidates"
+          />
+          <div class="picker-filter-row">
+            <select v-model="candidateDifficulty" @change="onCandidateFilterChange">
+              <option value="">全部难度</option>
+              <option>简单</option>
+              <option>中等</option>
+              <option>困难</option>
+            </select>
+            <select v-model="candidateCategoryId" @change="onCandidateFilterChange">
+              <option value="">全部分类</option>
+              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+            <button type="button" class="secondary" @click="searchCandidates">搜索</button>
+          </div>
+        </div>
+        <section class="picker-column">
+          <div class="picker-head">可选题目（共 {{ candidateTotal }} 道）</div>
+          <div class="picker-list">
+            <div v-if="candidateLoading && candidates.length === 0" class="picker-empty">题目加载中...</div>
+            <div v-else-if="candidateTotal === 0" class="picker-empty">
+              {{ candidateKeyword || candidateDifficulty || candidateCategoryId ? '无匹配题目' : '暂无已发布题目，请先在题库发布题目' }}
+            </div>
+            <template v-else>
+              <div v-for="q in candidates" :key="q.id" class="picker-row">
+                <label class="picker-label">
+                  <input
+                    type="checkbox"
+                    :checked="isSelected(q.id)"
+                    @change="toggle(q)"
+                  />
+                  <span class="picker-title" :title="q.title">{{ q.title }}</span>
+                  <span class="picker-meta">{{ q.difficulty || '-' }}</span>
+                </label>
+              </div>
+            </template>
+          </div>
+          <div class="picker-pagination">
+            <button
+              type="button"
+              :disabled="candidatePage <= 0 || candidateLoading"
+              @click="candidatePrevPage"
+            >
+              上一页
+            </button>
+            <span>第 {{ candidatePage + 1 }} / {{ candidatePageCount }} 页</span>
+            <button
+              type="button"
+              :disabled="candidatePage >= candidatePageCount - 1 || candidateLoading"
+              @click="candidateNextPage"
+            >
+              下一页
+            </button>
+          </div>
+        </section>
+        <footer class="modal-footer">
+          <button type="button" class="secondary" @click="closePicker">取消</button>
+          <button type="button" class="primary" @click="confirmPicker">
+            确定（已选 {{ pickerSelected.length }}）
+          </button>
+        </footer>
       </section>
     </div>
 
@@ -311,6 +323,9 @@ const candidateSize = ref(10)
 const candidateTotal = ref(0)
 // 题目 ID -> 标题 缓存，供右栏「已选」列表跨页 / 编辑回显时显示标题
 const titleMap = reactive({})
+// 选题目弹窗：是否打开 + 临时选中集（确定后写回 form.questions，取消则丢弃）
+const pickerOpen = ref(false)
+const pickerSelected = ref([])
 
 const formOpen = ref(false)
 const editing = ref(null)
@@ -467,18 +482,47 @@ function candidateNextPage() {
 }
 
 function isSelected(qid) {
-  return form.questions.some((q) => q.questionId === qid)
+  return pickerSelected.value.includes(qid)
 }
 
-// 勾选 / 取消勾选一道题（q 为题目对象，便于缓存标题）
+// 勾选 / 取消勾选一道题（q 为题目对象，便于缓存标题；只改弹窗里的临时集）
 function toggle(q) {
   const qid = q.id
   if (isSelected(qid)) {
-    form.questions = form.questions.filter((item) => item.questionId !== qid)
+    pickerSelected.value = pickerSelected.value.filter((id) => id !== qid)
   } else {
     titleMap[qid] = q.title
-    form.questions.push({ questionId: qid, score: 0 })
+    pickerSelected.value = [...pickerSelected.value, qid]
   }
+}
+
+// 打开「选题目」弹窗：重置筛选、加载已发布题目、把当前已选同步到临时集
+function openPicker() {
+  candidateKeyword.value = ''
+  candidateDifficulty.value = ''
+  candidateCategoryId.value = ''
+  candidatePage.value = 0
+  pickerSelected.value = form.questions.map((q) => q.questionId)
+  pickerOpen.value = true
+  loadCandidates()
+}
+
+// 关闭「选题目」弹窗（丢弃本次临时勾选）
+function closePicker() {
+  pickerOpen.value = false
+}
+
+// 确定选中的题目：写回 form.questions（保留已有分值），并关闭弹窗
+function confirmPicker() {
+  const scoreMap = {}
+  form.questions.forEach((q) => {
+    scoreMap[q.questionId] = q.score
+  })
+  form.questions = pickerSelected.value.map((id) => ({
+    questionId: id,
+    score: scoreMap[id] || 0
+  }))
+  pickerOpen.value = false
 }
 
 // 右栏「移除」按钮：从已选列表去掉一道题
@@ -496,15 +540,6 @@ function setScore(qid, value) {
   if (found) {
     found.score = Number(value) || 0
   }
-}
-
-// 打开弹窗前把左栏搜索 / 筛选 / 分页重置为默认状态
-function prepareCandidates() {
-  candidateKeyword.value = ''
-  candidateDifficulty.value = ''
-  candidateCategoryId.value = ''
-  candidatePage.value = 0
-  loadCandidates()
 }
 
 // 编辑已有考试时，为已选题补全标题（这些题可能不在当前候选页里）
@@ -541,7 +576,6 @@ function openCreate() {
   editing.value = null
   resetForm()
   formOpen.value = true
-  prepareCandidates()
 }
 
 // datetime-local 输入需要 "YYYY-MM-DDTHH:mm" 格式（去掉秒）
@@ -565,7 +599,6 @@ async function openEdit(exam) {
     form.passScore = d.passScore || 0
     form.questions = (d.questions || []).map((q) => ({ questionId: q.questionId, score: q.score || 0 }))
     formOpen.value = true
-    prepareCandidates()
     await resolveQuestionTitles(form.questions)
   } catch (e) {
     error.value = e.message || '考试详情加载失败'
@@ -675,7 +708,6 @@ async function confirmDelete() {
 onMounted(() => {
   loadCategories()
   loadExams()
-  loadCandidates()
 })
 </script>
 
@@ -883,7 +915,7 @@ th {
 }
 
 .modal {
-  width: min(880px, 100%);
+  width: min(720px, 100%);
   max-height: 90vh;
   overflow: auto;
   padding: 20px;
@@ -944,15 +976,9 @@ th {
   }
 }
 
-/* 组卷：左右两栏穿梭框 */
-.question-picker {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  align-items: start;
-}
-
-.picker-column {
+/* 组卷：主弹窗内已选列表 + 「添加题目」按钮 */
+.picker-column,
+.selected-panel {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -961,12 +987,32 @@ th {
   background: #f9fafb;
 }
 
+.add-question-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px dashed #a7f3d0;
+  border-radius: 6px;
+  background: #fff;
+  color: #059669;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.add-question-btn:hover {
+  background: #ecfdf5;
+}
+
+/* 选题目弹窗：搜索 + 筛选区 */
 .picker-filters {
   display: grid;
   gap: 8px;
-  padding: 8px;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   background: #fff;
+  margin-bottom: 10px;
 }
 
 .picker-search {
@@ -975,6 +1021,8 @@ th {
   min-height: 34px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
   font-size: 14px;
 }
 
@@ -989,6 +1037,10 @@ th {
   width: auto;
   padding: 0 8px;
   min-height: 34px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
   font-size: 13px;
 }
 
@@ -1008,6 +1060,11 @@ th {
   background: #fff;
 }
 
+.picker-column .picker-head,
+.selected-panel .picker-head {
+  border-radius: 6px 6px 0 0;
+}
+
 .picker-total {
   color: #059669;
 }
@@ -1016,7 +1073,7 @@ th {
   display: grid;
   gap: 4px;
   align-content: start;
-  max-height: 260px;
+  max-height: 320px;
   overflow: auto;
   padding: 8px;
 }
@@ -1076,7 +1133,7 @@ th {
   font-size: 13px;
 }
 
-/* 右栏：已选题目行 */
+/* 已选题目行（主弹窗列表） */
 .selected-row {
   display: flex;
   align-items: center;
@@ -1093,7 +1150,7 @@ th {
   white-space: nowrap;
 }
 
-.question-picker .score-input {
+.selected-panel .score-input {
   width: 70px;
   flex: none;
   padding: 0 8px;
@@ -1108,12 +1165,6 @@ th {
   color: #b91c1c;
   border-color: #fca5a5;
   background: #fff;
-}
-
-@media (max-width: 600px) {
-  .question-picker {
-    grid-template-columns: 1fr;
-  }
 }
 
 .modal-footer {
