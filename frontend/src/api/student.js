@@ -23,6 +23,11 @@ export function getQuestion(id) {
   return get(`/student/questions/${id}`)
 }
 
+/** 当前学生对某道题的提交（未提交时 data 为 null） */
+export function getQuestionSubmission(id) {
+  return get(`/student/questions/${id}/submission`)
+}
+
 /** 提交代码 */
 export function submit(data) {
   return post('/student/submissions', data)

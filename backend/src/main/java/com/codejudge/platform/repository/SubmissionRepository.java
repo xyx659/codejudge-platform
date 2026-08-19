@@ -5,6 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
 /**
  * 提交元数据访问接口（JPA，对应 MySQL submissions 表）。
  */
@@ -23,4 +27,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     /** 判断题目是否已经产生提交记录 */
     boolean existsByQuestionId(String questionId);
+
+    /** 查某个学生对某道题的提交（每题限一次，用于「提交后回看」） */
+    Optional<Submission> findFirstByStudentIdAndQuestionId(Long studentId, String questionId);
+
+    /** 批量查某个学生对若干道题的提交（用于列表标记「已提交」） */
+    List<Submission> findByStudentIdAndQuestionIdIn(Long studentId, Collection<String> questionIds);
 }

@@ -1,9 +1,11 @@
 package com.codejudge.platform.service;
 
+import com.codejudge.platform.common.BadRequestException;
 import com.codejudge.platform.common.NotFoundException;
 import com.codejudge.platform.common.PageResult;
 import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
+import com.codejudge.platform.dto.StudentQuestionSubmission;
 import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
 import com.codejudge.platform.dto.SubmissionResult;
@@ -27,8 +29,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import org.bson.types.ObjectId;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -66,19 +71,24 @@ public class StudentService {
     /** 评测服务：负责触发代码评测 */
     private final JudgeService judgeService;
 
+    /** 题目可见性索引：学生只能看到已发布试卷里的题目 */
+    private final QuestionVisibilityIndex visibilityIndex;
+
     /** 构造方法：Spring 启动时会自动把需要的仓库和服务传进来（这叫依赖注入） */
     public StudentService(MongoTemplate mongoTemplate,
                           QuestionRepository questionRepository,
                           StudentRepository studentRepository,
                           SubmissionRepository submissionRepository,
                           SubmissionDetailRepository submissionDetailRepository,
-                          JudgeService judgeService) {
+                          JudgeService judgeService,
+                          QuestionVisibilityIndex visibilityIndex) {
         this.mongoTemplate = mongoTemplate;
         this.questionRepository = questionRepository;
         this.studentRepository = studentRepository;
         this.submissionRepository = submissionRepository;
         this.submissionDetailRepository = submissionDetailRepository;
         this.judgeService = judgeService;
+        this.visibilityIndex = visibilityIndex;
     }
 
     /**
@@ -92,8 +102,13 @@ public class StudentService {
      */
     public PageResult<QuestionSummary> listQuestions(int page, int size,
                                                      String difficulty, String tag) {
-        // 1. 组装查询条件。学生只能看到「已发布」的题目，这是固定条件。
-        Criteria criteria = Criteria.where("published").is(true);
+        // 1. 组装查询条件。学生只能看到「已发布试卷里的题目」——这是固定条件。
+        //    可见题目 ID 由 Redis 索引（QuestionVisibilityIndex）给出，这里按 ID 集合过滤。
+        List<ObjectId> visibleIds = visibilityIndex.getVisibleIds().stream()
+                .filter(ObjectId::isValid)
+                .map(ObjectId::new)
+                .toList();
+        Criteria criteria = Criteria.where("_id").in(visibleIds);
 
         // 2. 如果前端传了「难度」，就追加「难度必须等于这个值」的条件。
         //    isBlank() 用来判断字符串是不是 null、空串或纯空格。
@@ -119,9 +134,22 @@ public class StudentService {
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         List<Question> questions = mongoTemplate.find(query.with(pageable), Question.class);
 
-        // 6. 把每道题目实体转成「摘要」（去掉测试用例等敏感字段），装进分页结果返回。
+        // 6. 算出当前学生在这页题目中已经提交过的题目 ID，用于前端标记「已提交」。
+        //    先取当前页的题目 ID 列表，再一次性批量查提交记录，避免逐题查询（N+1）。
+        Student student = currentStudent();
+        List<String> questionIds = questions.stream()
+                .map(Question::getId)
+                .toList();
+        Set<String> submittedIds = questionIds.isEmpty()
+                ? Set.of()
+                : submissionRepository
+                        .findByStudentIdAndQuestionIdIn(student.getId(), questionIds).stream()
+                        .map(Submission::getQuestionId)
+                        .collect(Collectors.toSet());
+
+        // 7. 把每道题目实体转成「摘要」（去掉测试用例等敏感字段），并带上「是否已提交」标记。
         List<QuestionSummary> list = questions.stream()
-                .map(QuestionSummary::from)
+                .map(q -> QuestionSummary.from(q, submittedIds.contains(q.getId())))
                 .toList();
         return new PageResult<>(list, page, size, total);
     }
@@ -137,10 +165,10 @@ public class StudentService {
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("题目不存在"));
 
-        // 2. 安全考虑：学生只能看「已发布」的题目。
-        //    未发布的题目，对前端表现得和「不存在」一样（同样返回 404），
-        //    避免让学生猜出或探出草稿题的存在。
-        if (!Boolean.TRUE.equals(question.getPublished())) {
+        // 2. 安全考虑：学生只能看「已发布试卷里的题目」。
+        //    不在可见索引里的题目，对前端表现得和「不存在」一样（同样返回 404），
+        //    避免让学生猜出或探出未发布的内容。
+        if (!visibilityIndex.isVisible(question.getId())) {
             throw new NotFoundException("题目不存在");
         }
 
@@ -158,20 +186,27 @@ public class StudentService {
         // 1. 拿到当前登录的学生（从安全上下文里取出用户名，再到学生表查）
         Student student = currentStudent();
 
-        // 2. 校验题目存在且已发布，防止对不存在的题或草稿题提交
+        // 2. 校验题目存在且对学生可见（在已发布试卷里），防止对不可见题提交
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> new NotFoundException("题目不存在"));
-        if (!Boolean.TRUE.equals(question.getPublished())) {
+        if (!visibilityIndex.isVisible(question.getId())) {
             throw new NotFoundException("题目不存在");
         }
 
-        // 3. 先写 MySQL 的「提交摘要」：谁、哪道题、状态 PENDING（待评测）。
+        // 3. 每题只允许提交一次：已提交过则直接拒绝，避免重复判卷刷分。
+        if (submissionRepository
+                .findFirstByStudentIdAndQuestionId(student.getId(), question.getId())
+                .isPresent()) {
+            throw new BadRequestException("该题目已提交过，不能重复提交");
+        }
+
+        // 4. 先写 MySQL 的「提交摘要」：谁、哪道题、状态 PENDING（待评测）。
         //    注意：save 之后才会生成自增 id，所以要把返回值接住。
         Submission submission = new Submission(question.getId(), student.getId());
         submission.setJudgeStatus("PENDING");
         submission = submissionRepository.save(submission);
 
-        // 4. 再写 MongoDB 的「提交明细」：完整源码，状态同样 PENDING。
+        // 5. 再写 MongoDB 的「提交明细」：完整源码，状态同样 PENDING。
         SubmissionDetail detail = new SubmissionDetail();
         detail.setSubmissionId(submission.getId()); // 关键：关联 MySQL 提交记录的 id
         detail.setStudentId(student.getId());
@@ -180,10 +215,10 @@ public class StudentService {
         detail.setJudgeStatus("PENDING");
         submissionDetailRepository.save(detail);
 
-        // 5. 触发评测（目前是占位；评测引擎接入后这里才真正执行代码）
+        // 6. 触发评测（目前是占位；评测引擎接入后这里才真正执行代码）
         judgeService.trigger(submission.getId());
 
-        // 6. 立刻返回提交 ID 和状态，前端展示「提交成功，评测中」
+        // 7. 立刻返回提交 ID 和状态，前端展示「提交成功，评测中」
         return new SubmissionResponse(submission.getId(), submission.getJudgeStatus());
     }
 
@@ -272,5 +307,46 @@ public class StudentService {
 
         // 5. 组装结果返回
         return SubmissionResult.from(detail, title, submissionId);
+    }
+
+    /**
+     * 查询当前学生对某道题的提交（提交后回看题目和自己的回答）。
+     *
+     * <p>未提交过时返回 {@code null}，前端据此判断是否允许提交；
+     * 已提交则返回源码 + 评测结果，让答题页切换到「只读回看」模式。</p>
+     *
+     * @param questionId 题目 ID
+     * @return 提交视图（含源码与评测结果）；未提交过返回 {@code null}
+     */
+    public StudentQuestionSubmission getQuestionSubmission(String questionId) {
+        // 1. 拿到当前登录的学生
+        Student student = currentStudent();
+
+        // 2. 查该学生对这道题已有的一条提交；没有就返回 null
+        Submission submission = submissionRepository
+                .findFirstByStudentIdAndQuestionId(student.getId(), questionId)
+                .orElse(null);
+        if (submission == null) {
+            return null;
+        }
+
+        // 3. 查 MongoDB 的提交明细（含源码、测试结果与 AI 评审）
+        SubmissionDetail detail = submissionDetailRepository
+                .findBySubmissionIdAndStudentId(submission.getId(), student.getId())
+                .orElse(null);
+
+        // 4. 补题目标题，方便前端展示
+        String title = questionRepository.findById(questionId)
+                .map(Question::getTitle)
+                .orElse(null);
+
+        // 5. 明细尚未生成（极端情况）：仍返回摘要信息，源码与评测留空，前端可降级展示
+        if (detail == null) {
+            return new StudentQuestionSubmission(
+                    submission.getId(), questionId, title,
+                    submission.getJudgeStatus(), submission.getScore(),
+                    null, null, null);
+        }
+        return StudentQuestionSubmission.from(detail, title, submission.getId());
     }
 }

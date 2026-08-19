@@ -34,13 +34,16 @@ public class ExamService {
     private final ExamRepository examRepository;
     private final CategoryRepository categoryRepository;
     private final MongoTemplate mongoTemplate;
+    private final QuestionVisibilityIndex visibilityIndex;
 
     public ExamService(ExamRepository examRepository,
                        CategoryRepository categoryRepository,
-                       MongoTemplate mongoTemplate) {
+                       MongoTemplate mongoTemplate,
+                       QuestionVisibilityIndex visibilityIndex) {
         this.examRepository = examRepository;
         this.categoryRepository = categoryRepository;
         this.mongoTemplate = mongoTemplate;
+        this.visibilityIndex = visibilityIndex;
     }
 
     /** 分页查询考试，支持按状态 / 分类筛选 */
@@ -88,7 +91,10 @@ public class ExamService {
         Exam exam = examRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("考试不存在"));
         apply(exam, request);
-        return examRepository.save(exam);
+        Exam saved = examRepository.save(exam);
+        // 若修改的是已发布考试，题目可能变了，需重算学生可见题目索引
+        visibilityIndex.rebuild();
+        return saved;
     }
 
     /** 删除考试 */
@@ -96,6 +102,7 @@ public class ExamService {
         examRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("考试不存在"));
         examRepository.deleteById(id);
+        visibilityIndex.rebuild();
     }
 
     /** 发布考试：草稿 → 已发布 */
@@ -107,7 +114,10 @@ public class ExamService {
         }
         exam.setStatus("PUBLISHED");
         exam.setUpdatedAt(LocalDateTime.now());
-        return examRepository.save(exam);
+        Exam saved = examRepository.save(exam);
+        // 发布后把试卷里的题目同步进学生可见索引（Redis）
+        visibilityIndex.rebuild();
+        return saved;
     }
 
     /** 关闭考试：已发布 → 已结束 */
@@ -116,7 +126,10 @@ public class ExamService {
                 .orElseThrow(() -> new NotFoundException("考试不存在"));
         exam.setStatus("CLOSED");
         exam.setUpdatedAt(LocalDateTime.now());
-        return examRepository.save(exam);
+        Exam saved = examRepository.save(exam);
+        // 关闭后把这些题目移出学生可见索引（Redis）
+        visibilityIndex.rebuild();
+        return saved;
     }
 
     /** 校验并填写考试字段（新建/修改共用） */

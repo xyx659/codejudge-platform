@@ -24,6 +24,9 @@ spring:
   data:
     mongodb:
       uri: ${MONGO_URI:mongodb://test:123456@localhost:27017/codejudge?authSource=admin}
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   servlet:
     multipart:
       max-file-size: 5MB

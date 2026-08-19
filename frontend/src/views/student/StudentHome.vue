@@ -35,6 +35,7 @@
           <span class="badge" :class="difficultyClass(q.difficulty)">
             {{ q.difficulty }}
           </span>
+          <span v-if="q.submitted" class="badge done">已提交</span>
         </div>
         <div class="meta">
           <span>语言：{{ q.language }}</span>
@@ -43,7 +44,9 @@
             标签：{{ q.tags.join('、') }}
           </span>
         </div>
-        <button class="btn primary" @click="goSolve(q.id)">开始答题</button>
+        <button class="btn primary" @click="goSolve(q.id)">
+          {{ q.submitted ? '查看已提交' : '开始答题' }}
+        </button>
       </div>
     </div>
 
@@ -218,6 +221,10 @@ onMounted(load)
 
 .badge.hard {
   background: #dc2626;
+}
+
+.badge.done {
+  background: #16a34a;
 }
 
 .meta {

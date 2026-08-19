@@ -1,41 +1,38 @@
-// Monaco 编辑器初始化：配置 worker 并导出创建编辑器的辅助函数。
+// Monaco 编辑器初始化：配置 worker、注册 Java 自动导包，并导出创建编辑器的辅助函数。
 //
 // 要点：
-//   - 加载 editor.worker（基础编辑能力）+ ts.worker（TypeScript 语言服务），
-//     后者为 JavaScript 提供单词/函数/签名补全与诊断，实现「像 IDEA 一样」的补全。
+//   - 加载 editor.worker（基础编辑能力）。Java 的语法高亮由 Monaco 自带，但 Monaco
+//     没有 Java 语言服务，所以自动补全/自动导包由 javaAutocomplete.js 的轻量映射提供。
 //   - 用 Vite 的 `?worker` 内联 worker 文件，无需额外插件，且本地部署离线可用。
 import * as monaco from 'monaco-editor'
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
-import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+import { registerJavaAutocomplete } from './javaAutocomplete'
 
-// Monaco 在创建 worker 时会回调 getWorker；按语言标签返回对应 worker。
+// Monaco 在创建 worker 时会回调 getWorker；Java 走基础 worker 即可。
 self.MonacoEnvironment = {
-  getWorker(_, label) {
-    if (label === 'typescript' || label === 'javascript') {
-      return new TsWorker()
-    }
+  getWorker() {
     return new EditorWorker()
   }
 }
 
-// 注意：不要在 Vite 环境下调用 setCompilerOptions() / setDiagnosticsOptions()。
-// 它们会触发 TS worker 重建，破坏模型同步，导致 "Could not find source file" 错误
-// （见 monaco-editor issue #4364）。allowJs / checkJs / 校验这些本就是 JavaScript 的默认值，
-// 无需显式设置即可获得关键字、单词与函数签名补全。
+// 注册 Java 自动补全 + 自动导包（模块加载时执行一次即可）
+registerJavaAutocomplete()
 
 /**
- * 在指定 DOM 元素上创建一个 JavaScript 代码编辑器。
+ * 在指定 DOM 元素上创建一个 Java 代码编辑器。
  *
  * @param {HTMLElement} el 挂载容器
- * @param {{ value?: string, onChange?: (code:string)=>void }} opts 初始代码与变更回调
+ * @param {{ value?: string, readOnly?: boolean, onChange?: (code:string)=>void }} opts
+ *        初始代码、是否只读与变更回调
  * @returns {monaco.editor.IStandaloneCodeEditor} 编辑器实例（记得在组件卸载时 dispose）
  */
-export function createEditor(el, { value = '', onChange } = {}) {
+export function createEditor(el, { value = '', readOnly = false, onChange } = {}) {
   const editor = monaco.editor.create(el, {
     value,
-    language: 'javascript',
+    language: 'java',
     theme: 'vs',
     automaticLayout: true,
+    readOnly,
     fontSize: 14,
     tabSize: 4,
     minimap: { enabled: false },
@@ -45,7 +42,7 @@ export function createEditor(el, { value = '', onChange } = {}) {
     tabCompletion: 'on',
     suggestOnTriggerCharacters: true,
     acceptSuggestionOnEnter: 'on',
-    quickSuggestions: { other: true, comments: false, strings: true },
+    quickSuggestions: { other: true, comments: false, strings: false },
     parameterHints: { enabled: true }
   })
 

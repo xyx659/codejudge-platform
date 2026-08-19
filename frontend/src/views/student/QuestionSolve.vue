@@ -1,4 +1,4 @@
-<!-- 学生端：在线答题页，含题目描述、Monaco 代码编辑器、本地样例自测与提交 -->
+<!-- 学生端：在线答题页，含题目描述、Monaco Java 代码编辑器与提交 -->
 <template>
   <div class="page">
     <button class="back" @click="router.push('/student/home')">← 返回题目列表</button>
@@ -45,42 +45,26 @@
         <p v-else class="hint">本题暂无样例用例</p>
       </div>
 
-      <!-- 代码编辑器 -->
+      <!-- 已提交提示（每题限一次） -->
+      <div v-if="submission" class="card submitted-banner">
+        <span class="badge done">已提交</span>
+        <span>状态：{{ judgeStatusText(submission.judgeStatus) }}</span>
+        <span v-if="submission.score != null">得分：{{ submission.score }}</span>
+        <router-link to="/student/scores">查看完整成绩 →</router-link>
+      </div>
+
+      <!-- 代码编辑器（提交后转为只读回看） -->
       <div class="card editor-card">
-        <div class="label">编写代码（{{ question.methodName }}）</div>
+        <div class="label">
+          {{ submission ? '我的答案（只读）' : `编写代码（${question.methodName}）` }}
+        </div>
         <div ref="editorRef" class="editor"></div>
       </div>
 
-      <div class="actions">
-        <button class="btn" :disabled="testing" @click="selfTest">
-          {{ testing ? '自测中...' : '样例自测' }}
-        </button>
+      <div v-if="!submission" class="actions">
         <button class="btn primary" :disabled="submitting" @click="submitCode">
           {{ submitting ? '提交中...' : '提交' }}
         </button>
-      </div>
-
-      <!-- 本地自测结果 -->
-      <div v-if="testResult" class="card result-card">
-        <div class="label">样例自测结果</div>
-        <p v-if="testResult.error" class="error">{{ testResult.error }}</p>
-        <template v-else>
-          <p class="summary">
-            通过 <b>{{ passedCount }}</b> / {{ testResult.results.length }} 个样例
-          </p>
-          <div v-for="r in testResult.results" :key="r.name" class="case" :class="r.passed ? 'ok' : 'fail'">
-            <div class="case-head">
-              <span class="case-name">{{ r.name }}</span>
-              <span class="case-verdict">{{ r.message }}</span>
-              <span class="case-time">{{ r.durationMs }}ms</span>
-            </div>
-            <div class="case-io">
-              <span>输入：{{ r.input }}</span>
-              <span>期望：{{ r.expected }}</span>
-              <span>实际：{{ r.actual || '（无输出）' }}</span>
-            </div>
-          </div>
-        </template>
       </div>
 
       <!-- 提交结果 -->
@@ -93,31 +77,24 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getQuestion, submit } from '../../api/student'
+import { getQuestion, getQuestionSubmission, submit } from '../../api/student'
 import { createEditor } from '../../utils/monaco'
-import { runLocalTests } from '../../utils/jsRunner'
-import { difficultyClass } from '../../utils/format'
+import { difficultyClass, judgeStatusText } from '../../utils/format'
 
 const route = useRoute()
 const router = useRouter()
 
 const question = ref(null)
+const submission = ref(null) // 该题已有提交（未提交时为 null）
 const loading = ref(false)
 const error = ref('')
 const editorRef = ref(null)
-const testResult = ref(null)
-const testing = ref(false)
 const submitting = ref(false)
 const submitMsg = ref('')
 
 let editor = null
-
-const passedCount = computed(() => {
-  if (!testResult.value || !testResult.value.results) return 0
-  return testResult.value.results.filter((r) => r.passed).length
-})
 
 onMounted(async () => {
   loading.value = true
@@ -125,6 +102,9 @@ onMounted(async () => {
   try {
     const res = await getQuestion(route.params.id)
     question.value = res.data
+    // 查询该题是否已提交过（用于「每题一次」与提交后回看）
+    const sub = await getQuestionSubmission(route.params.id)
+    submission.value = sub.data
   } catch (e) {
     error.value = e.message || '加载失败'
   } finally {
@@ -132,14 +112,10 @@ onMounted(async () => {
     loading.value = false
   }
 
-  // 题目加载成功且 DOM 渲染出编辑器容器后，再创建 Monaco 实例并填入初始模板
+  // 题目加载成功且 DOM 渲染出编辑器容器后，再创建 Monaco 实例
   if (question.value) {
     await nextTick()
-    if (editorRef.value) {
-      editor = createEditor(editorRef.value, {
-        value: defaultTemplate(question.value.methodName)
-      })
-    }
+    initEditor()
   }
 })
 
@@ -151,30 +127,23 @@ onBeforeUnmount(() => {
 })
 
 function defaultTemplate(methodName) {
-  return `// 实现函数 ${methodName}，参数从输入按空格分隔后传入\nfunction ${methodName}() {\n  // 在这里编写你的代码\n  return null\n}\n`
+  return `// 实现方法 ${methodName}（评测由后端执行）\npublic class Solution {\n    public Object ${methodName}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
 }
 
-async function selfTest() {
-  // 编辑器未就绪（多为页面刷新后 Monaco 未挂载）或代码为空，都要给出明确提示
-  const code = editor ? editor.getValue() : ''
-  if (!editor || !code.trim()) {
-    testResult.value = { error: '编辑器尚未就绪或代码为空，请刷新页面后重试' }
-    return
+// 根据当前状态创建编辑器：未提交用初始模板可编辑；已提交用源码只读回看
+function initEditor() {
+  if (!editorRef.value) return
+  if (editor) {
+    editor.dispose()
+    editor = null
   }
-  testing.value = true
-  testResult.value = null
-  try {
-    testResult.value = await runLocalTests(
-      code,
-      question.value.methodName,
-      question.value.testCases || []
-    )
-  } catch (e) {
-    // 兜底：把任何运行时异常都显示出来，而不是无声失败
-    testResult.value = { error: (e && e.message) || String(e) }
-  } finally {
-    testing.value = false
-  }
+  const value = submission.value
+    ? submission.value.sourceCode || '// 无源码'
+    : defaultTemplate(question.value.methodName)
+  editor = createEditor(editorRef.value, {
+    value,
+    readOnly: !!submission.value
+  })
 }
 
 async function submitCode() {
@@ -191,6 +160,11 @@ async function submitCode() {
       sourceCode: code
     })
     submitMsg.value = `提交成功（编号 #${res.data.submissionId}），评测中...`
+    // 提交成功后立即刷新为「已提交」只读状态，回看自己的答案
+    const sub = await getQuestionSubmission(question.value.id)
+    submission.value = sub.data
+    await nextTick()
+    initEditor()
   } catch (e) {
     submitMsg.value = e.message || '提交失败'
   } finally {
@@ -248,6 +222,25 @@ async function submitCode() {
 
 .badge.hard {
   background: #dc2626;
+}
+
+.badge.done {
+  background: #16a34a;
+}
+
+.submitted-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  font-size: 14px;
+}
+
+.submitted-banner a {
+  margin-left: auto;
+  color: #2563eb;
 }
 
 .meta {

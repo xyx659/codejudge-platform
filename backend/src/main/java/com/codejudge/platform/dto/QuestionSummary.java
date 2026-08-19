@@ -16,6 +16,7 @@ import java.util.List;
  * @param language   编程语言（如 Java），学生写代码时要按这个语言来
  * @param methodName 需要实现的方法名（如 sum），学生写代码时方法名要对上
  * @param tags       标签列表（如 数学、基础）
+ * @param submitted  当前学生是否已提交过此题（用于「每题限一次」标记）
  */
 public record QuestionSummary(
         String id,
@@ -23,21 +24,34 @@ public record QuestionSummary(
         String difficulty,
         String language,
         String methodName,
-        List<String> tags) {
+        List<String> tags,
+        boolean submitted) {
 
     /**
      * 工厂方法：把一个 MongoDB 的 {@link Question} 实体，转换成列表摘要。
      *
      * <p>「工厂方法」就是一个专门用来「造对象」的静态方法。
-     * 这里把题目实体里前端列表需要的字段挑出来，测试用例等敏感字段直接丢掉。</p>
+     * 这里把题目实体里前端列表需要的字段挑出来，测试用例等敏感字段直接丢掉。
+     * 不关心提交状态时可调用此方法，默认 {@code submitted = false}。</p>
      */
     public static QuestionSummary from(Question q) {
+        return from(q, false);
+    }
+
+    /**
+     * 工厂方法：附带「是否已提交」标记。
+     *
+     * @param q         题目实体
+     * @param submitted 当前学生是否已提交过此题
+     */
+    public static QuestionSummary from(Question q, boolean submitted) {
         return new QuestionSummary(
                 q.getId(),
                 q.getTitle(),
                 q.getDifficulty(),
                 q.getLanguage(),
                 q.getMethodName(),
-                q.getTags());
+                q.getTags(),
+                submitted);
     }
 }

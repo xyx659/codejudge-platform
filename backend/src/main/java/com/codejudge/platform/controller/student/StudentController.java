@@ -5,6 +5,7 @@ import com.codejudge.platform.common.ClientIpUtil;
 import com.codejudge.platform.common.PageResult;
 import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
+import com.codejudge.platform.dto.StudentQuestionSubmission;
 import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
 import com.codejudge.platform.dto.SubmissionResult;
@@ -73,6 +74,22 @@ public class StudentController {
     @GetMapping("/questions/{id}")
     public ApiResponse<QuestionDetail> questionDetail(@PathVariable String id) {
         return ApiResponse.ok(studentService.getQuestion(id));
+    }
+
+    /**
+     * 当前学生对某道题的提交查询接口（提交后回看）。
+     *
+     * <p>请求示例：</p>
+     * <pre>GET /api/student/questions/65f1a2b3c4d5e6f7a8b9c0d1/submission</pre>
+     *
+     * <p>未提交过时 {@code data} 为 {@code null}，前端据此判断是否允许提交。</p>
+     *
+     * @param id 题目 ID（路径参数）
+     * @return 该题的提交视图（含源码与评测结果）；未提交时为 null
+     */
+    @GetMapping("/questions/{id}/submission")
+    public ApiResponse<StudentQuestionSubmission> questionSubmission(@PathVariable String id) {
+        return ApiResponse.ok(studentService.getQuestionSubmission(id));
     }
 
     /**

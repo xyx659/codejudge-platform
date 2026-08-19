@@ -3,6 +3,7 @@ package com.codejudge.platform.repository;
 import com.codejudge.platform.entity.Question;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -15,4 +16,7 @@ public interface QuestionRepository extends MongoRepository<Question, String> {
             String sourceId);
 
     long countByPublishedTrue();
+
+    /** 查所有已发布（published=true）的题目，用于学生端可见性索引 */
+    List<Question> findByPublishedTrue();
 }

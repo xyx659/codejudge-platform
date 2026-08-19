@@ -30,12 +30,15 @@ public class TeacherQuestionService {
 
     private final MongoTemplate mongoTemplate;
     private final CategoryRepository categoryRepository;
+    private final QuestionVisibilityIndex visibilityIndex;
 
     public TeacherQuestionService(
             MongoTemplate mongoTemplate,
-            CategoryRepository categoryRepository) {
+            CategoryRepository categoryRepository,
+            QuestionVisibilityIndex visibilityIndex) {
         this.mongoTemplate = mongoTemplate;
         this.categoryRepository = categoryRepository;
+        this.visibilityIndex = visibilityIndex;
     }
 
     /**
@@ -115,6 +118,8 @@ public class TeacherQuestionService {
         TeacherQuestion question = new TeacherQuestion();
         apply(question, request);
         mongoTemplate.save(question);
+        // 新增可能直接发布（published=true），重算学生可见索引
+        visibilityIndex.rebuild();
         return TeacherQuestionDetail.from(question);
     }
 
@@ -130,6 +135,8 @@ public class TeacherQuestionService {
         }
         apply(question, request);
         mongoTemplate.save(question);
+        // 修改可能改变发布状态，重算学生可见索引
+        visibilityIndex.rebuild();
         return TeacherQuestionDetail.from(question);
     }
 
@@ -142,6 +149,8 @@ public class TeacherQuestionService {
             throw new NotFoundException("题目不存在");
         }
         mongoTemplate.remove(question);
+        // 删除可能移除一道已发布题目，重算学生可见索引
+        visibilityIndex.rebuild();
     }
 
     /** 发布 / 下架题目（发布后学生端才可见） */
@@ -154,6 +163,8 @@ public class TeacherQuestionService {
         }
         question.setPublished(published);
         mongoTemplate.save(question);
+        // 发布/下架后重算学生可见索引（Redis）
+        visibilityIndex.rebuild();
         return TeacherQuestionDetail.from(question);
     }
 
