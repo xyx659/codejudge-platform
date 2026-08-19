@@ -9,7 +9,7 @@
 | 前端 | Vue 3 + Vite + Vue Router |
 | 后端 | Java 17 + Spring Boot 3 + Spring Security |
 | 数据 | MySQL（用户、提交、系统配置、审计日志）+ MongoDB（题目、提交明细、AI 评审） |
-| 评测 | Judge0 CE + Docker 沙箱 |
+| 评测 | 自研容器编译测试 + Docker 沙箱 |
 | AI | DeepSeek API 或本地千问大模型 |
 | 部署 | Nginx + Docker Compose，支持本地机房 / 云端双部署 |
 
@@ -57,7 +57,7 @@ codejudge-platform/
 
 - 用户端：学生端（在线编程、提交、成绩与 AI 反馈）、教师端（题库、考试、监考、学情）、管理端（用户、系统配置、审计）
 - 网关与鉴权：JWT 登录、RBAC、登录 / 提交限流、操作审计、配置审计
-- 评测链路：提交进入队列，Docker 沙箱内 Judge0 编译测试（黑盒），AI 白盒评审，结果实时推送
+- 评测链路：提交进入队列，Docker 沙箱内自研编译测试（黑盒），AI 白盒评审，结果实时推送
 - 反作弊：切屏检测、全屏锁定、行为分析、代码查重
 - 学情分析：成绩统计、能力画像、教学诊断，形成"教学 → 考核 → 学情分析 → 反馈改进"闭环
 
@@ -109,7 +109,7 @@ npm run dev
 - MySQL：端口 `3306`，账号 `test / 123456`，数据库 `codejudge`
 - MongoDB：端口 `27017`，账号 `test / 123456`（admin 库 root 角色），数据库 `codejudge`
 
-> 已弃用 Docker 容器方式：`docker-compose.yml` 中的 mysql/mongodb 服务已移除，文件暂为空模板，供后续 Judge0 等服务使用。
+> 已弃用 Docker 容器方式：`docker-compose.yml` 中的 mysql/mongodb 服务已移除，文件暂为空模板，供后续评测等服务使用。
 
 后端默认连接本机 `3306`/`27017`，也可通过环境变量覆盖：
 
@@ -186,7 +186,7 @@ server {
 
 ## 下一步
 
-1. 接入 Judge0 评测链路与 AI 评审（黑盒判题 + 白盒分析）
+1. 接入自研评测链路与 AI 评审（黑盒判题 + 白盒分析）
 2. 反作弊（切屏检测 / 全屏锁定 / 代码查重）与学情分析
 3. 补充 Flyway、多环境配置和部署自动化
 4. 前后端 Docker 化 + Nginx 生产部署
