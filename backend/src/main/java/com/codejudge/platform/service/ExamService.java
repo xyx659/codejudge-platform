@@ -105,6 +105,14 @@ public class ExamService {
         if (exam.getQuestions().isEmpty()) {
             throw new BadRequestException("请先组卷再发布");
         }
+        // 发布前校验考试时间窗口：学生端会按 startTime ~ endTime 过滤可见考试，
+        // 若这里没填或填反了，学生端将永远看不到这场考试。
+        if (exam.getStartTime() == null || exam.getEndTime() == null) {
+            throw new BadRequestException("请先设置考试的开始与结束时间");
+        }
+        if (!exam.getStartTime().isBefore(exam.getEndTime())) {
+            throw new BadRequestException("考试开始时间必须早于结束时间");
+        }
         exam.setStatus("PUBLISHED");
         exam.setUpdatedAt(LocalDateTime.now());
         return examRepository.save(exam);
