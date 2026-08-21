@@ -6,7 +6,7 @@
 
     <!-- 筛选栏 -->
     <div class="filters">
-      <select v-model="difficulty" class="select">
+      <select v-model="difficulty" class="select" @change="search">
         <option value="">全部难度</option>
         <option value="简单">简单</option>
         <option value="中等">中等</option>
@@ -205,9 +205,10 @@ onMounted(load)
 }
 
 .badge {
-  padding: 2px 10px;
+  padding: 3px 12px;
   border-radius: 999px;
   font-size: 12px;
+  font-weight: 600;
   color: #fff;
 }
 
