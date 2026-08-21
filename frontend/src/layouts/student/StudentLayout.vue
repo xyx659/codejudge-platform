@@ -4,7 +4,7 @@
     <aside class="sidebar">
       <h2>学生端</h2>
       <nav>
-        <router-link to="/student/home">考试首页</router-link>
+        <router-link to="/student/home">我的考试</router-link>
         <router-link to="/student/scores">我的成绩</router-link>
       </nav>
       <button class="logout" @click="logout">退出登录</button>

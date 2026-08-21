@@ -3,8 +3,12 @@ package com.codejudge.platform.controller.student;
 import com.codejudge.platform.common.ApiResponse;
 import com.codejudge.platform.common.ClientIpUtil;
 import com.codejudge.platform.common.PageResult;
+import com.codejudge.platform.dto.ExamSubmitRequest;
+import com.codejudge.platform.dto.ExamSubmitResult;
 import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
+import com.codejudge.platform.dto.StudentExamDetail;
+import com.codejudge.platform.dto.StudentExamSummary;
 import com.codejudge.platform.dto.StudentQuestionSubmission;
 import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
@@ -23,6 +27,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.List;
+
 /**
  * 学生端接口（对外地址都以 {@code /api/student} 开头）。
  *
@@ -39,6 +45,46 @@ public class StudentController {
                              RateLimitService rateLimitService) {
         this.studentService = studentService;
         this.rateLimitService = rateLimitService;
+    }
+
+    /**
+     * 学生端「我的考试」列表（学生看到的是试卷，而非题库题目）。
+     *
+     * <pre>GET /api/student/exams</pre>
+     */
+    @GetMapping("/exams")
+    public ApiResponse<List<StudentExamSummary>> exams() {
+        return ApiResponse.ok(studentService.listExams());
+    }
+
+    /**
+     * 学生端考试详情：进试卷答题 / 交卷后回看。
+     *
+     * <pre>GET /api/student/exams/{id}</pre>
+     */
+    @GetMapping("/exams/{id}")
+    public ApiResponse<StudentExamDetail> examDetail(@PathVariable String id) {
+        return ApiResponse.ok(studentService.getExam(id));
+    }
+
+    /**
+     * 整卷交卷接口：把试卷内各题答案一次性提交。
+     *
+     * <pre>
+     * POST /api/student/exams/{id}/submit
+     * { "answers": [ { "questionId": "...", "sourceCode": "..." } ] }
+     * </pre>
+     */
+    @PostMapping("/exams/{id}/submit")
+    public ApiResponse<ExamSubmitResult> submitExam(
+            @PathVariable String id,
+            @Valid @RequestBody ExamSubmitRequest request,
+            HttpServletRequest servletRequest) {
+        String username = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+        rateLimitService.checkSubmission(username, ClientIpUtil.resolve(servletRequest));
+        return ApiResponse.ok(studentService.submitExam(id, request));
     }
 
     /**

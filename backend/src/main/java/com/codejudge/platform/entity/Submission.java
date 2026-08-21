@@ -20,7 +20,8 @@ import java.time.LocalDateTime;
 @Table(name = "submissions",
         indexes = {
                 @Index(name = "idx_submissions_student_id", columnList = "student_id"),
-                @Index(name = "idx_submissions_question_id", columnList = "question_id")
+                @Index(name = "idx_submissions_question_id", columnList = "question_id"),
+                @Index(name = "idx_submissions_exam_id", columnList = "exam_id")
         })
 public class Submission {
 
@@ -28,6 +29,10 @@ public class Submission {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** 考试 ID（对应 MongoDB exams._id）。为 null 表示旧版「单题提交」遗留数据 */
+    @Column(length = 50)
+    private String examId;
 
     /** 题目 ID（对应 MongoDB questions._id） */
     @Column(nullable = false, length = 50)
@@ -56,8 +61,22 @@ public class Submission {
         this.studentId = studentId;
     }
 
+    public Submission(String questionId, Long studentId, String examId) {
+        this.questionId = questionId;
+        this.studentId = studentId;
+        this.examId = examId;
+    }
+
     public Long getId() {
         return id;
+    }
+
+    public String getExamId() {
+        return examId;
+    }
+
+    public void setExamId(String examId) {
+        this.examId = examId;
     }
 
     public String getQuestionId() {

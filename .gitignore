@@ -20,4 +20,5 @@ frontend/.vite/
 # 系统与日志
 .DS_Store
 *.log
+backend/logs/
 out/

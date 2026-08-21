@@ -3,17 +3,25 @@ package com.codejudge.platform.service;
 import com.codejudge.platform.common.BadRequestException;
 import com.codejudge.platform.common.NotFoundException;
 import com.codejudge.platform.common.PageResult;
+import com.codejudge.platform.dto.ExamSubmitRequest;
+import com.codejudge.platform.dto.ExamSubmitResult;
 import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
+import com.codejudge.platform.dto.StudentExamDetail;
+import com.codejudge.platform.dto.StudentExamQuestion;
+import com.codejudge.platform.dto.StudentExamSummary;
 import com.codejudge.platform.dto.StudentQuestionSubmission;
 import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
 import com.codejudge.platform.dto.SubmissionResult;
 import com.codejudge.platform.dto.SubmissionSummary;
+import com.codejudge.platform.entity.Exam;
+import com.codejudge.platform.entity.ExamQuestion;
 import com.codejudge.platform.entity.Question;
 import com.codejudge.platform.entity.Student;
 import com.codejudge.platform.entity.Submission;
 import com.codejudge.platform.entity.SubmissionDetail;
+import com.codejudge.platform.repository.ExamRepository;
 import com.codejudge.platform.repository.QuestionRepository;
 import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.SubmissionDetailRepository;
@@ -31,6 +39,9 @@ import org.springframework.stereotype.Service;
 
 import org.bson.types.ObjectId;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -59,6 +70,9 @@ public class StudentService {
     /** 题目仓库：负责 MongoDB questions 集合的简单增删改查（如按 ID 查询） */
     private final QuestionRepository questionRepository;
 
+    /** 考试仓库：负责 MongoDB exams 集合的查询（学生端按考试答题） */
+    private final ExamRepository examRepository;
+
     /** 学生仓库：负责 MySQL students 表的查询（根据用户名找当前登录学生） */
     private final StudentRepository studentRepository;
 
@@ -77,6 +91,7 @@ public class StudentService {
     /** 构造方法：Spring 启动时会自动把需要的仓库和服务传进来（这叫依赖注入） */
     public StudentService(MongoTemplate mongoTemplate,
                           QuestionRepository questionRepository,
+                          ExamRepository examRepository,
                           StudentRepository studentRepository,
                           SubmissionRepository submissionRepository,
                           SubmissionDetailRepository submissionDetailRepository,
@@ -84,6 +99,7 @@ public class StudentService {
                           QuestionVisibilityIndex visibilityIndex) {
         this.mongoTemplate = mongoTemplate;
         this.questionRepository = questionRepository;
+        this.examRepository = examRepository;
         this.studentRepository = studentRepository;
         this.submissionRepository = submissionRepository;
         this.submissionDetailRepository = submissionDetailRepository;
@@ -152,6 +168,190 @@ public class StudentService {
                 .map(q -> QuestionSummary.from(q, submittedIds.contains(q.getId())))
                 .toList();
         return new PageResult<>(list, page, size, total);
+    }
+
+    /**
+     * 学生端「我的考试」列表：返回所有已发布（PUBLISHED）的考试。
+     *
+     * <p>学生看到的是<b>试卷</b>而非题库题目。每项带一个按当前时间算出的状态
+     * （未开始 / 进行中 / 已结束），以及「是否已交卷」标记。</p>
+     */
+    public List<StudentExamSummary> listExams() {
+        Student student = currentStudent();
+        LocalDateTime now = LocalDateTime.now();
+        List<Exam> exams = examRepository.findByStatus("PUBLISHED");
+        List<StudentExamSummary> result = new ArrayList<StudentExamSummary>();
+        for (Exam exam : exams) {
+            boolean submitted = submissionRepository
+                    .findFirstByStudentIdAndExamId(student.getId(), exam.getId())
+                    .isPresent();
+            result.add(toSummary(exam, now, submitted));
+        }
+        return result;
+    }
+
+    /**
+     * 学生端考试详情：进试卷答题 / 交卷后回看。
+     *
+     * <p>只有 {@code PUBLISHED} 状态的考试对学生可见；展开试卷内每道题的完整内容
+     * （描述、方法名、语言、测试用例），已交卷时同时带回学生的源码与得分。</p>
+     */
+    public StudentExamDetail getExam(String examId) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new NotFoundException("考试不存在"));
+        if (!"PUBLISHED".equals(exam.getStatus())) {
+            throw new NotFoundException("考试不存在");
+        }
+        Student student = currentStudent();
+        LocalDateTime now = LocalDateTime.now();
+        String status = timeStatus(exam, now);
+
+        // 该学生在这场考试里的全部提交（已交卷时才有），按题目 ID 建映射
+        boolean submitted = submissionRepository
+                .findFirstByStudentIdAndExamId(student.getId(), examId).isPresent();
+        Map<String, Submission> submissionByQuestion = new HashMap<String, Submission>();
+        if (submitted) {
+            for (Submission s : submissionRepository.findByStudentIdAndExamId(student.getId(), examId)) {
+                submissionByQuestion.put(s.getQuestionId(), s);
+            }
+        }
+
+        List<StudentExamQuestion> questions = new ArrayList<StudentExamQuestion>();
+        if (exam.getQuestions() != null) {
+            for (ExamQuestion eq : exam.getQuestions()) {
+                Question q = questionRepository.findById(eq.getQuestionId()).orElse(null);
+                // 标题/难度优先用组卷快照（组卷即冻结），其余内容取题库实时值
+                String title = eq.getTitle() != null ? eq.getTitle() : (q != null ? q.getTitle() : null);
+                String difficulty = eq.getDifficulty() != null ? eq.getDifficulty() : (q != null ? q.getDifficulty() : null);
+
+                Submission sub = submissionByQuestion.get(eq.getQuestionId());
+                String sourceCode = null;
+                String judgeStatus = null;
+                Integer myScore = null;
+                if (sub != null) {
+                    SubmissionDetail detail = submissionDetailRepository
+                            .findBySubmissionIdAndStudentId(sub.getId(), student.getId())
+                            .orElse(null);
+                    sourceCode = detail == null ? null : detail.getSourceCode();
+                    judgeStatus = sub.getJudgeStatus();
+                    myScore = sub.getScore();
+                }
+                questions.add(new StudentExamQuestion(
+                        eq.getQuestionId(),
+                        title,
+                        difficulty,
+                        eq.getScore(),
+                        q != null ? q.getDescription() : null,
+                        q != null ? q.getMethodName() : null,
+                        q != null ? q.getLanguage() : null,
+                        q != null ? q.getTestCases() : List.of(),
+                        sourceCode, judgeStatus, myScore));
+            }
+        }
+
+        int totalScore = exam.getQuestions() == null ? 0
+                : exam.getQuestions().stream()
+                        .mapToInt(q -> q.getScore() == null ? 0 : q.getScore())
+                        .sum();
+        return new StudentExamDetail(
+                exam.getId(), exam.getTitle(), exam.getDescription(), exam.getTargetClass(),
+                exam.getStartTime(), exam.getEndTime(), exam.getDurationMinutes(),
+                status, questions.size(), totalScore, submitted, questions);
+    }
+
+    /**
+     * 整卷一次交卷：把试卷内各题的答案一次性落库，未作答的题记为「未作答」（0 分）。
+     *
+     * <p>交卷前做三道校验：考试必须已发布、必须在时间窗内（留 60 秒容错给前端
+     * 倒计时到点自动交卷）、同一学生同一考试只允许交一次。</p>
+     */
+    public ExamSubmitResult submitExam(String examId, ExamSubmitRequest request) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new NotFoundException("考试不存在"));
+        if (!"PUBLISHED".equals(exam.getStatus())) {
+            throw new NotFoundException("考试不存在");
+        }
+        Student student = currentStudent();
+        LocalDateTime now = LocalDateTime.now();
+
+        // 时间窗校验：未开始不能交；已结束（留 60 秒容错）不能交
+        if (exam.getStartTime() != null && now.isBefore(exam.getStartTime())) {
+            throw new BadRequestException("考试尚未开始，不能交卷");
+        }
+        if (exam.getEndTime() != null && now.isAfter(exam.getEndTime().plusSeconds(60))) {
+            throw new BadRequestException("考试已结束，无法交卷");
+        }
+
+        // 整卷一次交卷：已交过则拒绝
+        if (submissionRepository.findFirstByStudentIdAndExamId(student.getId(), examId).isPresent()) {
+            throw new BadRequestException("该考试已交卷，不能重复交卷");
+        }
+
+        // 前端答案按题目 ID 建映射（空白代码视为未作答）
+        Map<String, String> answerMap = new HashMap<String, String>();
+        if (request.answers() != null) {
+            for (ExamSubmitRequest.Answer a : request.answers()) {
+                answerMap.put(a.questionId(), a.sourceCode());
+            }
+        }
+
+        List<ExamQuestion> questions = exam.getQuestions() == null ? List.of() : exam.getQuestions();
+        int answered = 0;
+        for (ExamQuestion eq : questions) {
+            String sourceCode = answerMap.get(eq.getQuestionId());
+            boolean answeredQ = sourceCode != null && !sourceCode.isBlank();
+            if (answeredQ) {
+                answered++;
+            }
+
+            Submission submission = new Submission(eq.getQuestionId(), student.getId(), examId);
+            submission.setJudgeStatus(answeredQ ? "PENDING" : "UNANSWERED");
+            submission.setScore(answeredQ ? null : 0);
+            submission = submissionRepository.save(submission);
+
+            SubmissionDetail detail = new SubmissionDetail();
+            detail.setSubmissionId(submission.getId());
+            detail.setStudentId(student.getId());
+            detail.setExamId(examId);
+            detail.setQuestionId(eq.getQuestionId());
+            detail.setSourceCode(answeredQ ? sourceCode : "");
+            detail.setJudgeStatus(answeredQ ? "PENDING" : "UNANSWERED");
+            detail.setScore(answeredQ ? null : 0);
+            submissionDetailRepository.save(detail);
+
+            if (answeredQ) {
+                judgeService.trigger(submission.getId());
+            }
+        }
+
+        return new ExamSubmitResult(examId, now, answered, questions.size());
+    }
+
+    /** 按当前时间判断考试处于哪个时间窗阶段：未开始 / 进行中 / 已结束 */
+    private String timeStatus(Exam exam, LocalDateTime now) {
+        if (exam.getStartTime() == null || exam.getEndTime() == null) {
+            return "ENDED";
+        }
+        if (now.isBefore(exam.getStartTime())) {
+            return "NOT_STARTED";
+        }
+        if (now.isAfter(exam.getEndTime())) {
+            return "ENDED";
+        }
+        return "ONGOING";
+    }
+
+    /** 把考试实体转成列表摘要（算题数、总分、时间窗状态） */
+    private StudentExamSummary toSummary(Exam exam, LocalDateTime now, boolean submitted) {
+        int count = exam.getQuestions() == null ? 0 : exam.getQuestions().size();
+        int totalScore = exam.getQuestions() == null ? 0
+                : exam.getQuestions().stream()
+                        .mapToInt(q -> q.getScore() == null ? 0 : q.getScore())
+                        .sum();
+        return new StudentExamSummary(
+                exam.getId(), exam.getTitle(), exam.getDescription(), exam.getTargetClass(),
+                exam.getStartTime(), exam.getEndTime(), exam.getDurationMinutes(),
+                timeStatus(exam, now), count, totalScore, submitted);
     }
 
     /**

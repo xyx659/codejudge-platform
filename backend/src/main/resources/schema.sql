@@ -42,14 +42,16 @@ CREATE TABLE IF NOT EXISTS admins (
 
 CREATE TABLE IF NOT EXISTS submissions (
     id           BIGINT      NOT NULL AUTO_INCREMENT COMMENT '提交 ID',
+    exam_id      VARCHAR(50) NULL COMMENT '考试 ID（对应 MongoDB exams._id）',
     question_id  VARCHAR(50) NOT NULL COMMENT '题目 ID（对应 MongoDB questions._id）',
     student_id   BIGINT      NOT NULL COMMENT '学生 ID（对应 students.id）',
-    judge_status VARCHAR(30) NULL COMMENT '判卷状态：PENDING / RUN_COMPLETED / COMPILE_ERROR / TIMEOUT',
+    judge_status VARCHAR(30) NULL COMMENT '判卷状态：PENDING / RUN_COMPLETED / COMPILE_ERROR / TIMEOUT / UNANSWERED',
     score        INT         NULL COMMENT '最终得分',
     created_at   DATETIME    NOT NULL COMMENT '提交时间',
     PRIMARY KEY (id),
     KEY idx_submissions_student_id (student_id),
-    KEY idx_submissions_question_id (question_id)
+    KEY idx_submissions_question_id (question_id),
+    KEY idx_submissions_exam_id (exam_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '提交记录元数据表';
 
 CREATE TABLE IF NOT EXISTS system_configs (

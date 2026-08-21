@@ -14,7 +14,8 @@ export function judgeStatusText(status) {
     PENDING: '评测中',
     RUN_COMPLETED: '已完成',
     COMPILE_ERROR: '编译错误',
-    TIMEOUT: '超时'
+    TIMEOUT: '超时',
+    UNANSWERED: '未作答'
   }
   return map[status] || status || '未知'
 }

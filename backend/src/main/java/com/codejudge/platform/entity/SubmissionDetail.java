@@ -23,6 +23,9 @@ public class SubmissionDetail {
     /** 学生 ID（对应 users.id） */
     private Long studentId;
 
+    /** 考试 ID（对应 exams._id）。为 null 表示旧版「单题提交」遗留数据 */
+    private String examId;
+
     /** 题目 ID（对应 questions._id） */
     private String questionId;
 
@@ -57,6 +60,14 @@ public class SubmissionDetail {
 
     public void setStudentId(Long studentId) {
         this.studentId = studentId;
+    }
+
+    public String getExamId() {
+        return examId;
+    }
+
+    public void setExamId(String examId) {
+        this.examId = examId;
     }
 
     public String getQuestionId() {

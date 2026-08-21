@@ -33,4 +33,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     /** 批量查某个学生对若干道题的提交（用于列表标记「已提交」） */
     List<Submission> findByStudentIdAndQuestionIdIn(Long studentId, Collection<String> questionIds);
+
+    /** 查某个学生对某场考试的任意一条提交（整卷一次交卷，用于判断「是否已交卷」） */
+    Optional<Submission> findFirstByStudentIdAndExamId(Long studentId, String examId);
+
+    /** 查某个学生在某场考试里的全部提交（按题展开，用于交卷后回看每题答案） */
+    List<Submission> findByStudentIdAndExamId(Long studentId, String examId);
 }

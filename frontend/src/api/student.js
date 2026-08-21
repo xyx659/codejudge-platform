@@ -13,6 +13,21 @@ function query(params = {}) {
   return suffix
 }
 
+/** 我的考试列表（学生看到的是试卷） */
+export function listExams() {
+  return get('/student/exams')
+}
+
+/** 考试详情（进试卷答题 / 交卷后回看） */
+export function getExam(id) {
+  return get(`/student/exams/${id}`)
+}
+
+/** 整卷交卷（一次性提交试卷内各题答案） */
+export function submitExam(id, data) {
+  return post(`/student/exams/${id}/submit`, data)
+}
+
 /** 题目列表（分页 + 难度/标签筛选） */
 export function listQuestions(params = {}) {
   return get(`/student/questions${query(params)}`)

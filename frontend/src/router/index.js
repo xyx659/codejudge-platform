@@ -6,6 +6,7 @@ import AdminLayout from '../layouts/admin/AdminLayout.vue'
 import StudentHome from '../views/student/StudentHome.vue'
 import StudentScores from '../views/student/StudentScores.vue'
 import QuestionSolve from '../views/student/QuestionSolve.vue'
+import ExamSolve from '../views/student/ExamSolve.vue'
 import StudentLogin from '../views/student/StudentLogin.vue'
 import TeacherHome from '../views/teacher/TeacherHome.vue'
 import TeacherQuestions from '../views/teacher/TeacherQuestions.vue'
@@ -54,6 +55,7 @@ const routes = [
       { path: '', redirect: '/student/home' },
       { path: 'home', component: StudentHome },
       { path: 'questions/:id', component: QuestionSolve },
+      { path: 'exams/:id', component: ExamSolve },
       { path: 'scores', component: StudentScores }
     ]
   },

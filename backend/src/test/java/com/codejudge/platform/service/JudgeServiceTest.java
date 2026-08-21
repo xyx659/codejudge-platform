@@ -22,11 +22,14 @@ class JudgeServiceTest {
     @Mock
     private SystemConfigService systemConfigService;
 
+    @Mock
+    private JudgeEngine judgeEngine;
+
     @Test
     void 触发评测时读取并记录最新配置且不记录AIKey() {
         when(systemConfigService.getJudgeRuntimeConfig())
                 .thenReturn(new JudgeRuntimeConfig(4200, 512, 8));
-        JudgeService judgeService = new JudgeService(systemConfigService);
+        JudgeService judgeService = new JudgeService(systemConfigService, judgeEngine);
 
         ListAppender<ILoggingEvent> appender = attachLogger();
         try {
@@ -40,6 +43,7 @@ class JudgeServiceTest {
                 .collect(Collectors.joining("\n"));
 
         verify(systemConfigService).getJudgeRuntimeConfig();
+        verify(judgeEngine).judge(100L);
         assertTrue(logs.contains("timeoutMs=4200"), "日志应包含最新评测超时");
         assertTrue(logs.contains("memoryMb=512"), "日志应包含最新内存限制");
         assertTrue(logs.contains("maxConcurrent=8"), "日志应包含最新最大并发");
