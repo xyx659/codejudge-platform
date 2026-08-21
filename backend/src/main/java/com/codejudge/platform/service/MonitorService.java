@@ -16,8 +16,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 考试监考业务逻辑。
@@ -55,8 +57,8 @@ public class MonitorService {
 
         List<ExamQuestion> questions = exam.getQuestions();
         List<Student> students = studentRepository.findAll();
-        // 学生 -> （题目 -> 最佳得分）
-        Map<Long, Map<String, Integer>> bestByStudent = computeBestScores(questions);
+        // 学生 -> 已作答题目集合 / 各题最佳得分
+        SubmissionState state = computeSubmissionState(questions);
 
         List<MonitorStudentStatus> statusList = new ArrayList<MonitorStudentStatus>();
         List<AlertItem> alerts = new ArrayList<AlertItem>();
@@ -64,9 +66,10 @@ public class MonitorService {
         double scoreSum = 0.0;
 
         for (Student student : students) {
-            Map<String, Integer> best = bestByStudent.getOrDefault(student.getId(), Map.of());
+            Set<String> submittedQuestions = state.submitted().getOrDefault(student.getId(), Set.of());
+            Map<String, Integer> best = state.bestScores().getOrDefault(student.getId(), Map.of());
             int submitted = (int) questions.stream()
-                    .filter(q -> best.containsKey(q.getQuestionId()))
+                    .filter(q -> submittedQuestions.contains(q.getQuestionId()))
                     .count();
             int score = totalScore(questions, best);
 
@@ -108,22 +111,38 @@ public class MonitorService {
                 students.size(), submittedCount, avgScore, statusList, alerts);
     }
 
-    /** 计算每个学生在各题的最佳得分（只统计分数非空的提交，取最大值） */
-    private Map<Long, Map<String, Integer>> computeBestScores(List<ExamQuestion> questions) {
-        Map<Long, Map<String, Integer>> result = new HashMap<Long, Map<String, Integer>>();
+    /** 学生作答情况：已作答题目集合 + 各题最佳得分（仅统计已出分的提交） */
+    private record SubmissionState(
+            Map<Long, Set<String>> submitted,
+            Map<Long, Map<String, Integer>> bestScores) {
+    }
+
+    /**
+     * 汇总每个学生的作答情况。
+     *
+     * <p>「是否作答」只看 MySQL submissions 里有没有该学生对某题的提交记录，
+     * 不看分数——评测引擎尚未接入时分数为 null，若只看分数会把已交卷误判成未开始。</p>
+     */
+    private SubmissionState computeSubmissionState(List<ExamQuestion> questions) {
+        Map<Long, Set<String>> submitted = new HashMap<Long, Set<String>>();
+        Map<Long, Map<String, Integer>> bestScores = new HashMap<Long, Map<String, Integer>>();
         if (questions.isEmpty()) {
-            return result;
+            return new SubmissionState(submitted, bestScores);
         }
         List<String> questionIds = questions.stream().map(ExamQuestion::getQuestionId).toList();
         List<Submission> submissions = submissionQueryRepository.findByQuestionIdIn(questionIds);
         for (Submission submission : submissions) {
+            // 只要有提交记录，就算「已作答」（用于判断未开始/答题中/已交卷）
+            submitted.computeIfAbsent(submission.getStudentId(), k -> new HashSet<String>())
+                    .add(submission.getQuestionId());
+            // 分数只在评测完成后才有值；未出分（null）不参与计分、也不触发零分预警
             if (submission.getScore() == null) {
                 continue;
             }
-            result.computeIfAbsent(submission.getStudentId(), k -> new HashMap<String, Integer>())
+            bestScores.computeIfAbsent(submission.getStudentId(), k -> new HashMap<String, Integer>())
                     .merge(submission.getQuestionId(), submission.getScore(), Math::max);
         }
-        return result;
+        return new SubmissionState(submitted, bestScores);
     }
 
     /** 学生总分：每题取 min(最佳得分, 该题分值) 累加 */
