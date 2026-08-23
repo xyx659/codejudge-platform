@@ -1,7 +1,7 @@
-<!-- 学生端：进试卷答题页。按考试时间窗答题，倒计时到点自动交卷，交卷后回看 -->
+<!-- 学生端：进试卷答题页。一道题一页（分页），按考试时间窗答题，倒计时到点自动交卷，交卷后回看 -->
 <template>
   <div class="page">
-    <button class="back" @click="router.push('/student/home')">← 返回考试列表</button>
+    <button class="back" @click="goBack">← 返回考试列表</button>
 
     <p v-if="loading" class="hint">加载中...</p>
     <p v-else-if="error" class="hint error">{{ error }}</p>
@@ -30,23 +30,34 @@
         {{ exam.submitted ? '考试已结束' : '考试已结束，未交卷' }}
       </div>
 
-      <!-- 题目列表（每题一个编辑器） -->
-      <div v-for="(q, i) in exam.questions" :key="q.questionId" class="card qcard">
-        <div class="qhead">
-          <span class="qnum">{{ i + 1 }}. {{ q.title }}</span>
-          <span class="badge" :class="difficultyClass(q.difficulty)">{{ q.difficulty }}</span>
-          <span class="qscore">{{ q.score }} 分</span>
-        </div>
-        <div class="qdesc">{{ q.description }}</div>
+      <!-- 题号跳转条 -->
+      <div v-if="exam.questions.length" class="qstrip">
+        <button
+          v-for="(q, i) in exam.questions"
+          :key="q.questionId"
+          class="qnum-btn"
+          :class="{ current: i === current, answered: isAnswered(i) }"
+          @click="goQuestion(i)"
+        >{{ i + 1 }}</button>
+      </div>
 
-        <div v-if="q.testCases && q.testCases.length" class="samples">
+      <!-- 当前题目（一道题一页） -->
+      <div v-if="currentQuestion" class="card qcard">
+        <div class="qhead">
+          <span class="qnum">第 {{ current + 1 }} 题 · {{ currentQuestion.title }}</span>
+          <span class="badge" :class="difficultyClass(currentQuestion.difficulty)">{{ currentQuestion.difficulty }}</span>
+          <span class="qscore">{{ currentQuestion.score }} 分</span>
+        </div>
+        <div class="qdesc">{{ currentQuestion.description }}</div>
+
+        <div v-if="currentQuestion.testCases && currentQuestion.testCases.length" class="samples">
           <div class="label">样例测试用例</div>
           <table>
             <thead>
               <tr><th>名称</th><th>输入</th><th>期望输出</th></tr>
             </thead>
             <tbody>
-              <tr v-for="(tc, ti) in q.testCases" :key="ti">
+              <tr v-for="(tc, ti) in currentQuestion.testCases" :key="ti">
                 <td>{{ tc.name }}</td>
                 <td><code>{{ tc.input }}</code></td>
                 <td><code>{{ tc.expected }}</code></td>
@@ -55,16 +66,19 @@
           </table>
         </div>
 
-        <div class="label">{{ editable ? `编写代码（${q.methodName}）` : '代码' }}</div>
-        <div :ref="el => setEditorEl(el, i)" class="editor"></div>
-        <p v-if="q.myScore != null" class="my-score">
-          本题得分：{{ q.myScore }}（{{ judgeStatusText(q.judgeStatus) }}）
+        <div class="label">{{ editable ? `编写代码（${currentQuestion.methodName}）` : '代码' }}</div>
+        <div ref="editorEl" class="editor"></div>
+        <p v-if="currentQuestion.myScore != null" class="my-score">
+          本题得分：{{ currentQuestion.myScore }}（{{ judgeStatusText(currentQuestion.judgeStatus) }}）
         </p>
       </div>
 
-      <!-- 交卷 -->
-      <div v-if="editable" class="actions">
-        <button class="btn primary" :disabled="submitting" @click="submitAll">
+      <!-- 底部翻页 + 交卷 -->
+      <div class="footer">
+        <button class="btn" :disabled="current === 0" @click="goQuestion(current - 1)">上一题</button>
+        <span class="page-indicator">{{ current + 1 }} / {{ exam.questions.length }}</span>
+        <button class="btn" :disabled="current === exam.questions.length - 1" @click="goQuestion(current + 1)">下一题</button>
+        <button v-if="editable" class="btn primary" :disabled="submitting" @click="submitAll">
           {{ submitting ? '交卷中...' : '交卷' }}
         </button>
       </div>
@@ -91,10 +105,16 @@ const submitting = ref(false)
 const submitMsg = ref('')
 const countdown = ref('')
 
-const editorEls = ref([])
-const editors = ref([])
+// 当前题目下标（0 起）；answers 按题目下标保存学生实际输入的源码（未作答为 null）
+const current = ref(0)
+const answers = ref([])
 
+const editorEl = ref(null)
+let editor = null
 let timer = null
+
+const questionCount = computed(() => (exam.value && exam.value.questions ? exam.value.questions.length : 0))
+const currentQuestion = computed(() => (exam.value && exam.value.questions ? exam.value.questions[current.value] : null))
 
 // 是否处于可作答状态：进行中 且 尚未交卷
 const editable = computed(() => !!exam.value && exam.value.status === 'ONGOING' && !exam.value.submitted)
@@ -105,6 +125,7 @@ onMounted(async () => {
   try {
     const res = await getExam(route.params.id)
     exam.value = res.data
+    answers.value = exam.value.questions.map(() => null)
   } catch (e) {
     error.value = e.message || '加载失败'
   } finally {
@@ -113,7 +134,7 @@ onMounted(async () => {
 
   if (exam.value) {
     await nextTick()
-    initEditors()
+    initEditor()
     if (exam.value.status === 'ONGOING' && !exam.value.submitted) {
       startCountdown()
     }
@@ -121,12 +142,14 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  disposeEditors()
+  disposeEditor()
   if (timer) clearInterval(timer)
 })
 
-function setEditorEl(el, i) {
-  editorEls.value[i] = el
+function goBack() {
+  disposeEditor()
+  if (timer) clearInterval(timer)
+  router.push('/student/home')
 }
 
 function defaultTemplate(methodName) {
@@ -150,29 +173,57 @@ function clearDrafts() {
   exam.value.questions.forEach(q => localStorage.removeItem(draftKey(q.questionId)))
 }
 
-function initEditors() {
-  disposeEditors()
-  if (!exam.value) return
-  exam.value.questions.forEach((q, i) => {
-    const el = editorEls.value[i]
-    if (!el) return
-    const value = exam.value.submitted
-      ? q.sourceCode || '// 无源码'
-      : loadDraft(q.questionId) || defaultTemplate(q.methodName)
-    const editor = createEditor(el, {
-      value,
-      readOnly: !editable.value,
-      onChange: code => {
-        if (editable.value) saveDraft(q.questionId, code)
+function initEditor() {
+  disposeEditor()
+  const q = currentQuestion.value
+  if (!q || !editorEl.value) return
+  const i = current.value
+  const value = editable.value
+    ? (answers.value[i] ?? loadDraft(q.questionId) ?? defaultTemplate(q.methodName))
+    : (q.sourceCode || '// 无源码')
+  editor = createEditor(editorEl.value, {
+    value,
+    readOnly: !editable.value,
+    onChange: code => {
+      if (editable.value) {
+        answers.value[i] = code
+        saveDraft(q.questionId, code)
       }
-    })
-    editors.value.push(editor)
+    }
   })
 }
 
-function disposeEditors() {
-  editors.value.forEach(e => e.dispose())
-  editors.value = []
+function disposeEditor() {
+  if (editor) {
+    try {
+      editor.dispose()
+    } catch (e) {
+      // 忽略 dispose 异常，避免返回/切换题目时卡住
+    }
+    editor = null
+  }
+}
+
+function goQuestion(i) {
+  if (i < 0 || i >= questionCount.value || i === current.value) return
+  current.value = i
+  nextTick(() => initEditor())
+}
+
+// 是否真正作答过（有输入、且不是默认模板）
+function isAnswered(i) {
+  const q = exam.value && exam.value.questions ? exam.value.questions[i] : null
+  if (!q) return false
+  const code = answers.value[i]
+  if (code == null || !code.trim()) return false
+  return code.trim() !== defaultTemplate(q.methodName).trim()
+}
+
+// 交卷时把「空白 / 还是默认模板」的题目当作未作答
+function normalizeAnswer(q, code) {
+  if (!code || !code.trim()) return ''
+  if (code.trim() === defaultTemplate(q.methodName).trim()) return ''
+  return code
 }
 
 function startCountdown() {
@@ -185,8 +236,10 @@ function tick() {
   const remaining = new Date(exam.value.endTime).getTime() - Date.now()
   if (remaining <= 0) {
     countdown.value = '00:00:00'
-    if (timer) clearInterval(timer)
-    timer = null
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
     // 到点自动交卷
     if (editable.value && !submitting.value) {
       submitAll()
@@ -209,19 +262,21 @@ async function submitAll() {
   if (!exam.value || submitting.value) return
   submitting.value = true
   submitMsg.value = ''
-  const answers = exam.value.questions.map((q, i) => {
-    const editor = editors.value[i]
-    return { questionId: q.questionId, sourceCode: editor ? editor.getValue() : '' }
+  const payload = exam.value.questions.map((q, i) => {
+    const raw = answers.value[i] ?? loadDraft(q.questionId) ?? ''
+    return { questionId: q.questionId, sourceCode: normalizeAnswer(q, raw) }
   })
   try {
-    const res = await submitExam(exam.value.id, { answers })
+    const res = await submitExam(exam.value.id, { answers: payload })
     submitMsg.value = `交卷成功（已作答 ${res.data.answeredCount}/${res.data.totalCount} 题）`
     // 交卷后回看：重新拉详情，清草稿，切换为只读
     clearDrafts()
     const detail = await getExam(exam.value.id)
     exam.value = detail.data
+    current.value = 0
+    answers.value = exam.value.questions.map(() => null)
     await nextTick()
-    initEditors()
+    initEditor()
   } catch (e) {
     submitMsg.value = e.message || '交卷失败'
   } finally {
@@ -268,8 +323,7 @@ function formatTime(s) {
   padding: 20px 0;
 }
 
-.hint.error,
-.error {
+.hint.error {
   color: #dc2626;
 }
 
@@ -351,6 +405,42 @@ function formatTime(s) {
   font-size: 16px;
 }
 
+/* 题号跳转条 */
+.qstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.qnum-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.qnum-btn.current {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.qnum-btn.answered {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+
+.qnum-btn.answered.current {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -420,7 +510,7 @@ function formatTime(s) {
 }
 
 .editor {
-  height: 240px;
+  height: 260px;
   border-top: 1px solid #e5e7eb;
 }
 
@@ -430,14 +520,21 @@ function formatTime(s) {
   font-size: 13px;
 }
 
-.actions {
+/* 底部翻页 + 交卷 */
+.footer {
   display: flex;
+  align-items: center;
   gap: 12px;
   margin-bottom: 16px;
 }
 
+.page-indicator {
+  color: #6b7280;
+  font-size: 14px;
+}
+
 .btn {
-  padding: 8px 20px;
+  padding: 8px 16px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #fff;
@@ -447,7 +544,7 @@ function formatTime(s) {
 }
 
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -455,6 +552,7 @@ function formatTime(s) {
   background: #2563eb;
   border-color: #2563eb;
   color: #fff;
+  margin-left: auto;
 }
 
 .submit-msg {
