@@ -68,6 +68,24 @@
 
         <div class="label">{{ editable ? `编写代码（${currentQuestion.methodName}）` : '代码' }}</div>
         <div ref="editorEl" class="editor"></div>
+
+        <!-- 本地样例自测 -->
+        <div v-if="editable" class="testbar">
+          <button class="btn" :disabled="testing" @click="runTest">
+            {{ testing ? '测试中...' : '测试' }}
+          </button>
+          <span class="test-hint">用样例用例本地跑一遍（不提交）</span>
+        </div>
+        <p v-if="testError" class="test-error">{{ testError }}</p>
+        <div v-if="testResults" class="test-results">
+          <div v-for="(r, ri) in testResults" :key="ri" class="test-row" :class="{ pass: r.passed, fail: !r.passed }">
+            <span class="test-status">{{ r.passed ? '✓' : '✗' }}</span>
+            <span class="test-name">{{ r.name }}</span>
+            <span class="test-msg">{{ r.message }}</span>
+            <span v-if="!r.passed" class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+          </div>
+        </div>
+
         <p v-if="currentQuestion.myScore != null" class="my-score">
           本题得分：{{ currentQuestion.myScore }}（{{ judgeStatusText(currentQuestion.judgeStatus) }}）
         </p>
@@ -93,6 +111,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getExam, submitExam } from '../../api/student'
 import { createEditor } from '../../utils/monaco'
+import { runLocalTests } from '../../utils/jsRunner'
 import { difficultyClass, judgeStatusText } from '../../utils/format'
 
 const route = useRoute()
@@ -112,6 +131,11 @@ const answers = ref([])
 const editorEl = ref(null)
 let editor = null
 let timer = null
+
+// 本地样例自测状态
+const testing = ref(false)
+const testResults = ref(null)
+const testError = ref('')
 
 const questionCount = computed(() => (exam.value && exam.value.questions ? exam.value.questions.length : 0))
 const currentQuestion = computed(() => (exam.value && exam.value.questions ? exam.value.questions[current.value] : null))
@@ -207,7 +231,38 @@ function disposeEditor() {
 function goQuestion(i) {
   if (i < 0 || i >= questionCount.value || i === current.value) return
   current.value = i
+  testResults.value = null
+  testError.value = ''
   nextTick(() => initEditor())
+}
+
+// 本地样例自测：读当前编辑器代码，在浏览器里跑一遍样例用例
+async function runTest() {
+  const q = currentQuestion.value
+  if (!q || !editor) return
+  testError.value = ''
+  testResults.value = null
+  const code = editor.getValue()
+  if (!code || !code.trim()) {
+    testError.value = '请先编写代码'
+    return
+  }
+  if (!q.testCases || !q.testCases.length) {
+    testError.value = '本题暂无样例测试用例'
+    return
+  }
+  testing.value = true
+  try {
+    const res = await runLocalTests(code, q.methodName, q.testCases)
+    if (res.compileError) {
+      testError.value = res.compileError
+      testResults.value = null
+    } else {
+      testResults.value = res.results
+    }
+  } finally {
+    testing.value = false
+  }
 }
 
 // 是否真正作答过（有输入、且不是默认模板）
@@ -518,6 +573,74 @@ function formatTime(s) {
   padding: 8px 16px 12px;
   color: #16a34a;
   font-size: 13px;
+}
+
+/* 本地样例自测 */
+.testbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+}
+
+.test-hint {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.test-error {
+  padding: 0 16px 10px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.test-results {
+  padding: 0 16px 12px;
+}
+
+.test-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.test-row.pass {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.test-row.fail {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.test-status {
+  font-weight: 700;
+}
+
+.test-row.pass .test-status {
+  color: #16a34a;
+}
+
+.test-row.fail .test-status {
+  color: #dc2626;
+}
+
+.test-name {
+  color: #374151;
+}
+
+.test-msg {
+  color: #6b7280;
+}
+
+.test-io {
+  color: #6b7280;
 }
 
 /* 底部翻页 + 交卷 */
