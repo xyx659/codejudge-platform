@@ -15,12 +15,14 @@ import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
 import com.codejudge.platform.dto.SubmissionResult;
 import com.codejudge.platform.dto.SubmissionSummary;
+import com.codejudge.platform.entity.CheatEvent;
 import com.codejudge.platform.entity.Exam;
 import com.codejudge.platform.entity.ExamQuestion;
 import com.codejudge.platform.entity.Question;
 import com.codejudge.platform.entity.Student;
 import com.codejudge.platform.entity.Submission;
 import com.codejudge.platform.entity.SubmissionDetail;
+import com.codejudge.platform.repository.CheatEventRepository;
 import com.codejudge.platform.repository.ExamRepository;
 import com.codejudge.platform.repository.QuestionRepository;
 import com.codejudge.platform.repository.StudentRepository;
@@ -88,6 +90,9 @@ public class StudentService {
     /** 题目可见性索引：学生只能看到已发布试卷里的题目 */
     private final QuestionVisibilityIndex visibilityIndex;
 
+    /** 防作弊事件仓库：学生端答题页上报切屏/切页面事件 */
+    private final CheatEventRepository cheatEventRepository;
+
     /** 构造方法：Spring 启动时会自动把需要的仓库和服务传进来（这叫依赖注入） */
     public StudentService(MongoTemplate mongoTemplate,
                           QuestionRepository questionRepository,
@@ -96,7 +101,8 @@ public class StudentService {
                           SubmissionRepository submissionRepository,
                           SubmissionDetailRepository submissionDetailRepository,
                           JudgeService judgeService,
-                          QuestionVisibilityIndex visibilityIndex) {
+                          QuestionVisibilityIndex visibilityIndex,
+                          CheatEventRepository cheatEventRepository) {
         this.mongoTemplate = mongoTemplate;
         this.questionRepository = questionRepository;
         this.examRepository = examRepository;
@@ -105,6 +111,7 @@ public class StudentService {
         this.submissionDetailRepository = submissionDetailRepository;
         this.judgeService = judgeService;
         this.visibilityIndex = visibilityIndex;
+        this.cheatEventRepository = cheatEventRepository;
     }
 
     /**
@@ -334,6 +341,24 @@ public class StudentService {
         }
 
         return new ExamSubmitResult(examId, now, answered, questions.size());
+    }
+
+    /**
+     * 上报防作弊事件（切屏 / 切页面）。
+     *
+     * <p>学生端答题页检测到离开页面/失焦时上报；仅记录事件供监考统计，
+     * 不做拦截。校验考试存在且对本班可见，避免乱写考试 ID。</p>
+     */
+    public void reportCheat(String examId, String eventType) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new NotFoundException("考试不存在"));
+        Student student = currentStudent();
+        if (!visibleByClass(exam, student)) {
+            throw new NotFoundException("考试不存在");
+        }
+        // 只认两类事件，其余归一为切屏
+        String type = "LEAVE_PAGE".equals(eventType) ? "LEAVE_PAGE" : "SWITCH_TAB";
+        cheatEventRepository.save(new CheatEvent(examId, student.getId(), type));
     }
 
     /**

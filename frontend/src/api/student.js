@@ -28,6 +28,11 @@ export function submitExam(id, data) {
   return post(`/student/exams/${id}/submit`, data)
 }
 
+/** 上报防作弊事件（切屏 SWITCH_TAB / 切页面 LEAVE_PAGE） */
+export function reportCheat(id, eventType) {
+  return post(`/student/exams/${id}/cheat-event`, { eventType })
+}
+
 /** 题目列表（分页 + 难度/标签筛选） */
 export function listQuestions(params = {}) {
   return get(`/student/questions${query(params)}`)

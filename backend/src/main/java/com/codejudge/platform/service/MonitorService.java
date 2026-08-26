@@ -5,10 +5,12 @@ import com.codejudge.platform.common.NotFoundException;
 import com.codejudge.platform.dto.AlertItem;
 import com.codejudge.platform.dto.MonitorStudentStatus;
 import com.codejudge.platform.dto.MonitorSummary;
+import com.codejudge.platform.entity.CheatEvent;
 import com.codejudge.platform.entity.Exam;
 import com.codejudge.platform.entity.ExamQuestion;
 import com.codejudge.platform.entity.Student;
 import com.codejudge.platform.entity.Submission;
+import com.codejudge.platform.repository.CheatEventRepository;
 import com.codejudge.platform.repository.ExamRepository;
 import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.SubmissionQueryRepository;
@@ -37,13 +39,16 @@ public class MonitorService {
     private final ExamRepository examRepository;
     private final StudentRepository studentRepository;
     private final SubmissionQueryRepository submissionQueryRepository;
+    private final CheatEventRepository cheatEventRepository;
 
     public MonitorService(ExamRepository examRepository,
                           StudentRepository studentRepository,
-                          SubmissionQueryRepository submissionQueryRepository) {
+                          SubmissionQueryRepository submissionQueryRepository,
+                          CheatEventRepository cheatEventRepository) {
         this.examRepository = examRepository;
         this.studentRepository = studentRepository;
         this.submissionQueryRepository = submissionQueryRepository;
+        this.cheatEventRepository = cheatEventRepository;
     }
 
     /** 查询一场考试的监考总览 */
@@ -59,6 +64,8 @@ public class MonitorService {
         List<Student> students = studentRepository.findAll();
         // 学生 -> 已作答题目集合 / 各题最佳得分
         SubmissionState state = computeSubmissionState(questions);
+        // 学生 -> 作弊事件次数，int[]{切屏次数, 切页面次数}
+        Map<Long, int[]> cheatCounts = computeCheatCounts(examId);
 
         List<MonitorStudentStatus> statusList = new ArrayList<MonitorStudentStatus>();
         List<AlertItem> alerts = new ArrayList<AlertItem>();
@@ -87,9 +94,14 @@ public class MonitorService {
                 scoreSum += score;
             }
 
+            int[] cheat = cheatCounts.getOrDefault(student.getId(), new int[]{0, 0});
+            int switchTabCount = cheat[0];
+            int leavePageCount = cheat[1];
+
             statusList.add(new MonitorStudentStatus(
                     student.getId(), student.getStudentNo(), student.getName(),
-                    submitted, questions.size(), score, statusText));
+                    submitted, questions.size(), score, statusText,
+                    switchTabCount, leavePageCount));
 
             // 预警一：考试进行中却还没开始作答
             if (submitted == 0 && "PUBLISHED".equals(exam.getStatus())) {
@@ -101,6 +113,15 @@ public class MonitorService {
             if (submitted > 0 && hasZero) {
                 alerts.add(new AlertItem(student.getId(), student.getName(),
                         "零分题", "存在得 0 分的题目，请关注"));
+            }
+            // 预警三/四：切屏 / 切页面
+            if (switchTabCount > 0) {
+                alerts.add(new AlertItem(student.getId(), student.getName(),
+                        "切屏", "考试期间切屏 " + switchTabCount + " 次"));
+            }
+            if (leavePageCount > 0) {
+                alerts.add(new AlertItem(student.getId(), student.getName(),
+                        "切页面", "考试期间离开页面 " + leavePageCount + " 次"));
             }
         }
 
@@ -157,6 +178,25 @@ public class MonitorService {
             total += Math.min(score, cap);
         }
         return total;
+    }
+
+    /**
+     * 汇总一场考试里每个学生的防作弊事件次数。
+     *
+     * <p>返回 {@code 学生ID -> int[]{切屏次数, 切页面次数}}。</p>
+     */
+    private Map<Long, int[]> computeCheatCounts(String examId) {
+        Map<Long, int[]> counts = new HashMap<Long, int[]>();
+        List<CheatEvent> events = cheatEventRepository.findByExamId(examId);
+        for (CheatEvent event : events) {
+            int[] arr = counts.computeIfAbsent(event.getStudentId(), k -> new int[]{0, 0});
+            if ("LEAVE_PAGE".equals(event.getEventType())) {
+                arr[1]++;
+            } else {
+                arr[0]++;
+            }
+        }
+        return counts;
     }
 
     /** 保留一位小数 */

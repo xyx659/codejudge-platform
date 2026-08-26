@@ -108,11 +108,12 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { getExam, submitExam } from '../../api/student'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { getExam, submitExam, reportCheat as reportCheatApi } from '../../api/student'
 import { createEditor } from '../../utils/monaco'
 import { runLocalTests } from '../../utils/jsRunner'
 import { difficultyClass, judgeStatusText } from '../../utils/format'
+import { getToken } from '../../utils/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -143,6 +144,56 @@ const currentQuestion = computed(() => (exam.value && exam.value.questions ? exa
 // 是否处于可作答状态：进行中 且 尚未交卷
 const editable = computed(() => !!exam.value && exam.value.status === 'ONGOING' && !exam.value.submitted)
 
+// ===== 防作弊：切屏 / 切页面检测（仅考试进行中、未交卷时生效） =====
+let isAway = false
+
+function sendCheat(eventType) {
+  if (!exam.value || !editable.value) return
+  reportCheatApi(exam.value.id, eventType).catch(() => {})
+}
+
+function handleVisibility() {
+  if (document.hidden) {
+    if (!isAway) {
+      isAway = true
+      sendCheat('SWITCH_TAB')
+    }
+  } else {
+    isAway = false
+  }
+}
+
+function handleBlur() {
+  if (!isAway) {
+    isAway = true
+    sendCheat('SWITCH_TAB')
+  }
+}
+
+function handleFocus() {
+  isAway = false
+}
+
+// 关闭/刷新页面时用 keepalive 请求上报「切页面」（普通 fetch 在 unload 时会被中断）
+function handleUnload() {
+  if (!exam.value || !editable.value) return
+  const token = getToken()
+  fetch(`/api/student/exams/${exam.value.id}/cheat-event`, {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ eventType: 'LEAVE_PAGE' })
+  }).catch(() => {})
+}
+
+// 离开答题页（点返回、切到别的菜单）→ 记一次「切页面」
+onBeforeRouteLeave(() => {
+  sendCheat('LEAVE_PAGE')
+})
+
 onMounted(async () => {
   loading.value = true
   error.value = ''
@@ -163,11 +214,22 @@ onMounted(async () => {
       startCountdown()
     }
   }
+
+  // 注册防作弊监听
+  document.addEventListener('visibilitychange', handleVisibility)
+  window.addEventListener('blur', handleBlur)
+  window.addEventListener('focus', handleFocus)
+  window.addEventListener('beforeunload', handleUnload)
 })
 
 onBeforeUnmount(() => {
   disposeEditor()
   if (timer) clearInterval(timer)
+  // 移除防作弊监听
+  document.removeEventListener('visibilitychange', handleVisibility)
+  window.removeEventListener('blur', handleBlur)
+  window.removeEventListener('focus', handleFocus)
+  window.removeEventListener('beforeunload', handleUnload)
 })
 
 function goBack() {

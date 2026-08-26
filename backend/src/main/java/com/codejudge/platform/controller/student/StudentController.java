@@ -3,6 +3,7 @@ package com.codejudge.platform.controller.student;
 import com.codejudge.platform.common.ApiResponse;
 import com.codejudge.platform.common.ClientIpUtil;
 import com.codejudge.platform.common.PageResult;
+import com.codejudge.platform.dto.CheatEventRequest;
 import com.codejudge.platform.dto.ExamSubmitRequest;
 import com.codejudge.platform.dto.ExamSubmitResult;
 import com.codejudge.platform.dto.QuestionDetail;
@@ -85,6 +86,21 @@ public class StudentController {
                 .getName();
         rateLimitService.checkSubmission(username, ClientIpUtil.resolve(servletRequest));
         return ApiResponse.ok(studentService.submitExam(id, request));
+    }
+
+    /**
+     * 上报防作弊事件（切屏 / 切页面）。
+     *
+     * <pre>
+     * POST /api/student/exams/{id}/cheat-event
+     * { "eventType": "SWITCH_TAB" }  或  { "eventType": "LEAVE_PAGE" }
+     * </pre>
+     */
+    @PostMapping("/exams/{id}/cheat-event")
+    public ApiResponse<Void> reportCheat(@PathVariable String id,
+                                         @RequestBody CheatEventRequest request) {
+        studentService.reportCheat(id, request.eventType());
+        return ApiResponse.ok(null);
     }
 
     /**
