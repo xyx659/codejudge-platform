@@ -66,6 +66,7 @@ public class DataInitializer implements CommandLineRunner {
         if (studentRepository.count() == 0) {
             Student student = new Student("test", "张小明", passwordEncoder.encode("123456"));
             student.setStudentNo("20260001");
+            student.setClassName("软件2502");
             studentRepository.save(student);
         }
 

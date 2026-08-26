@@ -182,6 +182,9 @@ public class StudentService {
         List<Exam> exams = examRepository.findByStatus("PUBLISHED");
         List<StudentExamSummary> result = new ArrayList<StudentExamSummary>();
         for (Exam exam : exams) {
+            if (!visibleByClass(exam, student)) {
+                continue;
+            }
             boolean submitted = submissionRepository
                     .findFirstByStudentIdAndExamId(student.getId(), exam.getId())
                     .isPresent();
@@ -203,6 +206,9 @@ public class StudentService {
             throw new NotFoundException("考试不存在");
         }
         Student student = currentStudent();
+        if (!visibleByClass(exam, student)) {
+            throw new NotFoundException("考试不存在");
+        }
         LocalDateTime now = LocalDateTime.now();
         String status = timeStatus(exam, now);
 
@@ -272,6 +278,9 @@ public class StudentService {
             throw new NotFoundException("考试不存在");
         }
         Student student = currentStudent();
+        if (!visibleByClass(exam, student)) {
+            throw new NotFoundException("考试不存在");
+        }
         LocalDateTime now = LocalDateTime.now();
 
         // 时间窗校验：未开始不能交；已结束（留 60 秒容错）不能交
@@ -325,6 +334,19 @@ public class StudentService {
         }
 
         return new ExamSubmitResult(examId, now, answered, questions.size());
+    }
+
+    /**
+     * 学生所在班级能否看到这场考试。
+     *
+     * <p>考试未指定目标班级（targetClass 为空）时全员可见；否则只对本班学生可见。</p>
+     */
+    private boolean visibleByClass(Exam exam, Student student) {
+        String target = exam.getTargetClass();
+        if (target == null || target.isBlank()) {
+            return true;
+        }
+        return target.equals(student.getClassName());
     }
 
     /** 按当前时间判断考试处于哪个时间窗阶段：未开始 / 进行中 / 已结束 */
