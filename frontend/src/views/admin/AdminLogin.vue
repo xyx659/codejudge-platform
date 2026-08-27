@@ -7,7 +7,8 @@
     home-path="/admin/home"
     theme="#7c3aed"
     theme-dark="#3b2f63"
-    hint="演示账号：admin / admin123"
+    account-label="工号"
+    hint="演示工号：admin / admin123"
   />
 </template>
 

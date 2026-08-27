@@ -6,8 +6,8 @@
       <p class="subtitle">{{ subtitle }}</p>
       <form @submit.prevent="handleLogin">
         <label class="field">
-          <span>账号</span>
-          <input v-model.trim="username" type="text" placeholder="请输入账号" autocomplete="username" />
+          <span>{{ accountLabel }}</span>
+          <input v-model.trim="username" type="text" :placeholder="`请输入${accountLabel}`" autocomplete="username" />
         </label>
         <label class="field">
           <span>密码</span>
@@ -36,6 +36,7 @@ const props = defineProps({
   homePath: { type: String, required: true },
   theme: { type: String, default: '#2563eb' },
   themeDark: { type: String, default: '#1e3a5f' },
+  accountLabel: { type: String, default: '账号' },
   hint: { type: String, default: '' }
 })
 
@@ -47,7 +48,7 @@ const error = ref('')
 
 async function handleLogin() {
   if (!username.value || !password.value) {
-    error.value = '请输入账号和密码'
+    error.value = `请输入${props.accountLabel}和密码`
     return
   }
   loading.value = true

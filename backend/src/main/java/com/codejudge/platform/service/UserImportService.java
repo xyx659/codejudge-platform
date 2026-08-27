@@ -33,7 +33,7 @@ public class UserImportService {
     private static final Logger log = LoggerFactory.getLogger(UserImportService.class);
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final Set<String> IMPORT_ROLES = Set.of("STUDENT", "TEACHER");
-    private static final String[] HEADERS = {"role", "username", "name", "password", "studentNo"};
+    private static final String[] HEADERS = {"role", "username", "name", "password", "studentNo", "className"};
 
     private final AdminUserService adminUserService;
 
@@ -64,7 +64,6 @@ public class UserImportService {
                 total++;
                 // Commons CSV 将第一条数据记为 1，这里加回表头占用的第 1 行。
                 int row = (int) record.getRecordNumber() + 1;
-                String username = value(record, "username");
 
                 try {
                     ImportRow importRow = parseRow(record, row);
@@ -73,12 +72,14 @@ public class UserImportService {
                             importRow.username(),
                             importRow.name(),
                             importRow.password(),
-                            importRow.studentNo()));
+                            importRow.studentNo(),
+                            importRow.className()));
                     successCount++;
                 } catch (BadRequestException e) {
-                    errors.add(new UserImportError(row, username, e.getMessage()));
-                    log.warn("CSV导入失败：row={}, username={}, reason={}",
-                            row, username, e.getMessage());
+                    String account = displayAccount(record);
+                    errors.add(new UserImportError(row, account, e.getMessage()));
+                    log.warn("CSV导入失败：row={}, account={}, reason={}",
+                            row, account, e.getMessage());
                 }
             }
 
@@ -87,7 +88,7 @@ public class UserImportService {
             return new UserImportResult(
                     total, successCount, errors.size(), List.copyOf(errors));
         } catch (IllegalArgumentException e) {
-            throw new BadRequestException("CSV表头不正确，应为：role,username,name,password,studentNo");
+            throw new BadRequestException("CSV表头不正确，应为：role,username,name,password,studentNo,className");
         } catch (IOException e) {
             log.error("CSV文件读取失败", e);
             throw new BadRequestException("CSV文件读取失败");
@@ -102,14 +103,25 @@ public class UserImportService {
             throw new BadRequestException("仅支持导入学生或教师");
         }
 
-        String username = required(record, "username", "用户名不能为空");
         String name = required(record, "name", "姓名不能为空");
         String password = required(record, "password", "密码不能为空");
         String studentNo = value(record, "studentNo");
+        String className = value(record, "className");
 
-        if (username.length() > 50) {
-            throw new BadRequestException("用户名不能超过 50 个字符");
+        // 学生用学号作为登录账号；教师用工号作为登录账号
+        String username;
+        if ("STUDENT".equals(role)) {
+            username = required(record, "studentNo", "学号不能为空");
+            if (username.length() > 20) {
+                throw new BadRequestException("学号不能超过 20 个字符");
+            }
+        } else {
+            username = required(record, "username", "工号不能为空");
+            if (username.length() > 50) {
+                throw new BadRequestException("工号不能超过 50 个字符");
+            }
         }
+
         if (name.length() > 50) {
             throw new BadRequestException("姓名不能超过 50 个字符");
         }
@@ -117,17 +129,19 @@ public class UserImportService {
             throw new BadRequestException("密码长度必须为 6 到 100 个字符");
         }
         if ("STUDENT".equals(role)) {
-            if (studentNo == null) {
-                throw new BadRequestException("学号不能为空");
+            if (className != null && className.length() > 50) {
+                throw new BadRequestException("班级不能超过 50 个字符");
             }
-            if (studentNo.length() > 20) {
-                throw new BadRequestException("学号不能超过 20 个字符");
+        } else {
+            if (studentNo != null) {
+                throw new BadRequestException("教师不能填写学号");
             }
-        } else if (studentNo != null) {
-            throw new BadRequestException("教师不能填写学号");
+            if (className != null) {
+                throw new BadRequestException("教师不能填写班级");
+            }
         }
 
-        return new ImportRow(role, username, name, password, studentNo);
+        return new ImportRow(role, username, name, password, studentNo, className);
     }
 
     private void validateFile(MultipartFile file) {
@@ -159,6 +173,15 @@ public class UserImportService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    /** 用于错误展示的账号：学生显示学号，教师显示工号 */
+    private String displayAccount(CSVRecord record) {
+        String role = value(record, "role");
+        if ("STUDENT".equalsIgnoreCase(role)) {
+            return value(record, "studentNo");
+        }
+        return value(record, "username");
+    }
+
     private String required(CSVRecord record, String name, String message) {
         String value = value(record, name);
         if (value == null) {
@@ -172,6 +195,7 @@ public class UserImportService {
             String username,
             String name,
             String password,
-            String studentNo) {
+            String studentNo,
+            String className) {
     }
 }

@@ -7,7 +7,8 @@
     home-path="/student/home"
     theme="#2563eb"
     theme-dark="#1e3a5f"
-    hint="演示账号：test / 123456"
+    account-label="学号"
+    hint="演示学号：20260001 / 123456"
   />
 </template>
 

@@ -81,9 +81,9 @@ public class AdminUserController {
     /** 下载 CSV 导入模板 */
     @GetMapping(value = "/import-template", produces = "text/csv;charset=UTF-8")
     public ResponseEntity<byte[]> importTemplate() {
-        String content = "\uFEFFrole,username,name,password,studentNo\n"
-                + "STUDENT,s2026001,张三,123456,2026001\n"
-                + "TEACHER,t1001,王老师,teacher123,\n";
+        String content = "\uFEFFrole,username,name,password,studentNo,className\n"
+                + "STUDENT,,张三,123456,2026001,软件2502\n"
+                + "TEACHER,t1001,王老师,teacher123,,\n";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"user-import-template.csv\"")

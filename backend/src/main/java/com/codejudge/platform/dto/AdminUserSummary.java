@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
  * @param name      姓名
  * @param role      角色：ADMIN / TEACHER / STUDENT
  * @param studentNo 学号，仅学生有值，其他角色为 null
+ * @param className 班级，仅学生有值，其他角色为 null
  * @param createdAt 创建时间
  */
 public record AdminUserSummary(
@@ -24,17 +25,20 @@ public record AdminUserSummary(
         String name,
         String role,
         String studentNo,
+        String className,
         LocalDateTime createdAt) {
 
     /** 把任意角色用户实体转换成管理端统一摘要 */
     public static AdminUserSummary from(User user) {
         String studentNo = user instanceof Student student ? student.getStudentNo() : null;
+        String className = user instanceof Student student ? student.getClassName() : null;
         return new AdminUserSummary(
                 user.getId(),
                 user.getUsername(),
                 user.getName(),
                 user.getRole(),
                 studentNo,
+                className,
                 user.getCreatedAt());
     }
 }

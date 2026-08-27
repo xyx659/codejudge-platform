@@ -7,7 +7,8 @@
     home-path="/teacher/home"
     theme="#059669"
     theme-dark="#153e31"
-    hint="演示账号：teacher / teacher123"
+    account-label="工号"
+    hint="演示工号：teacher / teacher123"
   />
 </template>
 

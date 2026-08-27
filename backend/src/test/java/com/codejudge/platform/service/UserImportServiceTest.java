@@ -37,21 +37,21 @@ class UserImportServiceTest {
     @Test
     void 混合CSV应按行部分成功并返回Excel物理行号() {
         String csv = """
-                role,username,name,password,studentNo
-                STUDENT,student-ok,导入学生A,123456,S001
-                TEACHER,teacher-ok,导入教师A,teacher123,
-                STUDENT,student-dup,重复学生,123456,S002
-                STUDENT,student-dup,重复学生2,123456,S003
-                ADMIN,admin-bad,非法管理员,admin123,
-                STUDENT,no-password,缺少密码,,
-                TEACHER,teacher-extra-no,带学号教师,teacher123,T999
+                role,username,name,password,studentNo,className
+                STUDENT,,导入学生A,123456,S001,软件2501
+                TEACHER,teacher-ok,导入教师A,teacher123,,
+                STUDENT,,学生B,123456,S002,软件2501
+                STUDENT,,学生C,123456,S002,软件2502
+                ADMIN,admin-bad,非法管理员,admin123,,
+                STUDENT,,缺少密码,,,
+                TEACHER,teacher-extra-no,带学号教师,teacher123,T999,
                 """;
 
         when(adminUserService.createUser(any(AdminUserCreateRequest.class)))
-                .thenReturn(summary("student-ok", "STUDENT"))
+                .thenReturn(summary("S001", "STUDENT"))
                 .thenReturn(summary("teacher-ok", "TEACHER"))
-                .thenReturn(summary("student-dup", "STUDENT"))
-                .thenThrow(new BadRequestException("用户名已存在"));
+                .thenReturn(summary("S002", "STUDENT"))
+                .thenThrow(new BadRequestException("账号已存在"));
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
 
@@ -59,8 +59,8 @@ class UserImportServiceTest {
         assertEquals(3, result.successCount(), "合法且不重复的数据应有 3 行成功");
         assertEquals(4, result.failedCount(), "非法数据应有 4 行失败");
         assertEquals(5, result.errors().get(0).row(), "重复账号应返回第 5 行");
-        assertEquals("student-dup", result.errors().get(0).username(), "错误行应记录用户名");
-        assertEquals("用户名已存在", result.errors().get(0).reason(), "重复账号原因应明确");
+        assertEquals("S002", result.errors().get(0).username(), "错误行应记录登录账号（学号）");
+        assertEquals("账号已存在", result.errors().get(0).reason(), "重复账号原因应明确");
         assertEquals(6, result.errors().get(1).row(), "管理员角色错误应返回第 6 行");
         assertEquals(7, result.errors().get(2).row(), "空密码错误应返回第 7 行");
         assertEquals(8, result.errors().get(3).row(), "教师带学号错误应返回第 8 行");
@@ -69,8 +69,8 @@ class UserImportServiceTest {
     @Test
     void 空密码行应该单独失败() {
         String csv = """
-                role,username,name,password,studentNo
-                STUDENT,no-password,缺少密码,,S001
+                role,username,name,password,studentNo,className
+                STUDENT,,缺少密码,,S001,
                 """;
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
@@ -84,8 +84,8 @@ class UserImportServiceTest {
     @Test
     void 学生学号为空时应该单独失败() {
         String csv = """
-                role,username,name,password,studentNo
-                STUDENT,no-student-no,缺少学号,123456,
+                role,username,name,password,studentNo,className
+                STUDENT,,缺少学号,123456,,
                 """;
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
@@ -98,8 +98,8 @@ class UserImportServiceTest {
     @Test
     void 教师填写学号时应该单独失败() {
         String csv = """
-                role,username,name,password,studentNo
-                TEACHER,teacher-no,教师带学号,teacher123,T999
+                role,username,name,password,studentNo,className
+                TEACHER,teacher-no,教师带学号,teacher123,T999,
                 """;
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
@@ -112,8 +112,8 @@ class UserImportServiceTest {
     @Test
     void 管理员角色行应该单独失败() {
         String csv = """
-                role,username,name,password,studentNo
-                ADMIN,bad-admin,非法管理员,admin123,
+                role,username,name,password,studentNo,className
+                ADMIN,bad-admin,非法管理员,admin123,,
                 """;
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
@@ -127,11 +127,11 @@ class UserImportServiceTest {
     @Test
     void 支持带BOM的UTF8CSV文件() {
         String csv = """
-                role,username,name,password,studentNo
-                STUDENT,bom-student,BOM学生,123456,B001
+                role,username,name,password,studentNo,className
+                STUDENT,,BOM学生,123456,B001,软件2501
                 """;
         when(adminUserService.createUser(any(AdminUserCreateRequest.class)))
-                .thenReturn(summary("bom-student", "STUDENT"));
+                .thenReturn(summary("B001", "STUDENT"));
 
         UserImportResult result = userImportService.importUsers(csvFileWithBom(csv));
 
@@ -184,7 +184,7 @@ class UserImportServiceTest {
                 "CSV 表头错误时应该整体拒绝");
 
         assertEquals(
-                "CSV表头不正确，应为：role,username,name,password,studentNo",
+                "CSV表头不正确，应为：role,username,name,password,studentNo,className",
                 exception.getMessage(),
                 "表头错误提示应列出标准字段");
         verifyNoInteractions(adminUserService);
@@ -215,6 +215,7 @@ class UserImportServiceTest {
                 "测试用户",
                 role,
                 "STUDENT".equals(role) ? "S001" : null,
+                "STUDENT".equals(role) ? "软件2501" : null,
                 LocalDateTime.now());
     }
 }

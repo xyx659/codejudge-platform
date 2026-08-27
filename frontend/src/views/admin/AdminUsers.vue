@@ -23,7 +23,7 @@
       <input
         v-model.trim="keyword"
         type="text"
-        placeholder="搜索用户名或姓名"
+        placeholder="搜索账号或姓名"
         @keyup.enter="applyFilters"
       />
       <button type="button" class="secondary" @click="applyFilters">查询</button>
@@ -47,20 +47,21 @@
       <table>
         <thead>
           <tr>
-            <th>用户名</th>
+            <th>账号</th>
             <th>姓名</th>
             <th>角色</th>
             <th>学号</th>
+            <th>班级</th>
             <th>创建时间</th>
             <th class="actions-column">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="6" class="empty-cell">加载中...</td>
+            <td colspan="7" class="empty-cell">加载中...</td>
           </tr>
           <tr v-else-if="users.length === 0">
-            <td colspan="6" class="empty-cell">暂无用户</td>
+            <td colspan="7" class="empty-cell">暂无用户</td>
           </tr>
           <template v-else>
             <tr v-for="user in users" :key="`${user.role}-${user.id}`">
@@ -72,6 +73,7 @@
                 </span>
               </td>
               <td>{{ user.studentNo || '-' }}</td>
+              <td>{{ user.className || '-' }}</td>
               <td>{{ formatDate(user.createdAt) }}</td>
               <td>
                 <div class="row-actions">
@@ -127,9 +129,13 @@
               </option>
             </select>
           </label>
-          <label class="field">
-            <span>用户名</span>
+          <label v-if="form.role !== 'STUDENT'" class="field">
+            <span>工号</span>
             <input v-model.trim="form.username" type="text" maxlength="50" />
+          </label>
+          <label v-if="form.role === 'STUDENT'" class="field">
+            <span>学号（登录账号）</span>
+            <input v-model.trim="form.studentNo" type="text" maxlength="20" />
           </label>
           <label class="field">
             <span>姓名</span>
@@ -145,8 +151,8 @@
             />
           </label>
           <label v-if="form.role === 'STUDENT'" class="field">
-            <span>学号</span>
-            <input v-model.trim="form.studentNo" type="text" maxlength="20" />
+            <span>班级</span>
+            <input v-model.trim="form.className" type="text" maxlength="50" placeholder="如 软件2502" />
           </label>
           <p v-if="formError" class="form-error">{{ formError }}</p>
           <footer class="modal-footer">
@@ -260,7 +266,8 @@ const form = reactive({
   username: '',
   name: '',
   password: '',
-  studentNo: ''
+  studentNo: '',
+  className: ''
 })
 const formError = ref('')
 const submitting = ref(false)
@@ -375,6 +382,7 @@ function resetForm() {
   form.name = ''
   form.password = ''
   form.studentNo = ''
+  form.className = ''
   formError.value = ''
 }
 
@@ -391,6 +399,7 @@ function openEdit(user) {
   form.name = user.name
   form.password = ''
   form.studentNo = user.studentNo || ''
+  form.className = user.className || ''
   formError.value = ''
   formOpen.value = true
 }
@@ -402,8 +411,12 @@ function closeForm() {
 }
 
 function validateForm() {
-  if (!form.username) {
-    formError.value = '用户名不能为空'
+  if (form.role !== 'STUDENT' && !form.username) {
+    formError.value = '工号不能为空'
+    return false
+  }
+  if (form.role === 'STUDENT' && !form.studentNo) {
+    formError.value = '学号不能为空'
     return false
   }
   if (!form.name) {
@@ -418,10 +431,6 @@ function validateForm() {
     formError.value = '密码长度不能少于 6 位'
     return false
   }
-  if (form.role === 'STUDENT' && !form.studentNo) {
-    formError.value = '学号不能为空'
-    return false
-  }
   return true
 }
 
@@ -431,11 +440,13 @@ async function submitForm() {
   submitting.value = true
   formError.value = ''
   try {
+    const isStudent = form.role === 'STUDENT'
     const payload = {
-      username: form.username,
+      username: isStudent ? null : form.username,
       name: form.name,
       password: form.password || null,
-      studentNo: form.role === 'STUDENT' ? form.studentNo : null
+      studentNo: isStudent ? form.studentNo : null,
+      className: isStudent ? form.className : null
     }
 
     if (editingUser.value) {

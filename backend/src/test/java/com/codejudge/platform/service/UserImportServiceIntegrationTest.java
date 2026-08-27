@@ -37,9 +37,9 @@ class UserImportServiceIntegrationTest {
     void 真实数据库中CSV重复账号部分成功且第二行失败() {
         String username = uniqueUsername();
         String csv = """
-                role,username,name,password,studentNo
-                STUDENT,%s,重复学生,123456,S001
-                STUDENT,%s,重复学生2,123456,S002
+                role,username,name,password,studentNo,className
+                STUDENT,%s,重复学生,123456,S001,软件2501
+                STUDENT,%s,重复学生2,123456,S002,软件2502
                 """.formatted(username, username);
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
@@ -62,8 +62,8 @@ class UserImportServiceIntegrationTest {
                 passwordEncoder.encode("teacher123")));
 
         String csv = """
-                role,username,name,password,studentNo
-                STUDENT,%s,跨表重复学生,123456,S001
+                role,username,name,password,studentNo,className
+                STUDENT,%s,跨表重复学生,123456,S001,软件2501
                 """.formatted(username);
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));

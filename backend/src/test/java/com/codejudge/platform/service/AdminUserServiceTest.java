@@ -73,58 +73,58 @@ class AdminUserServiceTest {
     }
 
     @Test
-    void 新增学生时跨学生表检查用户名重复() {
-        String username = "same-user";
-        when(studentRepository.findByUsername(username))
-                .thenReturn(Optional.of(student(username)));
+    void 新增学生时跨学生表检查学号重复() {
+        String studentNo = "S1001";
+        when(studentRepository.findByUsername(studentNo))
+                .thenReturn(Optional.of(student(studentNo)));
 
         BadRequestException exception = assertThrows(
                 BadRequestException.class,
-                () -> adminUserService.createUser(createRequest("STUDENT", username)),
-                "学生表中已有相同用户名时应该拒绝新增");
+                () -> adminUserService.createUser(createRequest("STUDENT", studentNo)),
+                "学生表中已有相同学号时应该拒绝新增");
 
-        assertEquals("用户名已存在", exception.getMessage(), "错误提示应与业务约定一致");
+        assertEquals("账号已存在", exception.getMessage(), "错误提示应与业务约定一致");
         verify(studentRepository, never()).save(any(Student.class));
     }
 
     @Test
-    void 新增学生时跨教师表检查用户名重复() {
-        String username = "same-user";
-        when(studentRepository.findByUsername(username)).thenReturn(Optional.empty());
-        when(teacherRepository.findByUsername(username))
-                .thenReturn(Optional.of(new Teacher(username, "王老师", "hash")));
+    void 新增学生时跨教师表检查学号重复() {
+        String studentNo = "S1001";
+        when(studentRepository.findByUsername(studentNo)).thenReturn(Optional.empty());
+        when(teacherRepository.findByUsername(studentNo))
+                .thenReturn(Optional.of(new Teacher(studentNo, "王老师", "hash")));
 
         BadRequestException exception = assertThrows(
                 BadRequestException.class,
-                () -> adminUserService.createUser(createRequest("STUDENT", username)),
-                "教师表中已有相同用户名时应该拒绝新增");
+                () -> adminUserService.createUser(createRequest("STUDENT", studentNo)),
+                "教师表中已有相同学号时应该拒绝新增");
 
-        assertEquals("用户名已存在", exception.getMessage(), "跨表唯一性错误提示应统一");
+        assertEquals("账号已存在", exception.getMessage(), "跨表唯一性错误提示应统一");
         verify(studentRepository, never()).save(any(Student.class));
     }
 
     @Test
-    void 新增学生时跨管理员表检查用户名重复() {
-        String username = "same-user";
-        when(studentRepository.findByUsername(username)).thenReturn(Optional.empty());
-        when(teacherRepository.findByUsername(username)).thenReturn(Optional.empty());
-        when(adminRepository.findByUsername(username))
-                .thenReturn(Optional.of(new Admin(username, "管理员", "hash")));
+    void 新增学生时跨管理员表检查学号重复() {
+        String studentNo = "S1001";
+        when(studentRepository.findByUsername(studentNo)).thenReturn(Optional.empty());
+        when(teacherRepository.findByUsername(studentNo)).thenReturn(Optional.empty());
+        when(adminRepository.findByUsername(studentNo))
+                .thenReturn(Optional.of(new Admin(studentNo, "管理员", "hash")));
 
         BadRequestException exception = assertThrows(
                 BadRequestException.class,
-                () -> adminUserService.createUser(createRequest("STUDENT", username)),
-                "管理员表中已有相同用户名时应该拒绝新增");
+                () -> adminUserService.createUser(createRequest("STUDENT", studentNo)),
+                "管理员表中已有相同学号时应该拒绝新增");
 
-        assertEquals("用户名已存在", exception.getMessage(), "跨表唯一性错误提示应统一");
+        assertEquals("账号已存在", exception.getMessage(), "跨表唯一性错误提示应统一");
         verify(studentRepository, never()).save(any(Student.class));
     }
 
     @Test
     void 新增用户时密码必须经过BCrypt加密() {
         String rawPassword = "123456";
-        String username = "password-student";
-        whenNoUserExists(username);
+        String studentNo = "P1001";
+        whenNoUserExists(studentNo);
 
         ArgumentCaptor<Student> captor = ArgumentCaptor.forClass(Student.class);
         when(studentRepository.save(captor.capture()))
@@ -132,7 +132,7 @@ class AdminUserServiceTest {
 
         AdminUserSummary result = adminUserService.createUser(
                 new AdminUserCreateRequest(
-                        "STUDENT", username, "密码测试", rawPassword, "P1001"));
+                        "STUDENT", null, "密码测试", rawPassword, studentNo, "软件2501"));
 
         Student saved = captor.getValue();
         assertNotNull(saved.getPassword(), "保存的学生密码不能为空");
@@ -140,6 +140,7 @@ class AdminUserServiceTest {
         assertTrue(passwordEncoder.matches(rawPassword, saved.getPassword()),
                 "保存的密码必须能被 BCrypt 正确校验");
         assertEquals("STUDENT", result.role(), "创建结果的角色应为学生");
+        assertEquals(studentNo, saved.getUsername(), "学生应以学号作为登录账号");
     }
 
     @Test
@@ -150,7 +151,7 @@ class AdminUserServiceTest {
                 BadRequestException.class,
                 () -> adminUserService.createUser(
                         new AdminUserCreateRequest(
-                                "TEACHER", username, "李老师", "teacher123", "T0001")),
+                                "TEACHER", username, "李老师", "teacher123", "T0001", null)),
                 "教师填写学号时应该拒绝");
 
         assertEquals("仅学生可以填写学号", exception.getMessage(), "错误提示应说明角色限制");
@@ -163,7 +164,7 @@ class AdminUserServiceTest {
                 BadRequestException.class,
                 () -> adminUserService.createUser(
                         new AdminUserCreateRequest(
-                                "SUPERUSER", "bad-role", "非法角色", "123456", null)),
+                                "SUPERUSER", "bad-role", "非法角色", "123456", null, null)),
                 "非法角色应该拒绝新增");
 
         assertEquals("角色不合法", exception.getMessage(), "错误提示应说明角色不合法");
@@ -294,12 +295,14 @@ class AdminUserServiceTest {
     private AdminUserCreateRequest createRequest(String role, String username) {
         return new AdminUserCreateRequest(
                 role, username, "测试用户", "123456",
-                "STUDENT".equals(role) ? "S1001" : null);
+                "STUDENT".equals(role) ? "S1001" : null,
+                "STUDENT".equals(role) ? "软件2501" : null);
     }
 
     private Student student(String username) {
         Student student = new Student(username, "测试学生", "hash");
         student.setStudentNo("S1001");
+        student.setClassName("软件2501");
         return student;
     }
 

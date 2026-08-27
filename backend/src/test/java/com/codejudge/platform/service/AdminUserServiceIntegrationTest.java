@@ -48,7 +48,7 @@ class AdminUserServiceIntegrationTest {
                 BadRequestException.class,
                 () -> adminUserService.createUser(
                         new AdminUserCreateRequest(
-                                "TEACHER", username, "重复教师", "teacher123", null)),
+                                "TEACHER", username, "重复教师", "teacher123", null, null)),
                 "学生表中已有用户名时，真实数据库测试应该拒绝创建教师");
 
         assertEquals("用户名已存在", exception.getMessage(), "跨表重复用户名的错误提示应统一");

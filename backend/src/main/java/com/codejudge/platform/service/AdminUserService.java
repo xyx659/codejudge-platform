@@ -107,17 +107,29 @@ public class AdminUserService {
     /** 新增用户，密码入库前使用 BCrypt 加密 */
     public AdminUserSummary createUser(AdminUserCreateRequest request) {
         String role = normalizeRequiredRole(request.role());
-        String username = requiredText(request.username(), "用户名不能为空");
         String name = requiredText(request.name(), "姓名不能为空");
         String studentNo = trimToNull(request.studentNo());
+        String className = trimToNull(request.className());
+
+        // 学生用学号作为登录账号；教师/管理员用工号作为登录账号
+        String username;
+        if ("STUDENT".equals(role)) {
+            username = requiredText(studentNo, "学号不能为空");
+        } else {
+            username = requiredText(request.username(), "工号不能为空");
+        }
 
         if (studentNo != null && !"STUDENT".equals(role)) {
             log.warn("新增用户被拒绝：角色={}，不允许填写学号", role);
             throw new BadRequestException("仅学生可以填写学号");
         }
+        if (className != null && !"STUDENT".equals(role)) {
+            log.warn("新增用户被拒绝：角色={}，不允许填写班级", role);
+            throw new BadRequestException("仅学生可以填写班级");
+        }
         if (usernameExists(username)) {
-            log.warn("新增用户被拒绝：用户名已存在，username={}", username);
-            throw new BadRequestException("用户名已存在");
+            log.warn("新增用户被拒绝：账号已存在，username={}", username);
+            throw new BadRequestException("账号已存在");
         }
 
         String encodedPassword = passwordEncoder.encode(request.password());
@@ -126,6 +138,7 @@ public class AdminUserService {
             case "STUDENT" -> {
                 Student student = new Student(username, name, encodedPassword);
                 student.setStudentNo(studentNo);
+                student.setClassName(className);
                 saved = studentRepository.save(student);
             }
             case "TEACHER" -> saved = teacherRepository.save(
@@ -142,19 +155,31 @@ public class AdminUserService {
     public AdminUserSummary updateUser(String role, Long id, AdminUserUpdateRequest request) {
         String normalizedRole = normalizeRequiredRole(role);
         User user = findUser(normalizedRole, id);
-        String username = requiredText(request.username(), "用户名不能为空");
         String name = requiredText(request.name(), "姓名不能为空");
         String studentNo = trimToNull(request.studentNo());
+        String className = trimToNull(request.className());
+
+        // 学生用学号作为登录账号；教师/管理员用工号作为登录账号
+        String username;
+        if ("STUDENT".equals(normalizedRole)) {
+            username = requiredText(studentNo, "学号不能为空");
+        } else {
+            username = requiredText(request.username(), "工号不能为空");
+        }
 
         if (studentNo != null && !"STUDENT".equals(normalizedRole)) {
             log.warn("修改用户被拒绝：role={}, id={}，不允许填写学号", normalizedRole, id);
             throw new BadRequestException("仅学生可以填写学号");
         }
+        if (className != null && !"STUDENT".equals(normalizedRole)) {
+            log.warn("修改用户被拒绝：role={}, id={}，不允许填写班级", normalizedRole, id);
+            throw new BadRequestException("仅学生可以填写班级");
+        }
         if (!username.equals(user.getUsername())
                 && usernameExistsExcluding(username, normalizedRole, id)) {
-            log.warn("修改用户被拒绝：用户名已存在，role={}, id={}, username={}",
+            log.warn("修改用户被拒绝：账号已存在，role={}, id={}, username={}",
                     normalizedRole, id, username);
-            throw new BadRequestException("用户名已存在");
+            throw new BadRequestException("账号已存在");
         }
 
         user.updateProfile(username, name);
@@ -163,6 +188,7 @@ public class AdminUserService {
         }
         if (user instanceof Student student) {
             student.setStudentNo(studentNo);
+            student.setClassName(className);
         }
 
         saveUser(normalizedRole, user);
@@ -300,6 +326,7 @@ public class AdminUserService {
                         source.getUsername(), source.getName(), source.getPassword());
                 if (source instanceof Student oldStudent) {
                     student.setStudentNo(oldStudent.getStudentNo());
+                    student.setClassName(oldStudent.getClassName());
                 }
                 yield student;
             }
