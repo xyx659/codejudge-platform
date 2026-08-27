@@ -31,6 +31,12 @@ public class Question {
     /** 需要实现的方法名（如 sum），用于生成评测模板 */
     private String methodName;
 
+    /** 判题模式：METHOD（方法题，判题侧生成 Main 包装）/ STDIO（完整程序读标准输入输出） */
+    private String judgeMode = "METHOD";
+
+    /** 方法签名，自包含形式，如「int sum(int, int)」；STDIO 模式下可为空 */
+    private String methodSignature;
+
     /** 编程语言（如 Java） */
     private String language;
 
@@ -96,6 +102,22 @@ public class Question {
 
     public void setMethodName(String methodName) {
         this.methodName = methodName;
+    }
+
+    public String getJudgeMode() {
+        return judgeMode;
+    }
+
+    public void setJudgeMode(String judgeMode) {
+        this.judgeMode = judgeMode;
+    }
+
+    public String getMethodSignature() {
+        return methodSignature;
+    }
+
+    public void setMethodSignature(String methodSignature) {
+        this.methodSignature = methodSignature;
     }
 
     public String getLanguage() {

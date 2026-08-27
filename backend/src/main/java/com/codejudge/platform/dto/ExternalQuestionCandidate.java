@@ -12,6 +12,7 @@ public record ExternalQuestionCandidate(
         String title,
         String description,
         String methodName,
+        String methodSignature,
         String language,
         String difficulty,
         List<String> tags,

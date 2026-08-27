@@ -126,7 +126,9 @@ public class LeetCodeQuestionProvider implements ExternalQuestionProvider {
                     "translatedContent",
                     "content");
             String description = cleanHtml(rawContent);
-            String methodName = parseMethodName(question.get("metaData"));
+            MethodInfo method = parseMethod(question.get("metaData"));
+            String methodName = method.name();
+            String methodSignature = method.signature();
             List<String> tags = topicTags(question.get("topicTags"));
             List<QuestionTestCaseRequest> testCases =
                     parseTestCases(rawContent);
@@ -146,6 +148,7 @@ public class LeetCodeQuestionProvider implements ExternalQuestionProvider {
                     title,
                     description,
                     methodName,
+                    methodSignature,
                     "Java",
                     difficulty,
                     tags,
@@ -160,15 +163,70 @@ public class LeetCodeQuestionProvider implements ExternalQuestionProvider {
         }
     }
 
-    private String parseMethodName(JsonNode metaDataNode) {
+    private MethodInfo parseMethod(JsonNode metaDataNode) {
         if (metaDataNode == null || metaDataNode.isNull()) {
-            return null;
+            return MethodInfo.empty();
         }
         try {
             JsonNode metaData = objectMapper.readTree(metaDataNode.asText());
-            return text(metaData, "name");
+            String name = text(metaData, "name");
+            if (name == null) {
+                return MethodInfo.empty();
+            }
+            return new MethodInfo(name, buildSignature(metaData, name));
         } catch (Exception e) {
-            return null;
+            return MethodInfo.empty();
+        }
+    }
+
+    /**
+     * 由 metaData 的 params / return 生成自包含签名，形如「int[] twoSum(int[], int)」。
+     */
+    private String buildSignature(JsonNode metaData, String name) {
+        String returnType = mapJavaType(text(metaData.path("return"), "type"));
+        List<String> params = new ArrayList<>();
+        JsonNode paramsNode = metaData.get("params");
+        if (paramsNode != null && paramsNode.isArray()) {
+            paramsNode.forEach(item -> params.add(
+                    mapJavaType(text(item, "type"))));
+        }
+        if (params.isEmpty()) {
+            return returnType + " " + name + "()";
+        }
+        return returnType + " " + name + "(" + String.join(", ", params) + ")";
+    }
+
+    /**
+     * LeetCode metaData 类型 → Java 类型映射。
+     */
+    private String mapJavaType(String type) {
+        if (type == null || type.isBlank()) {
+            return "void";
+        }
+        return switch (type.trim()) {
+            case "integer" -> "int";
+            case "long" -> "long";
+            case "double" -> "double";
+            case "boolean" -> "boolean";
+            case "character" -> "char";
+            case "string" -> "String";
+            case "integer[]" -> "int[]";
+            case "long[]" -> "long[]";
+            case "double[]" -> "double[]";
+            case "boolean[]" -> "boolean[]";
+            case "character[]" -> "char[]";
+            case "string[]" -> "String[]";
+            case "list<integer>" -> "List<Integer>";
+            case "list<list<integer>>" -> "List<List<Integer>>";
+            case "list<string>" -> "List<String>";
+            case "list<list<string>>" -> "List<List<String>>";
+            default -> type.trim();
+        };
+    }
+
+    private record MethodInfo(String name, String signature) {
+        static MethodInfo empty() {
+            return new MethodInfo(null, null);
         }
     }
 

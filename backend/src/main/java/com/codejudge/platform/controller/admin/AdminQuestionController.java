@@ -180,6 +180,7 @@ public class AdminQuestionController {
                       "title": "两数之和",
                       "description": "实现 sum(int a, int b)，返回两数之和",
                       "methodName": "sum",
+                      "methodSignature": "int sum(int, int)",
                       "language": "Java",
                       "difficulty": "简单",
                       "tags": ["数学", "基础"],

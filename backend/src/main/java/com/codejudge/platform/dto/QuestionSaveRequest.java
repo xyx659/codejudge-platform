@@ -12,6 +12,7 @@ public record QuestionSaveRequest(
         @NotBlank(message = "题目标题不能为空") String title,
         String description,
         @NotBlank(message = "方法名不能为空") String methodName,
+        String methodSignature,
         @NotBlank(message = "编程语言不能为空") String language,
         @NotBlank(message = "难度不能为空") String difficulty,
         List<String> tags,

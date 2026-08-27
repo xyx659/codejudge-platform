@@ -193,6 +193,10 @@
               <input v-model.trim="form.methodName" type="text" maxlength="100" />
             </label>
             <label class="field">
+              <span>方法签名（可留空，留空按输入推断全 int）</span>
+              <input v-model.trim="form.methodSignature" type="text" maxlength="200" placeholder="如：int sum(int, int)" />
+            </label>
+            <label class="field">
               <span>语言</span>
               <select v-model="form.language">
                 <option value="Java">Java</option>
@@ -395,6 +399,7 @@ function openCreate() {
     title: '',
     description: '',
     methodName: '',
+    methodSignature: '',
     language: 'Java',
     difficulty: '简单',
     tagsText: '',
@@ -414,6 +419,7 @@ async function openEdit(question) {
       title: detail.title,
       description: detail.description || '',
       methodName: detail.methodName || '',
+      methodSignature: detail.methodSignature || '',
       language: detail.language || 'Java',
       difficulty: detail.difficulty || '简单',
       tagsText: (detail.tags || []).join(','),
@@ -449,6 +455,7 @@ async function submitForm() {
     title: form.title,
     description: form.description,
     methodName: form.methodName,
+    methodSignature: form.methodSignature || null,
     language: form.language,
     difficulty: form.difficulty,
     tags: form.tagsText.split(',').map((item) => item.trim()).filter(Boolean),

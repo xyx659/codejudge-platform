@@ -35,12 +35,11 @@ class UserImportServiceIntegrationTest {
 
     @Test
     void 真实数据库中CSV重复账号部分成功且第二行失败() {
-        String username = uniqueUsername();
         String csv = """
                 role,username,name,password,studentNo,className
-                STUDENT,%s,重复学生,123456,S001,软件2501
-                STUDENT,%s,重复学生2,123456,S002,软件2502
-                """.formatted(username, username);
+                STUDENT,,重复学生,123456,S001,软件2501
+                STUDENT,,重复学生2,123456,S001,软件2502
+                """;
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
 
@@ -48,30 +47,30 @@ class UserImportServiceIntegrationTest {
         assertEquals(1, result.successCount(), "第一行重复账号之前应成功入库");
         assertEquals(1, result.failedCount(), "第二行重复账号应失败");
         assertEquals(3, result.errors().get(0).row(), "重复行应返回 Excel 第 3 行");
-        assertEquals("用户名已存在", result.errors().get(0).reason(), "重复账号原因应明确");
-        assertTrue(studentRepository.findByUsername(username).isPresent(),
+        assertEquals("账号已存在", result.errors().get(0).reason(), "重复账号原因应明确");
+        assertTrue(studentRepository.findByUsername("S001").isPresent(),
                 "第一行用户应真实写入学生表");
     }
 
     @Test
-    void 真实数据库中CSV用户名与已有教师重复时该行失败() {
-        String username = uniqueUsername();
+    void 真实数据库中CSV学号与已有教师工号重复时该行失败() {
+        String teacherNo = uniqueUsername();
         teacherRepository.save(new Teacher(
-                username,
+                teacherNo,
                 "已有教师",
                 passwordEncoder.encode("teacher123")));
 
         String csv = """
                 role,username,name,password,studentNo,className
-                STUDENT,%s,跨表重复学生,123456,S001,软件2501
-                """.formatted(username);
+                STUDENT,,跨表重复学生,123456,%s,软件2501
+                """.formatted(teacherNo);
 
         UserImportResult result = userImportService.importUsers(csvFile(csv));
 
         assertEquals(1, result.failedCount(), "跨教师表重复的行应失败");
-        assertEquals("用户名已存在", result.errors().get(0).reason(),
-                "跨表重复账号应返回用户名已存在");
-        assertTrue(studentRepository.findByUsername(username).isEmpty(),
+        assertEquals("账号已存在", result.errors().get(0).reason(),
+                "跨表重复账号应返回账号已存在");
+        assertTrue(studentRepository.findByUsername(teacherNo).isEmpty(),
                 "跨表重复账号不应写入学生表");
     }
 

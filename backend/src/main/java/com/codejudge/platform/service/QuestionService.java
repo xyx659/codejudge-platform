@@ -203,6 +203,8 @@ public class QuestionService {
             throw new BadRequestException("测试用例数量不能超过 " + MAX_TEST_CASES);
         }
         question.setTestCases(testCases);
+        question.setMethodSignature(cleanText(candidate.methodSignature()));
+        applySignature(question, testCases);
         question.setPublished(false);
         question.setSourcePlatform(candidate.sourcePlatform());
         question.setSourceId(candidate.sourceId());
@@ -256,6 +258,7 @@ public class QuestionService {
                 required(text(node, "title"), "题目标题不能为空"),
                 text(node, "description"),
                 required(text(node, "methodName"), "方法名不能为空"),
+                text(node, "methodSignature"),
                 required(text(node, "language"), "编程语言不能为空"),
                 required(text(node, "difficulty"), "难度不能为空"),
                 stringList(node.get("tags")),
@@ -292,6 +295,7 @@ public class QuestionService {
         question.setTitle(required(request.title(), "题目标题不能为空"));
         question.setDescription(cleanText(request.description()));
         question.setMethodName(required(request.methodName(), "方法名不能为空"));
+        question.setMethodSignature(cleanText(request.methodSignature()));
         question.setLanguage(normalizeLanguage(request.language()));
         question.setDifficulty(requireDifficulty(request.difficulty()));
         question.setTags(cleanTags(request.tags()));
@@ -309,6 +313,30 @@ public class QuestionService {
             throw new BadRequestException("测试用例数量不能超过 " + MAX_TEST_CASES);
         }
         question.setTestCases(testCases);
+        applySignature(question, testCases);
+    }
+
+    /**
+     * 老题 / 未填签名的 METHOD 题兜底：按首个测试用例输入的参数个数推断为「全 int」签名，
+     * 形如「int sum(int, int)」。已有显式签名或 STDIO 模式时不做处理。
+     */
+    private void applySignature(Question question, List<QuestionTestCase> testCases) {
+        if (question.getMethodSignature() != null
+                || question.getMethodName() == null) {
+            return;
+        }
+        if (testCases == null || testCases.isEmpty()) {
+            return;
+        }
+        String input = cleanText(testCases.get(0).getInput());
+        if (input == null) {
+            return;
+        }
+        String[] tokens = input.trim().split("\\s+");
+        String params = String.join(", ", java.util.Collections.nCopies(
+                tokens.length, "int"));
+        question.setMethodSignature(
+                "int " + question.getMethodName() + "(" + params + ")");
     }
 
     private QuestionTestCase cleanTestCase(QuestionTestCaseRequest request) {

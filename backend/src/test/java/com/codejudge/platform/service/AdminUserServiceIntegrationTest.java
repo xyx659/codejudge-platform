@@ -51,7 +51,7 @@ class AdminUserServiceIntegrationTest {
                                 "TEACHER", username, "重复教师", "teacher123", null, null)),
                 "学生表中已有用户名时，真实数据库测试应该拒绝创建教师");
 
-        assertEquals("用户名已存在", exception.getMessage(), "跨表重复用户名的错误提示应统一");
+        assertEquals("账号已存在", exception.getMessage(), "跨表重复账号的错误提示应统一");
         assertTrue(teacherRepository.findByUsername(username).isEmpty(),
                 "重复用户名不应被写入教师表");
     }
