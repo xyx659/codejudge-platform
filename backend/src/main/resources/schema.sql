@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS students (
     name        VARCHAR(50)  NOT NULL COMMENT '姓名',
     password    VARCHAR(100) NOT NULL COMMENT '登录密码（BCrypt 加密）',
     student_no  VARCHAR(20)  NULL COMMENT '学号，仅学生使用',
+    class_name  VARCHAR(50)  NULL COMMENT '班级，仅学生使用（如 软件2502）',
     created_at  DATETIME     NOT NULL COMMENT '创建时间',
     PRIMARY KEY (id),
     UNIQUE KEY uk_students_username (username)

@@ -15,6 +15,10 @@ public class Student extends User {
     @Column(length = 20)
     private String studentNo;
 
+    /** 班级，仅学生使用，可空（如「软件2502」） */
+    @Column(length = 50)
+    private String className;
+
     public Student() {
     }
 
@@ -33,5 +37,13 @@ public class Student extends User {
 
     public void setStudentNo(String studentNo) {
         this.studentNo = studentNo;
+    }
+
+    public String getClassName() {
+        return className;
+    }
+
+    public void setClassName(String className) {
+        this.className = className;
     }
 }

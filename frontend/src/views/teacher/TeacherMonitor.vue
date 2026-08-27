@@ -62,6 +62,8 @@
                 <th>作答进度</th>
                 <th>当前得分</th>
                 <th>状态</th>
+                <th>切屏</th>
+                <th>切页面</th>
               </tr>
             </thead>
             <tbody>
@@ -79,6 +81,12 @@
                 <td>{{ s.score }}</td>
                 <td>
                   <span class="status-badge" :class="studentStatusClass(s.status)">{{ s.status }}</span>
+                </td>
+                <td>
+                  <span class="cheat-count" :class="{ warn: s.switchTabCount > 0 }">{{ s.switchTabCount }}</span>
+                </td>
+                <td>
+                  <span class="cheat-count" :class="{ warn: s.leavePageCount > 0 }">{{ s.leavePageCount }}</span>
                 </td>
               </tr>
             </tbody>
@@ -368,6 +376,18 @@ th {
 .status-pending {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+.cheat-count {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.cheat-count.warn {
+  color: #dc2626;
 }
 
 .polling-note {
