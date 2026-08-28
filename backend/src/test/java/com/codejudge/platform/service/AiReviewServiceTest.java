@@ -3,6 +3,7 @@ package com.codejudge.platform.service;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -31,8 +32,7 @@ class AiReviewServiceTest {
                         "deepseek-chat",
                         "https://api.deepseek.com",
                         secretKey));
-
-        AiReviewService aiReviewService = new AiReviewService(systemConfigService);
+        AiReviewService aiReviewService = new AiReviewService(systemConfigService, new ObjectMapper());
         ListAppender<ILoggingEvent> appender = attachLogger();
         try {
             aiReviewService.logCurrentConfig(88L);

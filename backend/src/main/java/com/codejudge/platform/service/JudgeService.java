@@ -11,8 +11,7 @@ import java.util.concurrent.Semaphore;
  * 评测服务（门面）。
  *
  * <p>职责：读取评测运行时配置、记录触发日志，并把实际评测委托给 {@link JudgeEngine}。
- * 当前引擎是占位实现 {@link StubJudgeEngine}（只打日志、不改状态）；
- * 接入真实评测引擎后只需替换引擎实现，本类与提交流程无需改动。</p>
+ * 当前引擎是 {@link DockerJudgeEngine}：在 Docker 沙箱内编译运行 + 逐用例判题。</p>
  */
 @Service
 public class JudgeService {

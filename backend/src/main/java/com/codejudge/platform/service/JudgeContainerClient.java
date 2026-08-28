@@ -7,6 +7,7 @@ import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.PullImageResultCallback;
 import com.github.dockerjava.api.command.WaitContainerResultCallback;
+import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Capability;
 import com.github.dockerjava.api.model.Frame;
@@ -21,7 +22,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
  * <p>流程：create → {@code docker cp} 写工作目录 → start → wait（带超时）→ 读日志 → 清理。
  * 超时后按「进优雅停止 → 强杀 → 强制删除」三级兜底，确保容器不残留。</p>
  *
- * <p>安全参数（详见设计文档 §五）：禁网、限内存/CPU/进程数、只读根 + tmpfs、去除全部 Linux capability、
+ * <p>安全参数（详见设计文档 §五）：禁网、限内存/CPU/进程数、去除全部 Linux capability、
  * 以 {@code nobody} 运行。镜像与工作目录可配置。</p>
  */
 @Component
@@ -39,7 +39,7 @@ public class JudgeContainerClient {
 
     private static final Logger log = LoggerFactory.getLogger(JudgeContainerClient.class);
 
-    /** 镜像名，默认 openjdk:17 */
+    /** 镜像名，默认 eclipse-temurin:17（官方 OpenJDK 发行版，含 javac/java） */
     private final String image;
 
     private final DockerClient dockerClient;
@@ -48,7 +48,7 @@ public class JudgeContainerClient {
     private volatile boolean imageReady = false;
 
     public JudgeContainerClient(DockerClient dockerClient,
-                                @Value("${judge.docker.image:openjdk:17}") String image) {
+                                @Value("${judge.docker.image:eclipse-temurin:17}") String image) {
         this.dockerClient = dockerClient;
         this.image = image;
     }
@@ -71,13 +71,23 @@ public class JudgeContainerClient {
             copyWorkDir(containerId, request.workDir(), request.workDirTar());
             dockerClient.startContainerCmd(containerId).exec();
 
-            Integer exitCode = dockerClient.waitContainerCmd(containerId)
-                    .exec(new WaitContainerResultCallback())
-                    .awaitStatusCode(request.timeoutMs(), TimeUnit.MILLISECONDS);
+            int exitCode;
+            boolean timedOut;
+            try {
+                Integer code = dockerClient.waitContainerCmd(containerId)
+                        .exec(new WaitContainerResultCallback())
+                        .awaitStatusCode(request.timeoutMs(), TimeUnit.MILLISECONDS);
+                exitCode = code == null ? -1 : code;
+                timedOut = false;
+            } catch (DockerClientException e) {
+                // awaitStatusCode 超时是抛 DockerClientException，而非返回 null
+                exitCode = -1;
+                timedOut = true;
+            }
 
             String[] logs = readLogs(containerId);
 
-            if (exitCode == null) {
+            if (timedOut) {
                 // 超时：三级强杀，避免容器残留
                 forceKill(containerId);
                 log.warn("评测容器执行超时，已强杀：containerId={}", containerId);
@@ -108,13 +118,22 @@ public class JudgeContainerClient {
             copyWorkDir(containerId, request.workDir(), request.workDirTar());
             dockerClient.startContainerCmd(containerId).exec();
 
-            Integer exitCode = dockerClient.waitContainerCmd(containerId)
-                    .exec(new WaitContainerResultCallback())
-                    .awaitStatusCode(request.timeoutMs(), TimeUnit.MILLISECONDS);
+            int exitCode;
+            boolean timedOut;
+            try {
+                Integer code = dockerClient.waitContainerCmd(containerId)
+                        .exec(new WaitContainerResultCallback())
+                        .awaitStatusCode(request.timeoutMs(), TimeUnit.MILLISECONDS);
+                exitCode = code == null ? -1 : code;
+                timedOut = false;
+            } catch (DockerClientException e) {
+                exitCode = -1;
+                timedOut = true;
+            }
 
             String[] logs = readLogs(containerId);
 
-            if (exitCode == null) {
+            if (timedOut) {
                 forceKill(containerId);
                 log.warn("编译容器执行超时，已强杀：containerId={}", containerId);
                 return new CompileResult(-1, logs[1], null, true);
@@ -180,8 +199,6 @@ public class JudgeContainerClient {
                 .withMemorySwap(memoryBytes)     // 禁 swap，避免内存超限被换出
                 .withNanoCPUs((long) (request.cpus() * 1_000_000_000L))
                 .withPidsLimit(64L)              // 防 fork bomb
-                .withReadonlyRootfs(true)
-                .withTmpFs(Map.of("/tmp", "rw"))
                 .withCapDrop(Capability.ALL)
                 .withNetworkMode("none");
 
