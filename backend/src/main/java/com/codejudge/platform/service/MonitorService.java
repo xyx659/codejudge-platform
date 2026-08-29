@@ -16,6 +16,7 @@ import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.SubmissionQueryRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,8 +61,18 @@ public class MonitorService {
             throw new BadRequestException("考试尚未发布，无法监考");
         }
 
+        // 考试时间窗：用于判断预警该用「进行中 / 已结束」哪种口径
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime start = exam.getStartTime();
+        LocalDateTime end = exam.getEndTime();
+        boolean ongoing = start != null && end != null && !now.isBefore(start) && now.isBefore(end);
+        boolean ended = end != null && !now.isBefore(end);
+
         List<ExamQuestion> questions = exam.getQuestions();
-        List<Student> students = studentRepository.findAll();
+        // 只统计本场考试「目标班级」内的学生（targetClass 为空则全员）
+        List<Student> students = studentRepository.findAll().stream()
+                .filter(s -> visibleByClass(exam, s))
+                .toList();
         // 学生 -> 已作答题目集合 / 各题最佳得分
         SubmissionState state = computeSubmissionState(questions);
         // 学生 -> 作弊事件次数，int[]{切屏次数, 切页面次数}
@@ -103,10 +114,21 @@ public class MonitorService {
                     submitted, questions.size(), score, statusText,
                     switchTabCount, leavePageCount));
 
-            // 预警一：考试进行中却还没开始作答
-            if (submitted == 0 && "PUBLISHED".equals(exam.getStatus())) {
-                alerts.add(new AlertItem(student.getId(), student.getName(),
-                        "未开始", "考试进行中，尚未开始作答"));
+            // 预警一：按考试时间窗判断「未开始 / 缺考 / 未交卷」
+            // 开考之前不算异常，不预警；进行中未作答、结束后未交卷才预警。
+            if ("PUBLISHED".equals(exam.getStatus())) {
+                if (submitted == 0) {
+                    if (ongoing) {
+                        alerts.add(new AlertItem(student.getId(), student.getName(),
+                                "未开始", "考试进行中，尚未开始作答"));
+                    } else if (ended) {
+                        alerts.add(new AlertItem(student.getId(), student.getName(),
+                                "缺考", "考试已结束，未提交任何题目"));
+                    }
+                } else if (submitted < questions.size() && ended) {
+                    alerts.add(new AlertItem(student.getId(), student.getName(),
+                            "未交卷", "考试已结束，仅作答 " + submitted + "/" + questions.size() + " 题"));
+                }
             }
             // 预警二：作答过但存在 0 分的题目
             boolean hasZero = best.values().stream().anyMatch(v -> v <= 0);
@@ -178,6 +200,20 @@ public class MonitorService {
             total += Math.min(score, cap);
         }
         return total;
+    }
+
+    /**
+     * 该学生是否属于本场考试的目标班级。
+     *
+     * <p>与学生端 visibleByClass 规则保持一致：考试未指定目标班级（targetClass 为空）时
+     * 全员可见；否则只对班级名完全一致的学生可见。</p>
+     */
+    private boolean visibleByClass(Exam exam, Student student) {
+        String target = exam.getTargetClass();
+        if (target == null || target.isBlank()) {
+            return true;
+        }
+        return target.equals(student.getClassName());
     }
 
     /**
