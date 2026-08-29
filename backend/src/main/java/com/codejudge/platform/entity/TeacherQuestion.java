@@ -38,6 +38,9 @@ public class TeacherQuestion {
     /** 需要实现的方法名（如 sum） */
     private String methodName;
 
+    /** 方法签名（如 int[] twoSum(int[], int)），容器判题生成 Main 包装类时使用 */
+    private String methodSignature;
+
     /** 编程语言（如 Java） */
     private String language;
 
@@ -88,6 +91,14 @@ public class TeacherQuestion {
 
     public void setMethodName(String methodName) {
         this.methodName = methodName;
+    }
+
+    public String getMethodSignature() {
+        return methodSignature;
+    }
+
+    public void setMethodSignature(String methodSignature) {
+        this.methodSignature = methodSignature;
     }
 
     public String getLanguage() {

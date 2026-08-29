@@ -190,6 +190,7 @@ public class TeacherQuestionService {
         question.setTitle(request.title().trim());
         question.setDescription(request.description());
         question.setMethodName(request.methodName().trim());
+        question.setMethodSignature(request.methodSignature());
         question.setLanguage(request.language());
         question.setDifficulty(request.difficulty());
         question.setCategoryId(categoryId);

@@ -1331,7 +1331,7 @@ static String qlTreeNode(TreeNode root) {
         return "[]";
     }
     List<String> out = new ArrayList<>();
-    Queue<TreeNode> q = new ArrayDeque<>();
+    Queue<TreeNode> q = new LinkedList<>();
     q.add(root);
     while (!q.isEmpty()) {
         TreeNode n = q.poll();
