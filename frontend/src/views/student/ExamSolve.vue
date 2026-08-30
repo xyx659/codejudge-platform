@@ -50,14 +50,14 @@
         </div>
         <div class="qdesc">{{ currentQuestion.description }}</div>
 
-        <div v-if="currentQuestion.testCases && currentQuestion.testCases.length" class="samples">
-          <div class="label">样例测试用例</div>
+        <div v-if="randomTestCases.length" class="samples">
+          <div class="label">样例测试用例（随机抽 {{ randomTestCases.length }} 条）</div>
           <table>
             <thead>
               <tr><th>名称</th><th>输入</th><th>期望输出</th></tr>
             </thead>
             <tbody>
-              <tr v-for="(tc, ti) in currentQuestion.testCases" :key="ti">
+              <tr v-for="(tc, ti) in randomTestCases" :key="ti">
                 <td>{{ tc.name }}</td>
                 <td><code>{{ tc.input }}</code></td>
                 <td><code>{{ tc.expected }}</code></td>
@@ -137,6 +137,20 @@ let timer = null
 const testing = ref(false)
 const testResults = ref(null)
 const testError = ref('')
+
+// 每次看题随机抽取的样例测试用例（最多 3 条）
+const randomTestCases = ref([])
+
+// 从数组中随机抽取最多 n 条（洗牌后取前 n）
+function pickRandom(arr, n) {
+  if (!arr || !arr.length) return []
+  const copy = [...arr]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy.slice(0, Math.min(n, copy.length))
+}
 
 const questionCount = computed(() => (exam.value && exam.value.questions ? exam.value.questions.length : 0))
 const currentQuestion = computed(() => (exam.value && exam.value.questions ? exam.value.questions[current.value] : null))
@@ -262,7 +276,10 @@ function clearDrafts() {
 function initEditor() {
   disposeEditor()
   const q = currentQuestion.value
-  if (!q || !editorEl.value) return
+  if (!q) return
+  // 每次进入 / 切换题目时，随机抽取最多 3 条样例测试用例展示
+  randomTestCases.value = pickRandom(q.testCases, 3)
+  if (!editorEl.value) return
   const i = current.value
   const value = editable.value
     ? (answers.value[i] ?? loadDraft(q.questionId) ?? defaultTemplate(q.methodName))
@@ -309,13 +326,13 @@ async function runTest() {
     testError.value = '请先编写代码'
     return
   }
-  if (!q.testCases || !q.testCases.length) {
+  if (!randomTestCases.value.length) {
     testError.value = '本题暂无样例测试用例'
     return
   }
   testing.value = true
   try {
-    const res = await runLocalTests(code, q.methodName, q.testCases)
+    const res = await runLocalTests(code, q.methodName, randomTestCases.value)
     if (res.compileError) {
       testError.value = res.compileError
       testResults.value = null
