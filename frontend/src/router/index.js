@@ -5,6 +5,7 @@ import TeacherLayout from '../layouts/teacher/TeacherLayout.vue'
 import AdminLayout from '../layouts/admin/AdminLayout.vue'
 import StudentHome from '../views/student/StudentHome.vue'
 import StudentScores from '../views/student/StudentScores.vue'
+import StudentProfile from '../views/student/StudentProfile.vue'
 import QuestionSolve from '../views/student/QuestionSolve.vue'
 import ExamSolve from '../views/student/ExamSolve.vue'
 import StudentLogin from '../views/student/StudentLogin.vue'
@@ -56,7 +57,8 @@ const routes = [
       { path: 'home', component: StudentHome },
       { path: 'questions/:id', component: QuestionSolve },
       { path: 'exams/:id', component: ExamSolve },
-      { path: 'scores', component: StudentScores }
+      { path: 'scores', component: StudentScores },
+      { path: 'profile', component: StudentProfile }
     ]
   },
   // 教师端

@@ -23,6 +23,11 @@ export function getUser() {
   }
 }
 
+/** 更新当前登录用户信息（如修改姓名后刷新本地缓存） */
+export function setUser(user) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
 /** 清除登录状态 */
 export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY)

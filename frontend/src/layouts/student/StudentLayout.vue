@@ -6,6 +6,7 @@
       <nav>
         <router-link to="/student/home">我的考试</router-link>
         <router-link to="/student/scores">我的成绩</router-link>
+        <router-link to="/student/profile">个人信息</router-link>
       </nav>
       <button class="logout" @click="logout">退出登录</button>
     </aside>

@@ -10,6 +10,7 @@ import com.codejudge.platform.dto.QuestionSummary;
 import com.codejudge.platform.dto.StudentExamDetail;
 import com.codejudge.platform.dto.StudentExamQuestion;
 import com.codejudge.platform.dto.StudentExamSummary;
+import com.codejudge.platform.dto.StudentProfile;
 import com.codejudge.platform.dto.StudentQuestionSubmission;
 import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
@@ -37,6 +38,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import org.bson.types.ObjectId;
@@ -93,6 +95,9 @@ public class StudentService {
     /** 防作弊事件仓库：学生端答题页上报切屏/切页面事件 */
     private final CheatEventRepository cheatEventRepository;
 
+    /** 密码编码器：修改密码时对新密码做 BCrypt 加密 */
+    private final PasswordEncoder passwordEncoder;
+
     /** 构造方法：Spring 启动时会自动把需要的仓库和服务传进来（这叫依赖注入） */
     public StudentService(MongoTemplate mongoTemplate,
                           QuestionRepository questionRepository,
@@ -102,7 +107,8 @@ public class StudentService {
                           SubmissionDetailRepository submissionDetailRepository,
                           JudgeService judgeService,
                           QuestionVisibilityIndex visibilityIndex,
-                          CheatEventRepository cheatEventRepository) {
+                          CheatEventRepository cheatEventRepository,
+                          PasswordEncoder passwordEncoder) {
         this.mongoTemplate = mongoTemplate;
         this.questionRepository = questionRepository;
         this.examRepository = examRepository;
@@ -112,6 +118,7 @@ public class StudentService {
         this.judgeService = judgeService;
         this.visibilityIndex = visibilityIndex;
         this.cheatEventRepository = cheatEventRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -480,6 +487,48 @@ public class StudentService {
         String username = authentication.getName();
         return studentRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException("学生不存在"));
+    }
+
+    /**
+     * 查询当前登录学生的个人信息。
+     *
+     * <p>账号、姓名、学号、班级、注册时间等，供学生端「个人信息」页展示。</p>
+     *
+     * @return 当前学生个人信息
+     */
+    public StudentProfile getProfile() {
+        Student student = currentStudent();
+        return new StudentProfile(student.getId(), student.getUsername(), student.getName(),
+                student.getRole(), student.getStudentNo(), student.getClassName(),
+                student.getCreatedAt());
+    }
+
+    /**
+     * 修改当前学生的姓名（登录账号 username 不允许自助修改）。
+     *
+     * @param name 新姓名（已由控制器校验非空）
+     * @return 更新后的个人信息
+     */
+    public StudentProfile updateProfile(String name) {
+        Student student = currentStudent();
+        student.updateProfile(student.getUsername(), name.trim());
+        studentRepository.save(student);
+        return getProfile();
+    }
+
+    /**
+     * 修改当前学生的登录密码（需校验原密码正确）。
+     *
+     * @param oldPassword 原密码（明文，用于比对）
+     * @param newPassword 新密码（明文，落库前 BCrypt 加密）
+     */
+    public void changePassword(String oldPassword, String newPassword) {
+        Student student = currentStudent();
+        if (!passwordEncoder.matches(oldPassword, student.getPassword())) {
+            throw new BadRequestException("原密码错误");
+        }
+        student.updatePassword(passwordEncoder.encode(newPassword));
+        studentRepository.save(student);
     }
 
     /**

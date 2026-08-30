@@ -3,6 +3,7 @@ package com.codejudge.platform.controller.student;
 import com.codejudge.platform.common.ApiResponse;
 import com.codejudge.platform.common.ClientIpUtil;
 import com.codejudge.platform.common.PageResult;
+import com.codejudge.platform.dto.ChangePasswordRequest;
 import com.codejudge.platform.dto.CheatEventRequest;
 import com.codejudge.platform.dto.ExamSubmitRequest;
 import com.codejudge.platform.dto.ExamSubmitResult;
@@ -10,11 +11,13 @@ import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
 import com.codejudge.platform.dto.StudentExamDetail;
 import com.codejudge.platform.dto.StudentExamSummary;
+import com.codejudge.platform.dto.StudentProfile;
 import com.codejudge.platform.dto.StudentQuestionSubmission;
 import com.codejudge.platform.dto.SubmissionRequest;
 import com.codejudge.platform.dto.SubmissionResponse;
 import com.codejudge.platform.dto.SubmissionResult;
 import com.codejudge.platform.dto.SubmissionSummary;
+import com.codejudge.platform.dto.UpdateProfileRequest;
 import com.codejudge.platform.service.RateLimitService;
 import com.codejudge.platform.service.StudentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +25,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -100,6 +104,45 @@ public class StudentController {
     public ApiResponse<Void> reportCheat(@PathVariable String id,
                                          @RequestBody CheatEventRequest request) {
         studentService.reportCheat(id, request.eventType());
+        return ApiResponse.ok(null);
+    }
+
+    /**
+     * 个人信息查询接口。
+     *
+     * <pre>GET /api/student/profile</pre>
+     */
+    @GetMapping("/profile")
+    public ApiResponse<StudentProfile> profile() {
+        return ApiResponse.ok(studentService.getProfile());
+    }
+
+    /**
+     * 修改姓名接口（账号 username 不允许自助修改）。
+     *
+     * <pre>
+     * PUT /api/student/profile
+     * { "name": "新姓名" }
+     * </pre>
+     */
+    @PutMapping("/profile")
+    public ApiResponse<StudentProfile> updateProfile(
+            @Valid @RequestBody UpdateProfileRequest request) {
+        return ApiResponse.ok(studentService.updateProfile(request.name()));
+    }
+
+    /**
+     * 修改密码接口（需校验原密码）。
+     *
+     * <pre>
+     * PUT /api/student/profile/password
+     * { "oldPassword": "旧密码", "newPassword": "新密码" }
+     * </pre>
+     */
+    @PutMapping("/profile/password")
+    public ApiResponse<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request) {
+        studentService.changePassword(request.oldPassword(), request.newPassword());
         return ApiResponse.ok(null);
     }
 

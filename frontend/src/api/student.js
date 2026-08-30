@@ -1,5 +1,5 @@
 // 学生端接口封装（对应后端 /api/student/**）
-import { get, post } from './http'
+import { get, post, put } from './http'
 
 // 把可空参数拼成查询串，仿照 api/questions.js 的 query()
 function query(params = {}) {
@@ -31,6 +31,21 @@ export function submitExam(id, data) {
 /** 上报防作弊事件（切屏 SWITCH_TAB / 切页面 LEAVE_PAGE） */
 export function reportCheat(id, eventType) {
   return post(`/student/exams/${id}/cheat-event`, { eventType })
+}
+
+/** 当前学生的个人信息 */
+export function getProfile() {
+  return get('/student/profile')
+}
+
+/** 修改姓名 */
+export function updateProfile(data) {
+  return put('/student/profile', data)
+}
+
+/** 修改登录密码（需校验原密码） */
+export function changePassword(data) {
+  return put('/student/profile/password', data)
 }
 
 /** 题目列表（分页 + 难度/标签筛选） */
