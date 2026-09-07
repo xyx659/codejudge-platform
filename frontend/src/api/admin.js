@@ -46,3 +46,18 @@ export function downloadTemplate() {
 export function getAdminDashboard() {
   return get('/admin/dashboard')
 }
+
+/** 获取当前管理员个人信息 */
+export function getProfile() {
+  return get('/admin/profile')
+}
+
+/** 修改管理员姓名 */
+export function updateProfile(data) {
+  return put('/admin/profile', data)
+}
+
+/** 修改管理员密码 */
+export function changePassword(data) {
+  return put('/admin/profile/password', data)
+}

@@ -10,6 +10,7 @@
         <router-link to="/admin/system-config">系统配置</router-link>
         <router-link to="/admin/audit-logs">审计日志</router-link>
         <router-link to="/admin/database-monitor">数据库监控</router-link>
+        <router-link to="/admin/profile">个人信息</router-link>
       </nav>
       <button class="logout" @click="logout">退出登录</button>
     </aside>

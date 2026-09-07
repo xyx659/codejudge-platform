@@ -24,6 +24,7 @@ import AdminDatabaseMonitor from '../views/admin/AdminDatabaseMonitor.vue'
 import AdminQuestions from '../views/admin/AdminQuestions.vue'
 import AdminSystemConfig from '../views/admin/AdminSystemConfig.vue'
 import AdminUsers from '../views/admin/AdminUsers.vue'
+import AdminProfile from '../views/admin/AdminProfile.vue'
 import AdminLogin from '../views/admin/AdminLogin.vue'
 import { getToken, getUser } from '../utils/auth'
 
@@ -90,7 +91,8 @@ const routes = [
       { path: 'questions', component: AdminQuestions },
       { path: 'system-config', component: AdminSystemConfig },
       { path: 'audit-logs', component: AdminAuditLogs },
-      { path: 'database-monitor', component: AdminDatabaseMonitor }
+      { path: 'database-monitor', component: AdminDatabaseMonitor },
+      { path: 'profile', component: AdminProfile }
     ]
   }
 ]
