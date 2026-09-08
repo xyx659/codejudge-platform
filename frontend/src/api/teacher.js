@@ -82,8 +82,22 @@ export function closeExam(id) {
 export function getMonitor(examId) {
   return get(`/teacher/monitor/${examId}`)
 }
+export function getMonitorAlerts(examId, params = {}) {
+  return get(`/teacher/monitor/${examId}/alerts${qs(params)}`)
+}
 
 // ===== 学情分析 =====
 export function getAnalytics(examId) {
   return get(`/teacher/analytics/${examId}`)
+}
+
+// ===== 个人信息 =====
+export function getProfile() {
+  return get('/teacher/profile')
+}
+export function updateProfile(data) {
+  return put('/teacher/profile', data)
+}
+export function changePassword(data) {
+  return put('/teacher/profile/password', data)
 }

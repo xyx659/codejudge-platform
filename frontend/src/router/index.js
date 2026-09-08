@@ -16,6 +16,7 @@ import TeacherCategories from '../views/teacher/TeacherCategories.vue'
 import TeacherExams from '../views/teacher/TeacherExams.vue'
 import TeacherMonitor from '../views/teacher/TeacherMonitor.vue'
 import TeacherAnalytics from '../views/teacher/TeacherAnalytics.vue'
+import TeacherProfile from '../views/teacher/TeacherProfile.vue'
 // ===== 教师端（M3）新增页面结束 =====
 import TeacherLogin from '../views/teacher/TeacherLogin.vue'
 import AdminHome from '../views/admin/AdminHome.vue'
@@ -75,7 +76,8 @@ const routes = [
       { path: 'categories', component: TeacherCategories },
       { path: 'exams', component: TeacherExams },
       { path: 'monitor', component: TeacherMonitor },
-      { path: 'analytics', component: TeacherAnalytics }
+      { path: 'analytics', component: TeacherAnalytics },
+      { path: 'profile', component: TeacherProfile }
       // ===== 教师端（M3）新增路由结束 =====
     ]
   },

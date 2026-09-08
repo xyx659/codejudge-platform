@@ -10,7 +10,7 @@ import java.util.List;
  * @param examId         考试 ID
  * @param examTitle      考试标题
  * @param status         考试状态
- * @param totalStudents  学生总数（系统全部学生）
+ * @param totalStudents  应考学生数（本场考试目标班级内的学生，targetClass 为空则全员）
  * @param submittedCount 已提交（至少答过一题）的学生数
  * @param avgScore       已提交学生的平均分
  * @param students       每个学生的作答状态

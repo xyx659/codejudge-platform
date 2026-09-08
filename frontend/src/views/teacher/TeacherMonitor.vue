@@ -40,14 +40,20 @@
         </div>
       </section>
 
-      <!-- 预警 -->
-      <section v-if="summary.alerts.length > 0" class="panel alerts-panel">
+      <!-- 预警（分页 + 时间） -->
+      <section v-if="alerts.length > 0" class="panel alerts-panel">
         <h2>预警</h2>
         <ul class="alert-list">
-          <li v-for="(a, i) in summary.alerts" :key="i" class="alert-item">
+          <li v-for="(a, i) in alerts" :key="i" class="alert-item">
+            <span v-if="a.time" class="alert-time">{{ formatAlertTime(a.time) }}</span>
             <strong>{{ a.name }}</strong> · {{ a.type }}：{{ a.message }}
           </li>
         </ul>
+        <div v-if="alertTotalPages > 1" class="alert-pager">
+          <button class="pager-btn" :disabled="alertPage === 0" @click="prevAlertPage">上一页</button>
+          <span class="pager-info">第 {{ alertPage + 1 }} / {{ alertTotalPages }} 页 · 共 {{ alertTotal }} 条</span>
+          <button class="pager-btn" :disabled="alertPage >= alertTotalPages - 1" @click="nextAlertPage">下一页</button>
+        </div>
       </section>
 
       <!-- 学生作答状态表 -->
@@ -102,8 +108,8 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
-import { getMonitor, listExams } from '../../api/teacher'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { getMonitor, getMonitorAlerts, listExams } from '../../api/teacher'
 
 const statusText = {
   DRAFT: '草稿',
@@ -117,6 +123,13 @@ const summary = ref(null)
 const error = ref('')
 const lastUpdate = ref('')
 let timer = null
+
+// 预警分页
+const alerts = ref([])
+const alertPage = ref(0)
+const alertSize = ref(10)
+const alertTotal = ref(0)
+const alertTotalPages = computed(() => Math.max(1, Math.ceil(alertTotal.value / alertSize.value)))
 
 // 学生状态配色
 function studentStatusClass(status) {
@@ -163,9 +176,39 @@ async function loadMonitor() {
     summary.value = res.data
     error.value = ''
     lastUpdate.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    await loadAlerts()
   } catch (e) {
     error.value = e.message || '监考数据加载失败'
   }
+}
+
+async function loadAlerts() {
+  if (!examId.value) return
+  try {
+    const res = await getMonitorAlerts(examId.value, { page: alertPage.value, size: alertSize.value })
+    alerts.value = res.data.list || []
+    alertTotal.value = res.data.total || 0
+  } catch (e) {
+    // 预警加载失败不阻断整页，静默保留上一份数据
+  }
+}
+
+function prevAlertPage() {
+  if (alertPage.value > 0) {
+    alertPage.value -= 1
+    loadAlerts()
+  }
+}
+
+function nextAlertPage() {
+  if (alertPage.value < alertTotalPages.value - 1) {
+    alertPage.value += 1
+    loadAlerts()
+  }
+}
+
+function formatAlertTime(s) {
+  return s ? s.replace('T', ' ').slice(0, 19) : ''
 }
 
 function startPolling() {
@@ -182,6 +225,8 @@ function stopPolling() {
 
 function onExamChange() {
   stopPolling()
+  alertPage.value = 0
+  alerts.value = []
   if (examId.value) {
     loadMonitor()
     startPolling()
@@ -302,6 +347,41 @@ onUnmounted(stopPolling)
   background: #fef2f2;
   color: #b91c1c;
   font-size: 14px;
+}
+
+.alert-time {
+  margin-right: 8px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.alert-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.pager-btn {
+  padding: 4px 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  background: #fff;
+  color: #b91c1c;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pager-info {
+  color: #9ca3af;
+  font-size: 13px;
 }
 
 .table-shell {
