@@ -6,7 +6,7 @@
 
     <p v-if="loading" class="hint">加载中...</p>
     <p v-else-if="error" class="hint error">{{ error }}</p>
-    <p v-else-if="exams.length === 0" class="hint">暂无考试</p>
+    <p v-else-if="total === 0" class="hint">暂无考试</p>
 
     <div v-else class="list">
       <div v-for="e in exams" :key="e.id" class="card exam" @click="goExam(e.id)">
@@ -26,32 +26,49 @@
         </div>
         <button class="btn primary">{{ enterText(e) }}</button>
       </div>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="btn" :disabled="page <= 0" @click="changePage(page - 1)">上一页</button>
+        <span>第 {{ page + 1 }} / {{ totalPages }} 页</span>
+        <button class="btn" :disabled="page >= totalPages - 1" @click="changePage(page + 1)">下一页</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { listExams } from '../../api/student'
 
 const router = useRouter()
 
 const exams = ref([])
+const page = ref(0)
+const size = ref(5)
+const total = ref(0)
 const loading = ref(false)
 const error = ref('')
+
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / size.value)))
 
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const res = await listExams()
-    exams.value = res.data || []
+    const res = await listExams({ page: page.value, size: size.value })
+    exams.value = res.data.list || []
+    total.value = res.data.total || 0
   } catch (e) {
     error.value = e.message || '加载失败'
   } finally {
     loading.value = false
   }
+}
+
+function changePage(p) {
+  page.value = p
+  load()
 }
 
 function goExam(id) {
@@ -110,6 +127,14 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .card {
