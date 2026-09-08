@@ -51,7 +51,10 @@
         <div class="qdesc">{{ currentQuestion.description }}</div>
 
         <div v-if="randomTestCases.length" class="samples">
-          <div class="label">样例测试用例（随机抽 {{ randomTestCases.length }} 条）</div>
+          <div class="samples-head">
+            <div class="label">样例测试用例（随机抽 {{ randomTestCases.length }}/{{ totalCases }} 条）</div>
+            <button v-if="totalCases > randomTestCases.length" class="btn small" @click="reshuffle">换一批</button>
+          </div>
           <table>
             <thead>
               <tr><th>名称</th><th>输入</th><th>期望输出</th></tr>
@@ -152,8 +155,21 @@ function pickRandom(arr, n) {
   return copy.slice(0, Math.min(n, copy.length))
 }
 
+// 「换一批」：重新随机抽取样例测试用例
+function reshuffle() {
+  const q = currentQuestion.value
+  if (!q) return
+  randomTestCases.value = pickRandom(q.testCases, 3)
+  testResults.value = null
+  testError.value = ''
+}
+
 const questionCount = computed(() => (exam.value && exam.value.questions ? exam.value.questions.length : 0))
 const currentQuestion = computed(() => (exam.value && exam.value.questions ? exam.value.questions[current.value] : null))
+const totalCases = computed(() => {
+  const q = currentQuestion.value
+  return q && q.testCases ? q.testCases.length : 0
+})
 
 // 是否处于可作答状态：进行中 且 尚未交卷
 const editable = computed(() => !!exam.value && exam.value.status === 'ONGOING' && !exam.value.submitted)
@@ -622,6 +638,12 @@ function formatTime(s) {
   padding: 0 16px 12px;
 }
 
+.samples-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .samples .label {
   padding: 0 0 8px;
 }
@@ -748,6 +770,11 @@ function formatTime(s) {
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.btn.small {
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
 .btn.primary {

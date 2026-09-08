@@ -4,7 +4,8 @@
 // 支持两种写法：
 //   1. 直接写 JavaScript（function sum(...) {...} / const sum = (...) => ...）；
 //   2. Java 的 Solution 类（public int sum(int a,int b){...}）——会做一次轻量转换。
-// 输入按空白切分，数字自动转 number，其余按字符串；比对 String(actual).trim() === expected.trim()。
+// 输入支持：空格分隔的标量、数组字面量 [1,2,3]、带引号字符串 "a b"、true/false/null；
+// 数字自动转 number；比对 String(actual).trim() === expected.trim()。
 
 const WORKER_SOURCE = `
 function javaMethodToJs(source, methodName) {
@@ -30,6 +31,71 @@ function javaMethodToJs(source, methodName) {
     }
   }
   return null;
+}
+
+function isSpace(ch) {
+  var c = ch.charCodeAt(0);
+  return c === 32 || c === 9 || c === 10 || c === 13;
+}
+
+// 把一行输入切成 token：数组字面量、带引号字符串保持整体，其余按空白切分
+function tokenize(input) {
+  var tokens = [];
+  var i = 0, n = input.length;
+  while (i < n) {
+    while (i < n && isSpace(input[i])) i++;
+    if (i >= n) break;
+    var c = input[i];
+    if (c === '[') {
+      var depth = 0, inStr = '', start = i;
+      while (i < n) {
+        var ch = input[i];
+        if (inStr) {
+          if (ch === inStr) inStr = '';
+        } else if (ch === '"' || ch === "'") {
+          inStr = ch;
+        } else if (ch === '[') {
+          depth++;
+        } else if (ch === ']') {
+          depth--;
+          if (depth === 0) { i++; break; }
+        }
+        i++;
+      }
+      tokens.push(input.slice(start, i));
+    } else if (c === '"' || c === "'") {
+      var q = c, start = i;
+      i++;
+      while (i < n && input[i] !== q) i++;
+      i++;
+      tokens.push(input.slice(start, i));
+    } else {
+      var start = i;
+      while (i < n && !isSpace(input[i])) i++;
+      tokens.push(input.slice(start, i));
+    }
+  }
+  return tokens;
+}
+
+// 把单个 token 转成 JS 值：数组 / 布尔 / null / 数字 / 字符串
+function parseToken(t) {
+  if (!t) return t;
+  if (t[0] === '[') {
+    try {
+      return JSON.parse(t.replace(/'/g, '"'));
+    } catch (e) {
+      return t;
+    }
+  }
+  if (t === 'true') return true;
+  if (t === 'false') return false;
+  if (t === 'null') return null;
+  if ((t[0] === '"' && t[t.length - 1] === '"') || (t[0] === "'" && t[t.length - 1] === "'")) {
+    return t.slice(1, -1);
+  }
+  if (t !== '' && !isNaN(Number(t))) return Number(t);
+  return t;
 }
 
 self.onmessage = function (e) {
@@ -71,9 +137,7 @@ self.onmessage = function (e) {
     var tc = testCases[i];
     var start = performance.now();
     try {
-      var args = tc.input.split(/\\s+/).filter(Boolean).map(function (t) {
-        return t !== '' && !isNaN(Number(t)) ? Number(t) : t;
-      });
+      var args = tokenize(tc.input).map(parseToken);
       var actual = fn.apply(null, args);
       var actualStr = actual === undefined ? 'undefined' : String(actual).trim();
       var passed = actualStr === String(tc.expected).trim();
