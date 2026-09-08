@@ -9,6 +9,8 @@ import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
 import com.codejudge.platform.dto.StudentExamDetail;
 import com.codejudge.platform.dto.StudentExamQuestion;
+import com.codejudge.platform.dto.StudentExamQuestionScore;
+import com.codejudge.platform.dto.StudentExamScore;
 import com.codejudge.platform.dto.StudentExamSummary;
 import com.codejudge.platform.dto.StudentProfile;
 import com.codejudge.platform.dto.StudentQuestionSubmission;
@@ -185,26 +187,42 @@ public class StudentService {
     }
 
     /**
-     * 学生端「我的考试」列表：返回所有已发布（PUBLISHED）的考试。
+     * 学生端「我的考试」列表：分页返回已发布（PUBLISHED）的考试，按最近发布倒序。
      *
      * <p>学生看到的是<b>试卷</b>而非题库题目。每项带一个按当前时间算出的状态
      * （未开始 / 进行中 / 已结束），以及「是否已交卷」标记。</p>
+     *
+     * @param page 页码，从 0 开始
+     * @param size 每页条数
+     * @return 分页的考试摘要
      */
-    public List<StudentExamSummary> listExams() {
+    public PageResult<StudentExamSummary> listExams(int page, int size) {
         Student student = currentStudent();
+        // 只查当前学生可见的考试：已发布，且目标班级为空（null / 缺省 / 空串）或等于本人班级
+        Criteria classVisible = new Criteria().orOperator(
+                Criteria.where("targetClass").is((Object) null),
+                Criteria.where("targetClass").is(""),
+                Criteria.where("targetClass").is(student.getClassName()));
+        Query query = new Query()
+                .addCriteria(Criteria.where("status").is("PUBLISHED"))
+                .addCriteria(classVisible);
+
+        long total = mongoTemplate.count(query, Exam.class);
+
+        // 按最近修改时间（发布/关闭都会刷新 updatedAt）倒序，新发布的考试排最前
+        PageRequest pageable = PageRequest.of(page, size,
+                Sort.by(Sort.Direction.DESC, "updatedAt"));
+        List<Exam> exams = mongoTemplate.find(query.with(pageable), Exam.class);
+
         LocalDateTime now = LocalDateTime.now();
-        List<Exam> exams = examRepository.findByStatus("PUBLISHED");
         List<StudentExamSummary> result = new ArrayList<StudentExamSummary>();
         for (Exam exam : exams) {
-            if (!visibleByClass(exam, student)) {
-                continue;
-            }
             boolean submitted = submissionRepository
                     .findFirstByStudentIdAndExamId(student.getId(), exam.getId())
                     .isPresent();
             result.add(toSummary(exam, now, submitted));
         }
-        return result;
+        return new PageResult<StudentExamSummary>(result, page, size, total);
     }
 
     /**
@@ -570,6 +588,106 @@ public class StudentService {
 
         // 6. 装进分页结果返回（总条数来自 JPA 的分页对象）
         return new PageResult<>(list, page, size, submissionPage.getTotalElements());
+    }
+
+    /**
+     * 学生端「我的成绩」：把该学生的提交按考试分组汇总。
+     *
+     * <p>不再一道题一行平铺，而是按考试（历史单题练习归入「单题练习」）分组：
+     * 每组一行考试标题 + 学生得分，点开后看每题得分。按最近一次作答时间倒序。</p>
+     *
+     * @return 按考试分组的成绩列表
+     */
+    public List<StudentExamScore> listExamScores() {
+        // 1. 拿到当前登录的学生
+        Student student = currentStudent();
+
+        // 2. 查出该学生全部提交（不分页，前端按考试折叠展示）
+        List<Submission> subs = submissionRepository.findByStudentId(student.getId());
+        if (subs.isEmpty()) {
+            return List.of();
+        }
+
+        // 3. 按考试分组；examId 为空的历史单题提交归入「单题练习」
+        Map<String, List<Submission>> byExam = new HashMap<>();
+        Map<String, LocalDateTime> latestByExam = new HashMap<>();
+        for (Submission s : subs) {
+            String key = s.getExamId() == null ? "" : s.getExamId();
+            byExam.computeIfAbsent(key, k -> new ArrayList<>()).add(s);
+            LocalDateTime t = s.getCreatedAt();
+            if (t != null && (!latestByExam.containsKey(key) || t.isAfter(latestByExam.get(key)))) {
+                latestByExam.put(key, t);
+            }
+        }
+
+        // 4. 批量查题目标题（避免对每条提交都单独查一次题目，N+1）
+        List<String> questionIds = subs.stream()
+                .map(Submission::getQuestionId)
+                .distinct()
+                .toList();
+        Map<String, String> titleMap = questionIds.isEmpty()
+                ? Map.of()
+                : questionRepository.findAllById(questionIds).stream()
+                        .collect(Collectors.toMap(Question::getId, Question::getTitle));
+
+        // 5. 逐组汇总
+        List<StudentExamScore> result = new ArrayList<>();
+        for (Map.Entry<String, List<Submission>> e : byExam.entrySet()) {
+            String examId = e.getKey();
+            List<Submission> group = e.getValue();
+            Exam exam = examId.isEmpty()
+                    ? null
+                    : examRepository.findById(examId).orElse(null);
+            String examTitle = exam != null ? exam.getTitle() : "单题练习";
+            Integer passScore = exam != null ? exam.getPassScore() : null;
+
+            // 组卷各题分值（用于封顶计分与卷面满分）
+            Map<String, Integer> cap = new HashMap<>();
+            if (exam != null && exam.getQuestions() != null) {
+                for (ExamQuestion eq : exam.getQuestions()) {
+                    cap.put(eq.getQuestionId(), eq.getScore() == null ? 0 : eq.getScore());
+                }
+            }
+            int fullScore = cap.values().stream().mapToInt(Integer::intValue).sum();
+
+            // 每题取得分最高的那次提交作为代表
+            Map<String, Submission> best = new HashMap<>();
+            for (Submission s : group) {
+                Submission cur = best.get(s.getQuestionId());
+                if (cur == null || scoreOf(s) > scoreOf(cur)) {
+                    best.put(s.getQuestionId(), s);
+                }
+            }
+
+            int achieved = 0;
+            List<StudentExamQuestionScore> questions = new ArrayList<>();
+            for (Submission s : best.values()) {
+                Integer sc = s.getScore();
+                if (sc != null) {
+                    Integer c = cap.get(s.getQuestionId());
+                    achieved += c == null ? sc : Math.min(sc, c);
+                }
+                questions.add(new StudentExamQuestionScore(
+                        s.getId(), s.getQuestionId(), titleMap.get(s.getQuestionId()),
+                        s.getJudgeStatus(), sc));
+            }
+
+            result.add(new StudentExamScore(examId, examTitle, achieved, fullScore,
+                    passScore, questions));
+        }
+
+        // 6. 按最近一次作答时间倒序，最新作答的考试排最前
+        result.sort((a, b) -> {
+            LocalDateTime ta = latestByExam.getOrDefault(a.examId(), LocalDateTime.MIN);
+            LocalDateTime tb = latestByExam.getOrDefault(b.examId(), LocalDateTime.MIN);
+            return tb.compareTo(ta);
+        });
+        return result;
+    }
+
+    /** 提交得分，未出分为 -1（保证有分的提交优先作为每题代表） */
+    private int scoreOf(Submission s) {
+        return s.getScore() == null ? -1 : s.getScore();
     }
 
     /**

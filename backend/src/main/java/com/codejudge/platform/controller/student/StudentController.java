@@ -10,6 +10,7 @@ import com.codejudge.platform.dto.ExamSubmitResult;
 import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
 import com.codejudge.platform.dto.StudentExamDetail;
+import com.codejudge.platform.dto.StudentExamScore;
 import com.codejudge.platform.dto.StudentExamSummary;
 import com.codejudge.platform.dto.StudentProfile;
 import com.codejudge.platform.dto.StudentQuestionSubmission;
@@ -53,13 +54,15 @@ public class StudentController {
     }
 
     /**
-     * 学生端「我的考试」列表（学生看到的是试卷，而非题库题目）。
+     * 学生端「我的考试」列表（学生看到的是试卷，而非题库题目），分页返回。
      *
-     * <pre>GET /api/student/exams</pre>
+     * <pre>GET /api/student/exams?page=0&amp;size=5</pre>
      */
     @GetMapping("/exams")
-    public ApiResponse<List<StudentExamSummary>> exams() {
-        return ApiResponse.ok(studentService.listExams());
+    public ApiResponse<PageResult<StudentExamSummary>> exams(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return ApiResponse.ok(studentService.listExams(page, size));
     }
 
     /**
@@ -70,6 +73,16 @@ public class StudentController {
     @GetMapping("/exams/{id}")
     public ApiResponse<StudentExamDetail> examDetail(@PathVariable String id) {
         return ApiResponse.ok(studentService.getExam(id));
+    }
+
+    /**
+     * 学生端「我的成绩」：按考试分组的成绩汇总。
+     *
+     * <pre>GET /api/student/exams/scores</pre>
+     */
+    @GetMapping("/exams/scores")
+    public ApiResponse<List<StudentExamScore>> examScores() {
+        return ApiResponse.ok(studentService.listExamScores());
     }
 
     /**

@@ -13,9 +13,9 @@ function query(params = {}) {
   return suffix
 }
 
-/** 我的考试列表（学生看到的是试卷） */
-export function listExams() {
-  return get('/student/exams')
+/** 我的考试列表（学生看到的是试卷），分页 + 按发布时间倒序 */
+export function listExams(params = {}) {
+  return get(`/student/exams${query(params)}`)
 }
 
 /** 考试详情（进试卷答题 / 交卷后回看） */
@@ -71,6 +71,11 @@ export function submit(data) {
 /** 提交记录列表（分页） */
 export function listSubmissions(params = {}) {
   return get(`/student/submissions${query(params)}`)
+}
+
+/** 我的成绩（按考试分组汇总） */
+export function listExamScores() {
+  return get('/student/exams/scores')
 }
 
 /** 某次提交的成绩与 AI 评审 */

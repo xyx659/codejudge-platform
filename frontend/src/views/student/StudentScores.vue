@@ -1,52 +1,46 @@
-<!-- 学生端：我的成绩，展示提交记录列表，点开查看得分、用例结果与 AI 反馈 -->
+<!-- 学生端：我的成绩，按考试分组汇总，点开考试看每题得分，再点某题查看 AI 评审 -->
 <template>
   <div class="page">
     <h1>我的成绩</h1>
-    <p class="desc">查看历史提交的得分与 AI 评审反馈</p>
+    <p class="desc">按考试分组查看得分，点开考试看每题得分，点某题查看 AI 评审</p>
 
     <p v-if="loading" class="hint">加载中...</p>
     <p v-else-if="error" class="hint error">{{ error }}</p>
-    <p v-else-if="submissions.length === 0" class="hint">暂无提交记录，去考试首页做一道题吧</p>
+    <p v-else-if="exams.length === 0" class="hint">暂无成绩，去考试首页参加一场考试吧</p>
 
     <template v-else>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>题目标题</th>
-            <th>状态</th>
-            <th>得分</th>
-            <th>提交时间</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="s in submissions"
-            :key="s.id"
-            class="row"
-            :class="{ active: selectedId === s.id }"
-            @click="openDetail(s.id)"
-          >
-            <td>{{ s.questionTitle || '（题目已删除）' }}</td>
-            <td>
-              <span class="status" :class="statusClass(s.judgeStatus)">
-                {{ judgeStatusText(s.judgeStatus) }}
-              </span>
-            </td>
-            <td>{{ s.score == null ? '—' : s.score }}</td>
-            <td>{{ formatTime(s.createdAt) }}</td>
-            <td><span class="link">查看 →</span></td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-for="g in exams" :key="g.examId || 'legacy'" class="card exam-group">
+        <div class="exam-head" @click="toggle(g)">
+          <div class="head-left">
+            <h3 class="title">{{ g.examTitle }}</h3>
+            <span class="meta">{{ g.questions.length }} 题</span>
+          </div>
+          <div class="head-right">
+            <span class="score">{{ scoreText(g) }}</span>
+            <span v-if="g.passScore != null" class="pass" :class="passClass(g)">{{ passText(g) }}</span>
+            <span class="arrow">{{ expanded === g.examId ? '▲' : '▼' }}</span>
+          </div>
+        </div>
 
-      <div class="pagination" v-if="totalPages > 1">
-        <button class="btn" :disabled="page <= 0" @click="changePage(page - 1)">上一页</button>
-        <span>第 {{ page + 1 }} / {{ totalPages }} 页</span>
-        <button class="btn" :disabled="page >= totalPages - 1" @click="changePage(page + 1)">下一页</button>
+        <div v-if="expanded === g.examId" class="questions">
+          <div
+            v-for="q in g.questions"
+            :key="q.submissionId"
+            class="q-row"
+            :class="{ active: selectedId === q.submissionId }"
+            @click="openDetail(q.submissionId)"
+          >
+            <span class="q-title">{{ q.questionTitle || '（题目已删除）' }}</span>
+            <span class="status" :class="statusClass(q.judgeStatus)">
+              {{ judgeStatusText(q.judgeStatus) }}
+            </span>
+            <span class="q-score">{{ q.score == null ? '—' : q.score }} 分</span>
+            <span class="link">AI 评审 →</span>
+          </div>
+        </div>
       </div>
 
-      <!-- 成绩详情 -->
+      <!-- 成绩详情（用例结果 + AI 评审） -->
       <div v-if="detailLoading" class="card detail">详情加载中...</div>
       <div v-else-if="detailError" class="card detail error">{{ detailError }}</div>
       <div v-else-if="detail" class="card detail">
@@ -94,14 +88,11 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { getSubmissionResult, listSubmissions } from '../../api/student'
+import { getSubmissionResult, listExamScores } from '../../api/student'
 import { judgeStatusText } from '../../utils/format'
 
-const submissions = ref([])
-const page = ref(0)
-const size = ref(10)
-const total = ref(0)
-const totalPages = ref(1)
+const exams = ref([])
+const expanded = ref(null)
 const loading = ref(false)
 const error = ref('')
 
@@ -114,10 +105,8 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const res = await listSubmissions({ page: page.value, size: size.value })
-    submissions.value = res.data.list || []
-    total.value = res.data.total || 0
-    totalPages.value = res.data.size ? Math.ceil(total.value / res.data.size) : 1
+    const res = await listExamScores()
+    exams.value = res.data || []
   } catch (e) {
     error.value = e.message || '加载失败'
   } finally {
@@ -125,9 +114,20 @@ async function load() {
   }
 }
 
-function changePage(p) {
-  page.value = p
-  load()
+function toggle(g) {
+  expanded.value = expanded.value === g.examId ? '' : g.examId
+}
+
+function scoreText(g) {
+  return g.fullScore > 0 ? `${g.achievedScore} / ${g.fullScore} 分` : `${g.achievedScore} 分`
+}
+
+function passText(g) {
+  return g.achievedScore >= g.passScore ? '已及格' : '未及格'
+}
+
+function passClass(g) {
+  return g.achievedScore >= g.passScore ? 'passed' : 'failed'
 }
 
 async function openDetail(id) {
@@ -157,10 +157,6 @@ function statusClass(status) {
   return 'pending'
 }
 
-function formatTime(s) {
-  return s ? s.replace('T', ' ') : '—'
-}
-
 onMounted(load)
 </script>
 
@@ -185,35 +181,102 @@ onMounted(load)
   color: #dc2626;
 }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+.exam-group {
+  margin-bottom: 12px;
+  padding: 0;
   overflow: hidden;
-  font-size: 14px;
 }
 
-.table th,
-.table td {
-  padding: 12px 14px;
-  text-align: left;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.table th {
-  background: #f9fafb;
-  font-weight: 600;
-}
-
-.row {
+.exam-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
   cursor: pointer;
 }
 
-.row:hover,
-.row.active {
+.exam-head:hover {
+  background: #f9fafb;
+}
+
+.head-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title {
+  font-size: 17px;
+}
+
+.meta {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.score {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.pass {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.pass.passed {
+  background: #16a34a;
+}
+
+.pass.failed {
+  background: #dc2626;
+}
+
+.arrow {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.questions {
+  border-top: 1px solid #f3f4f6;
+}
+
+.q-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.q-row:last-child {
+  border-bottom: none;
+}
+
+.q-row:hover,
+.q-row.active {
   background: #eff6ff;
+}
+
+.q-title {
+  flex: 1;
+}
+
+.q-score {
+  min-width: 56px;
+  text-align: right;
 }
 
 .status {
@@ -237,15 +300,7 @@ onMounted(load)
 
 .link {
   color: #2563eb;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 16px 0;
-  color: #6b7280;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .btn {
@@ -258,15 +313,13 @@ onMounted(load)
   font-size: 14px;
 }
 
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .card {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+}
+
+.detail {
   padding: 16px;
   margin-top: 20px;
 }
@@ -280,12 +333,6 @@ onMounted(load)
 
 .detail-head h3 {
   font-size: 17px;
-}
-
-.score {
-  font-size: 20px;
-  font-weight: 700;
-  color: #2563eb;
 }
 
 .close {

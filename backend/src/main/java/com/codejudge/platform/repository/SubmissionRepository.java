@@ -22,6 +22,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
      */
     Page<Submission> findByStudentId(Long studentId, Pageable pageable);
 
+    /** 查某个学生的全部提交（不分页，用于「我的成绩」按考试分组汇总） */
+    List<Submission> findByStudentId(Long studentId);
+
     /** 判断学生是否已经产生提交记录 */
     boolean existsByStudentId(Long studentId);
 
