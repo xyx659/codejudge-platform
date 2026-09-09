@@ -8,16 +8,43 @@
       "methodSignature": "int[] twoSum(int[], int)",
       "language": "Java",
       "difficulty": "简单",
-      "tags": ["数组", "哈希表"],
+      "tags": [
+        "数组",
+        "哈希表"
+      ],
       "sourceId": "1",
       "sourceUrl": "https://leetcode.cn/problems/two-sum/",
       "testCases": [
-        { "name": "基本用例", "input": "nums = [2,7,11,15], target = 9", "expected": "[0, 1]" },
-        { "name": "相邻元素", "input": "nums = [3,2,4], target = 6", "expected": "[1, 2]" },
-        { "name": "重复元素", "input": "nums = [3,3], target = 6", "expected": "[0, 1]" },
-        { "name": "含负数", "input": "nums = [-1,-2,-3,-4,-5], target = -8", "expected": "[2, 4]" },
-        { "name": "首尾配对", "input": "nums = [1,2,3,4,5,6,7,8,9,10], target = 19", "expected": "[8, 9]" },
-        { "name": "含零", "input": "nums = [0,4,3,0], target = 0", "expected": "[0, 3]" }
+        {
+          "name": "基本用例",
+          "input": "nums = [2,7,11,15], target = 9",
+          "expected": "[0,1]"
+        },
+        {
+          "name": "相邻元素",
+          "input": "nums = [3,2,4], target = 6",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "重复元素",
+          "input": "nums = [3,3], target = 6",
+          "expected": "[0,1]"
+        },
+        {
+          "name": "含负数",
+          "input": "nums = [-1,-2,-3,-4,-5], target = -8",
+          "expected": "[2,4]"
+        },
+        {
+          "name": "首尾配对",
+          "input": "nums = [1,2,3,4,5,6,7,8,9,10], target = 19",
+          "expected": "[8,9]"
+        },
+        {
+          "name": "含零",
+          "input": "nums = [0,4,3,0], target = 0",
+          "expected": "[0,3]"
+        }
       ]
     },
     {
@@ -28,15 +55,38 @@
       "methodSignature": "ListNode reverseList(ListNode)",
       "language": "Java",
       "difficulty": "简单",
-      "tags": ["链表", "递归"],
+      "tags": [
+        "链表",
+        "递归"
+      ],
       "sourceId": "206",
       "sourceUrl": "https://leetcode.cn/problems/reverse-linked-list/",
       "testCases": [
-        { "name": "5个节点", "input": "head = [1,2,3,4,5]", "expected": "[5, 4, 3, 2, 1]" },
-        { "name": "2个节点", "input": "head = [1,2]", "expected": "[2, 1]" },
-        { "name": "空链表", "input": "head = []", "expected": "[]" },
-        { "name": "单节点", "input": "head = [42]", "expected": "[42]" },
-        { "name": "含负数", "input": "head = [-1,-2,-3]", "expected": "[-3, -2, -1]" }
+        {
+          "name": "5个节点",
+          "input": "head = [1,2,3,4,5]",
+          "expected": "[5,4,3,2,1]"
+        },
+        {
+          "name": "2个节点",
+          "input": "head = [1,2]",
+          "expected": "[2,1]"
+        },
+        {
+          "name": "空链表",
+          "input": "head = []",
+          "expected": "[]"
+        },
+        {
+          "name": "单节点",
+          "input": "head = [42]",
+          "expected": "[42]"
+        },
+        {
+          "name": "含负数",
+          "input": "head = [-1,-2,-3]",
+          "expected": "[-3,-2,-1]"
+        }
       ]
     },
     {
@@ -47,17 +97,48 @@
       "methodSignature": "boolean isValid(String)",
       "language": "Java",
       "difficulty": "简单",
-      "tags": ["栈", "字符串"],
+      "tags": [
+        "栈",
+        "字符串"
+      ],
       "sourceId": "20",
       "sourceUrl": "https://leetcode.cn/problems/valid-parentheses/",
       "testCases": [
-        { "name": "简单配对", "input": "s = \"()\"", "expected": "true" },
-        { "name": "多类型并列", "input": "s = \"()[]{}\"", "expected": "true" },
-        { "name": "类型不匹配", "input": "s = \"(]\"", "expected": "false" },
-        { "name": "多余右括号", "input": "s = \"{[()]}}\"", "expected": "false" },
-        { "name": "单个左括号", "input": "s = \"(\"", "expected": "false" },
-        { "name": "深度嵌套", "input": "s = \"{[()]}\"", "expected": "true" },
-        { "name": "交替类型", "input": "s = \"([)]\"", "expected": "false" }
+        {
+          "name": "简单配对",
+          "input": "s = \"()\"",
+          "expected": "true"
+        },
+        {
+          "name": "多类型并列",
+          "input": "s = \"()[]{}\"",
+          "expected": "true"
+        },
+        {
+          "name": "类型不匹配",
+          "input": "s = \"(]\"",
+          "expected": "false"
+        },
+        {
+          "name": "多余右括号",
+          "input": "s = \"{[()]}}\"",
+          "expected": "false"
+        },
+        {
+          "name": "单个左括号",
+          "input": "s = \"(\"",
+          "expected": "false"
+        },
+        {
+          "name": "深度嵌套",
+          "input": "s = \"{[()]}\"",
+          "expected": "true"
+        },
+        {
+          "name": "交替类型",
+          "input": "s = \"([)]\"",
+          "expected": "false"
+        }
       ]
     },
     {
@@ -68,15 +149,38 @@
       "methodSignature": "ListNode mergeTwoLists(ListNode, ListNode)",
       "language": "Java",
       "difficulty": "简单",
-      "tags": ["链表", "递归"],
+      "tags": [
+        "链表",
+        "递归"
+      ],
       "sourceId": "21",
       "sourceUrl": "https://leetcode.cn/problems/merge-two-sorted-lists/",
       "testCases": [
-        { "name": "正常合并", "input": "list1 = [1,2,4], list2 = [1,3,4]", "expected": "[1, 1, 2, 3, 4, 4]" },
-        { "name": "两个空", "input": "list1 = [], list2 = []", "expected": "[]" },
-        { "name": "左空右非空", "input": "list1 = [], list2 = [0]", "expected": "[0]" },
-        { "name": "左非空右空", "input": "list1 = [1,3], list2 = []", "expected": "[1, 3]" },
-        { "name": "不同长度", "input": "list1 = [1], list2 = [2,3,4,5]", "expected": "[1, 2, 3, 4, 5]" }
+        {
+          "name": "正常合并",
+          "input": "list1 = [1,2,4], list2 = [1,3,4]",
+          "expected": "[1,1,2,3,4,4]"
+        },
+        {
+          "name": "两个空",
+          "input": "list1 = [], list2 = []",
+          "expected": "[]"
+        },
+        {
+          "name": "左空右非空",
+          "input": "list1 = [], list2 = [0]",
+          "expected": "[0]"
+        },
+        {
+          "name": "左非空右空",
+          "input": "list1 = [1,3], list2 = []",
+          "expected": "[1,3]"
+        },
+        {
+          "name": "不同长度",
+          "input": "list1 = [1], list2 = [2,3,4,5]",
+          "expected": "[1,2,3,4,5]"
+        }
       ]
     },
     {
@@ -87,16 +191,44 @@
       "methodSignature": "int maxSubArray(int[])",
       "language": "Java",
       "difficulty": "中等",
-      "tags": ["数组", "分治", "动态规划"],
+      "tags": [
+        "数组",
+        "分治",
+        "动态规划"
+      ],
       "sourceId": "53",
       "sourceUrl": "https://leetcode.cn/problems/maximum-subarray/",
       "testCases": [
-        { "name": "经典用例", "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]", "expected": "6" },
-        { "name": "单元素", "input": "nums = [1]", "expected": "1" },
-        { "name": "全正数", "input": "nums = [5,4,-1,7,8]", "expected": "23" },
-        { "name": "全负数", "input": "nums = [-3,-2,-1,-4]", "expected": "-1" },
-        { "name": "两端负中间正", "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]", "expected": "6" },
-        { "name": "单个负数", "input": "nums = [-5]", "expected": "-5" }
+        {
+          "name": "经典用例",
+          "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+          "expected": "6"
+        },
+        {
+          "name": "单元素",
+          "input": "nums = [1]",
+          "expected": "1"
+        },
+        {
+          "name": "全正数",
+          "input": "nums = [5,4,-1,7,8]",
+          "expected": "23"
+        },
+        {
+          "name": "全负数",
+          "input": "nums = [-3,-2,-1,-4]",
+          "expected": "-1"
+        },
+        {
+          "name": "两端负中间正",
+          "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+          "expected": "6"
+        },
+        {
+          "name": "单个负数",
+          "input": "nums = [-5]",
+          "expected": "-5"
+        }
       ]
     },
     {
@@ -107,15 +239,38 @@
       "methodSignature": "List<List<Integer>> levelOrder(TreeNode)",
       "language": "Java",
       "difficulty": "中等",
-      "tags": ["树", "广度优先搜索"],
+      "tags": [
+        "树",
+        "广度优先搜索"
+      ],
       "sourceId": "102",
       "sourceUrl": "https://leetcode.cn/problems/binary-tree-level-order-traversal/",
       "testCases": [
-        { "name": "完全二叉树", "input": "root = [3,9,20,null,null,15,7]", "expected": "[[3], [9, 20], [15, 7]]" },
-        { "name": "单节点", "input": "root = [1]", "expected": "[[1]]" },
-        { "name": "空树", "input": "root = []", "expected": "[]" },
-        { "name": "左斜树", "input": "root = [1,2,null,3]", "expected": "[[1], [2], [3]]" },
-        { "name": "右斜树", "input": "root = [1,null,2,null,3]", "expected": "[[1], [2], [3]]" }
+        {
+          "name": "完全二叉树",
+          "input": "root = [3,9,20,null,null,15,7]",
+          "expected": "[[3],[9,20],[15,7]]"
+        },
+        {
+          "name": "单节点",
+          "input": "root = [1]",
+          "expected": "[[1]]"
+        },
+        {
+          "name": "空树",
+          "input": "root = []",
+          "expected": "[]"
+        },
+        {
+          "name": "左斜树",
+          "input": "root = [1,2,null,3]",
+          "expected": "[[1],[2],[3]]"
+        },
+        {
+          "name": "右斜树",
+          "input": "root = [1,null,2,null,3]",
+          "expected": "[[1],[2],[3]]"
+        }
       ]
     },
     {
@@ -126,15 +281,38 @@
       "methodSignature": "int climbStairs(int)",
       "language": "Java",
       "difficulty": "简单",
-      "tags": ["动态规划", "记忆化"],
+      "tags": [
+        "动态规划",
+        "记忆化"
+      ],
       "sourceId": "70",
       "sourceUrl": "https://leetcode.cn/problems/climbing-stairs/",
       "testCases": [
-        { "name": "n=2", "input": "n = 2", "expected": "2" },
-        { "name": "n=3", "input": "n = 3", "expected": "3" },
-        { "name": "n=10", "input": "n = 10", "expected": "89" },
-        { "name": "最小值n=1", "input": "n = 1", "expected": "1" },
-        { "name": "较大值n=45", "input": "n = 45", "expected": "1836311903" }
+        {
+          "name": "n=2",
+          "input": "n = 2",
+          "expected": "2"
+        },
+        {
+          "name": "n=3",
+          "input": "n = 3",
+          "expected": "3"
+        },
+        {
+          "name": "n=10",
+          "input": "n = 10",
+          "expected": "89"
+        },
+        {
+          "name": "最小值n=1",
+          "input": "n = 1",
+          "expected": "1"
+        },
+        {
+          "name": "较大值n=45",
+          "input": "n = 45",
+          "expected": "1836311903"
+        }
       ]
     },
     {
@@ -145,15 +323,38 @@
       "methodSignature": "int maxProfit(int[])",
       "language": "Java",
       "difficulty": "简单",
-      "tags": ["数组", "动态规划"],
+      "tags": [
+        "数组",
+        "动态规划"
+      ],
       "sourceId": "121",
       "sourceUrl": "https://leetcode.cn/problems/best-time-to-buy-and-sell-stock/",
       "testCases": [
-        { "name": "正常获利", "input": "prices = [7,1,5,3,6,4]", "expected": "5" },
-        { "name": "持续下跌", "input": "prices = [7,6,4,3,1]", "expected": "0" },
-        { "name": "持续上涨", "input": "prices = [1,2,3,4,5]", "expected": "4" },
-        { "name": "单日价格", "input": "prices = [5]", "expected": "0" },
-        { "name": "价格相同", "input": "prices = [3,3,3,3]", "expected": "0" }
+        {
+          "name": "正常获利",
+          "input": "prices = [7,1,5,3,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "持续下跌",
+          "input": "prices = [7,6,4,3,1]",
+          "expected": "0"
+        },
+        {
+          "name": "持续上涨",
+          "input": "prices = [1,2,3,4,5]",
+          "expected": "4"
+        },
+        {
+          "name": "单日价格",
+          "input": "prices = [5]",
+          "expected": "0"
+        },
+        {
+          "name": "价格相同",
+          "input": "prices = [3,3,3,3]",
+          "expected": "0"
+        }
       ]
     },
     {
@@ -164,14 +365,34 @@
       "methodSignature": "TreeNode mergeTrees(TreeNode, TreeNode)",
       "language": "Java",
       "difficulty": "简单",
-      "tags": ["树", "深度优先搜索", "广度优先搜索"],
+      "tags": [
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
       "sourceId": "617",
       "sourceUrl": "https://leetcode.cn/problems/merge-two-binary-trees/",
       "testCases": [
-        { "name": "正常合并", "input": "root1 = [1,3,2,5], root2 = [2,1,3,null,4,null,7]", "expected": "[3, 4, 5, 5, 4, null, 7]" },
-        { "name": "单节点合并", "input": "root1 = [1], root2 = [1,2]", "expected": "[2, 2]" },
-        { "name": "两个空树", "input": "root1 = [], root2 = []", "expected": "[]" },
-        { "name": "左空右非空", "input": "root1 = [], root2 = [1,2,3]", "expected": "[1, 2, 3]" }
+        {
+          "name": "正常合并",
+          "input": "root1 = [1,3,2,5], root2 = [2,1,3,null,4,null,7]",
+          "expected": "[3,4,5,5,4,null,7]"
+        },
+        {
+          "name": "单节点合并",
+          "input": "root1 = [1], root2 = [1,2]",
+          "expected": "[2,2]"
+        },
+        {
+          "name": "两个空树",
+          "input": "root1 = [], root2 = []",
+          "expected": "[]"
+        },
+        {
+          "name": "左空右非空",
+          "input": "root1 = [], root2 = [1,2,3]",
+          "expected": "[1,2,3]"
+        }
       ]
     },
     {
@@ -182,17 +403,49 @@
       "methodSignature": "int lengthOfLongestSubstring(String)",
       "language": "Java",
       "difficulty": "中等",
-      "tags": ["哈希表", "字符串", "滑动窗口"],
+      "tags": [
+        "哈希表",
+        "字符串",
+        "滑动窗口"
+      ],
       "sourceId": "3",
       "sourceUrl": "https://leetcode.cn/problems/longest-substring-without-repeating-characters/",
       "testCases": [
-        { "name": "经典用例", "input": "s = \"abcabcbb\"", "expected": "3" },
-        { "name": "全重复", "input": "s = \"bbbbb\"", "expected": "1" },
-        { "name": "含重复", "input": "s = \"pwwkew\"", "expected": "3" },
-        { "name": "空串", "input": "s = \"\"", "expected": "0" },
-        { "name": "单字符", "input": "s = \" \"", "expected": "1" },
-        { "name": "全不重复", "input": "s = \"abcdef\"", "expected": "6" },
-        { "name": "含数字符号", "input": "s = \"ab1!ab1!\"", "expected": "4" }
+        {
+          "name": "经典用例",
+          "input": "s = \"abcabcbb\"",
+          "expected": "3"
+        },
+        {
+          "name": "全重复",
+          "input": "s = \"bbbbb\"",
+          "expected": "1"
+        },
+        {
+          "name": "含重复",
+          "input": "s = \"pwwkew\"",
+          "expected": "3"
+        },
+        {
+          "name": "空串",
+          "input": "s = \"\"",
+          "expected": "0"
+        },
+        {
+          "name": "单字符",
+          "input": "s = \" \"",
+          "expected": "1"
+        },
+        {
+          "name": "全不重复",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "含数字符号",
+          "input": "s = \"ab1!ab1!\"",
+          "expected": "4"
+        }
       ]
     }
   ]

@@ -117,12 +117,15 @@ public class DockerJudgeEngine implements JudgeEngine {
         JudgeRuntimeConfig config = systemConfigService.getJudgeRuntimeConfig();
 
         // ② 编译：Solution.java（学生源码） + Main.java（判题侧包装） + 数据结构定义文件
-        String mainSource = codeRunner.generateMain(signature);
+        // 先获取辅助类源码，传给 generateMain 以正确识别 Node 形态（图/树/链表）
+        Map<String, String> helperSources = codeRunner.requiredHelperSources(signature);
+        List<String> helperClasses = new ArrayList<>(helperSources.values());
+        String mainSource = codeRunner.generateMain(signature, helperClasses);
         Map<String, byte[]> sources = new HashMap<>();
         sources.put("Solution.java", detail.getSourceCode().getBytes(StandardCharsets.UTF_8));
         sources.put("Main.java", mainSource.getBytes(StandardCharsets.UTF_8));
-        // 根据签名自动注入 ListNode/TreeNode/Node 独立源码，使 Solution.java 能引用这些类
-        for (Map.Entry<String, String> e : codeRunner.requiredHelperSources(signature).entrySet()) {
+        // 注入 ListNode/TreeNode/Node 独立源码，使 Solution.java 能引用这些类
+        for (Map.Entry<String, String> e : helperSources.entrySet()) {
             sources.put(e.getKey(), e.getValue().getBytes(StandardCharsets.UTF_8));
         }
 

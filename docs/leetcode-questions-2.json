@@ -1,0 +1,1149 @@
+{
+  "questions": [
+    {
+      "title": "复制带随机指针的链表",
+      "description": "给你一个长度为 n 的链表，每个节点包含一个额外的随机指针 random，该指针可以指向链表中的任何节点或空节点。构造这个链表的深拷贝。\n\n示例 1：\n输入：head = [[7,null],[13,0],[11,4],[10,2],[1,0]]\n输出：[[7,null],[13,0],[11,4],[10,2],[1,0]]\n\n提示：\n- 0 <= n <= 1000\n- -10^4 <= Node.val <= 10^4",
+      "methodName": "copyRandomList",
+      "methodSignature": "Node copyRandomList(Node)",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "链表",
+        "哈希表"
+      ],
+      "testCases": [
+        {
+          "name": "5节点链表",
+          "input": "head = [[7,null],[13,0],[11,4],[10,2],[1,0]]",
+          "expected": "[[7,null],[13,0],[11,4],[10,2],[1,0]]"
+        },
+        {
+          "name": "空链表",
+          "input": "head = []",
+          "expected": "[]"
+        },
+        {
+          "name": "单节点无随机",
+          "input": "head = [[1,null]]",
+          "expected": "[[1,null]]"
+        },
+        {
+          "name": "单节点自指",
+          "input": "head = [[1,0]]",
+          "expected": "[[1,0]]"
+        },
+        {
+          "name": "2节点互指",
+          "input": "head = [[1,1],[2,0]]",
+          "expected": "[[1,1],[2,0]]"
+        },
+        {
+          "name": "3节点链式",
+          "input": "head = [[1,2],[2,1],[3,0]]",
+          "expected": "[[1,2],[2,1],[3,0]]"
+        },
+        {
+          "name": "全指向第一个",
+          "input": "head = [[1,0],[2,0],[3,0]]",
+          "expected": "[[1,0],[2,0],[3,0]]"
+        },
+        {
+          "name": "全指向最后",
+          "input": "head = [[1,2],[2,2],[3,null]]",
+          "expected": "[[1,2],[2,2],[3,null]]"
+        },
+        {
+          "name": "交替指向",
+          "input": "head = [[1,1],[2,0],[3,3],[4,2]]",
+          "expected": "[[1,1],[2,0],[3,3],[4,2]]"
+        },
+        {
+          "name": "4节点复杂",
+          "input": "head = [[3,null],[3,0],[3,null]]",
+          "expected": "[[3,null],[3,0],[3,null]]"
+        },
+        {
+          "name": "负数节点",
+          "input": "head = [[-1,null]]",
+          "expected": "[[-1,null]]"
+        },
+        {
+          "name": "大数值",
+          "input": "head = [[10000,1],[-10000,0]]",
+          "expected": "[[10000,1],[-10000,0]]"
+        },
+        {
+          "name": "单链无随机",
+          "input": "head = [[1,null],[2,null],[3,null]]",
+          "expected": "[[1,null],[2,null],[3,null]]"
+        },
+        {
+          "name": "环形随机",
+          "input": "head = [[1,2],[2,0],[3,1]]",
+          "expected": "[[1,2],[2,0],[3,1]]"
+        },
+        {
+          "name": "2节点",
+          "input": "head = [[1,null],[2,null]]",
+          "expected": "[[1,null],[2,null]]"
+        },
+        {
+          "name": "随机跳着指",
+          "input": "head = [[1,3],[2,4],[3,0],[4,1],[5,2]]",
+          "expected": "[[1,3],[2,4],[3,0],[4,1],[5,2]]"
+        },
+        {
+          "name": "全部null",
+          "input": "head = [[1,null],[2,null],[3,null],[4,null]]",
+          "expected": "[[1,null],[2,null],[3,null],[4,null]]"
+        },
+        {
+          "name": "自环加随机",
+          "input": "head = [[1,0],[2,1]]",
+          "expected": "[[1,0],[2,1]]"
+        },
+        {
+          "name": "3节点全自指",
+          "input": "head = [[1,0],[2,1],[3,2]]",
+          "expected": "[[1,0],[2,1],[3,2]]"
+        },
+        {
+          "name": "反向随机",
+          "input": "head = [[5,4],[4,3],[3,2],[2,1],[1,0]]",
+          "expected": "[[5,4],[4,3],[3,2],[2,1],[1,0]]"
+        }
+      ]
+    },
+    {
+      "title": "N叉树的层序遍历",
+      "description": "给定一个 N 叉树，返回其节点值的层序遍历。（即从左到右，逐层遍历）。\n\n示例 1：\n输入：root = [1,null,3,2,4,null,5,6]\n输出：[[1],[3,2,4],[5,6]]\n\n提示：\n- 树的高度不会超过 1000\n- 节点总数在 [0, 10^4] 之间",
+      "methodName": "levelOrder",
+      "methodSignature": "List<List<Integer>> levelOrder(Node)",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "树",
+        "广度优先搜索"
+      ],
+      "testCases": [
+        {
+          "name": "标准N叉树",
+          "input": "root = [1,null,3,2,4,null,5,6]",
+          "expected": "[[1],[3,2,4],[5,6]]"
+        },
+        {
+          "name": "空树",
+          "input": "root = []",
+          "expected": "[]"
+        },
+        {
+          "name": "单节点",
+          "input": "root = [1]",
+          "expected": "[[1]]"
+        },
+        {
+          "name": "单层子节点",
+          "input": "root = [1,null,2,3,4]",
+          "expected": "[[1],[2,3,4]]"
+        },
+        {
+          "name": "3层树",
+          "input": "root = [1,null,2,3,4,null,5,6,7]",
+          "expected": "[[1],[2,3,4],[5,6,7]]"
+        },
+        {
+          "name": "左倾树",
+          "input": "root = [1,null,2,null,3]",
+          "expected": "[[1],[2],[3]]"
+        },
+        {
+          "name": "右倾树",
+          "input": "root = [1,null,3,null,5]",
+          "expected": "[[1],[3],[5]]"
+        },
+        {
+          "name": "满N叉树",
+          "input": "root = [1,null,2,3,4,5,null,6,7,8,9,10,11,12,13,14,15]",
+          "expected": "[[1],[2,3,4,5],[6,7,8,9,10,11,12,13,14,15]]"
+        },
+        {
+          "name": "单子节点",
+          "input": "root = [1,null,2]",
+          "expected": "[[1],[2]]"
+        },
+        {
+          "name": "2层2子",
+          "input": "root = [1,null,2,3]",
+          "expected": "[[1],[2,3]]"
+        },
+        {
+          "name": "3层单子",
+          "input": "root = [1,null,2,null,3,null,4]",
+          "expected": "[[1],[2],[3],[4]]"
+        },
+        {
+          "name": "2层3子",
+          "input": "root = [1,null,2,3,4]",
+          "expected": "[[1],[2,3,4]]"
+        },
+        {
+          "name": "3层2子",
+          "input": "root = [1,null,2,3,null,4,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "4层单子",
+          "input": "root = [1,null,2,null,3,null,4,null,5]",
+          "expected": "[[1],[2],[3],[4],[5]]"
+        },
+        {
+          "name": "混合深度",
+          "input": "root = [1,null,2,3,null,4]",
+          "expected": "[[1],[2,3],[4]]"
+        },
+        {
+          "name": "2层4子",
+          "input": "root = [1,null,2,3,4,5]",
+          "expected": "[[1],[2,3,4,5]]"
+        },
+        {
+          "name": "3层不均匀",
+          "input": "root = [1,null,2,3,null,4,5,6]",
+          "expected": "[[1],[2,3],[4,5,6]]"
+        },
+        {
+          "name": "根+单孙",
+          "input": "root = [1,null,2,null,3]",
+          "expected": "[[1],[2],[3]]"
+        },
+        {
+          "name": "2层1子",
+          "input": "root = [1,null,2]",
+          "expected": "[[1],[2]]"
+        },
+        {
+          "name": "3层3子",
+          "input": "root = [1,null,2,3,4,null,5,6,7,8,9,10]",
+          "expected": "[[1],[2,3,4],[5,6,7,8,9,10]]"
+        }
+      ]
+    },
+    {
+      "title": "填充每个节点的下一个右侧节点指针",
+      "description": "给定一个完美二叉树，填充每个节点的 next 指针，使其指向其下一个右侧节点。如果找不到下一个右侧节点，则将 next 指针设置为 NULL。\n\n示例 1：\n输入：root = [1,2,3,4,5,6,7]\n输出：[1,#,2,3,#,4,5,6,7,#]\n\n提示：\n- 树中节点的数量在 [0, 2^12 - 1] 范围内\n- -1000 <= node.val <= 1000",
+      "methodName": "connect",
+      "methodSignature": "Node connect(Node)",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
+      "testCases": [
+        {
+          "name": "完全二叉树",
+          "input": "root = [1,2,3,4,5,6,7]",
+          "expected": "[1,#,2,3,#,4,5,6,7]"
+        },
+        {
+          "name": "空树",
+          "input": "root = []",
+          "expected": "[]"
+        },
+        {
+          "name": "单节点",
+          "input": "root = [1]",
+          "expected": "[1]"
+        },
+        {
+          "name": "2层",
+          "input": "root = [1,2,3]",
+          "expected": "[1,#,2,3]"
+        },
+        {
+          "name": "3层完全",
+          "input": "root = [1,2,3,4,5,6,7]",
+          "expected": "[1,#,2,3,#,4,5,6,7]"
+        },
+        {
+          "name": "左斜树",
+          "input": "root = [1,2,null,3]",
+          "expected": "[1,#,2,#,3]"
+        },
+        {
+          "name": "右斜树",
+          "input": "root = [1,null,3,null,7]",
+          "expected": "[1,#,3,#,7]"
+        },
+        {
+          "name": "4层完全",
+          "input": "root = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]",
+          "expected": "[1,#,2,3,#,4,5,6,7,#,8,9,10,11,12,13,14,15]"
+        },
+        {
+          "name": "2层左子",
+          "input": "root = [1,2]",
+          "expected": "[1,#,2]"
+        },
+        {
+          "name": "2层右子",
+          "input": "root = [1,null,3]",
+          "expected": "[1,#,3]"
+        },
+        {
+          "name": "3层左倾",
+          "input": "root = [1,2,3,4]",
+          "expected": "[1,#,2,3,#,4]"
+        },
+        {
+          "name": "3层右倾",
+          "input": "root = [1,2,3,null,5]",
+          "expected": "[1,#,2,3,#,5]"
+        },
+        {
+          "name": "单左子树",
+          "input": "root = [1,2]",
+          "expected": "[1,#,2]"
+        },
+        {
+          "name": "单右子树",
+          "input": "root = [1,null,3]",
+          "expected": "[1,#,3]"
+        },
+        {
+          "name": "3层完全2",
+          "input": "root = [1,2,3,4,5,6,7]",
+          "expected": "[1,#,2,3,#,4,5,6,7]"
+        },
+        {
+          "name": "2层完全",
+          "input": "root = [1,2,3]",
+          "expected": "[1,#,2,3]"
+        },
+        {
+          "name": "3层左子",
+          "input": "root = [1,2,3,4,5]",
+          "expected": "[1,#,2,3,#,4,5]"
+        },
+        {
+          "name": "3层右子",
+          "input": "root = [1,2,3,null,null,6,7]",
+          "expected": "[1,#,2,3,#,6,7]"
+        },
+        {
+          "name": "4层左倾",
+          "input": "root = [1,2,null,3,null,4]",
+          "expected": "[1,#,2,#,3,#,4]"
+        },
+        {
+          "name": "4层右倾",
+          "input": "root = [1,null,3,null,7,null,15]",
+          "expected": "[1,#,3,#,7,#,15]"
+        }
+      ]
+    },
+    {
+      "title": "N叉树的前序遍历",
+      "description": "给定一个 N 叉树，返回其节点值的前序遍历。\n\n示例 1：\n输入：root = [1,null,3,2,4,null,5,6]\n输出：[1,3,5,6,2,4]\n\n提示：\n- 节点总数在范围 [0, 10^4] 内\n- 0 <= Node.val <= 10^4",
+      "methodName": "preorder",
+      "methodSignature": "List<Integer> preorder(Node)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "树",
+        "深度优先搜索"
+      ],
+      "testCases": [
+        {
+          "name": "标准N叉树",
+          "input": "root = [1,null,3,2,4,null,5,6]",
+          "expected": "[1,3,5,6,2,4]"
+        },
+        {
+          "name": "空树",
+          "input": "root = []",
+          "expected": "[]"
+        },
+        {
+          "name": "单节点",
+          "input": "root = [1]",
+          "expected": "[1]"
+        },
+        {
+          "name": "单层子节点",
+          "input": "root = [1,null,2,3,4]",
+          "expected": "[1,2,3,4]"
+        },
+        {
+          "name": "3层树",
+          "input": "root = [1,null,2,3,4,null,5,6,7]",
+          "expected": "[1,2,5,6,7,3,4]"
+        },
+        {
+          "name": "左倾树",
+          "input": "root = [1,null,2,null,3]",
+          "expected": "[1,2,3]"
+        },
+        {
+          "name": "右倾树",
+          "input": "root = [1,null,3,null,5]",
+          "expected": "[1,3,5]"
+        },
+        {
+          "name": "满N叉树",
+          "input": "root = [1,null,2,3,4,5,null,6,7,8,9,10,11,12,13,14,15]",
+          "expected": "[1,2,6,7,8,9,10,11,12,13,14,15,3,4,5]"
+        },
+        {
+          "name": "单子节点",
+          "input": "root = [1,null,2]",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "2层2子",
+          "input": "root = [1,null,2,3]",
+          "expected": "[1,2,3]"
+        },
+        {
+          "name": "3层单子",
+          "input": "root = [1,null,2,null,3,null,4]",
+          "expected": "[1,2,3,4]"
+        },
+        {
+          "name": "2层3子",
+          "input": "root = [1,null,2,3,4]",
+          "expected": "[1,2,3,4]"
+        },
+        {
+          "name": "3层2子",
+          "input": "root = [1,null,2,3,null,4,5]",
+          "expected": "[1,2,4,5,3]"
+        },
+        {
+          "name": "4层单子",
+          "input": "root = [1,null,2,null,3,null,4,null,5]",
+          "expected": "[1,2,3,4,5]"
+        },
+        {
+          "name": "混合深度",
+          "input": "root = [1,null,2,3,null,4]",
+          "expected": "[1,2,4,3]"
+        },
+        {
+          "name": "2层4子",
+          "input": "root = [1,null,2,3,4,5]",
+          "expected": "[1,2,3,4,5]"
+        },
+        {
+          "name": "3层不均匀",
+          "input": "root = [1,null,2,3,null,4,5,6]",
+          "expected": "[1,2,4,5,6,3]"
+        },
+        {
+          "name": "根+单孙",
+          "input": "root = [1,null,2,null,3]",
+          "expected": "[1,2,3]"
+        },
+        {
+          "name": "2层1子",
+          "input": "root = [1,null,2]",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "3层3子",
+          "input": "root = [1,null,2,3,4,null,5,6,7,8,9,10]",
+          "expected": "[1,2,5,6,7,8,9,10,3,4]"
+        }
+      ]
+    },
+    {
+      "title": "填充每个节点的下一个右侧节点指针 II",
+      "description": "给定一个二叉树，填充每个节点的 next 指针，使其指向其下一个右侧节点。如果找不到下一个右侧节点，则将 next 指针设置为 NULL。二叉树不一定是完美二叉树。\n\n示例 1：\n输入：root = [1,2,3,4,5,null,7]\n输出：[1,#,2,3,#,4,5,7,#]\n\n提示：\n- 树中节点数在范围 [0, 6000] 内\n- -100 <= Node.val <= 100",
+      "methodName": "connect",
+      "methodSignature": "Node connect(Node)",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
+      "testCases": [
+        {
+          "name": "不完全二叉树",
+          "input": "root = [1,2,3,4,5,null,7]",
+          "expected": "[1,#,2,3,#,4,5,7]"
+        },
+        {
+          "name": "空树",
+          "input": "root = []",
+          "expected": "[]"
+        },
+        {
+          "name": "单节点",
+          "input": "root = [1]",
+          "expected": "[1]"
+        },
+        {
+          "name": "完全二叉树",
+          "input": "root = [1,2,3,4,5,6,7]",
+          "expected": "[1,#,2,3,#,4,5,6,7]"
+        },
+        {
+          "name": "左斜树",
+          "input": "root = [1,2,null,3]",
+          "expected": "[1,#,2,#,3]"
+        },
+        {
+          "name": "右斜树",
+          "input": "root = [1,null,3,null,7]",
+          "expected": "[1,#,3,#,7]"
+        },
+        {
+          "name": "只有左子",
+          "input": "root = [1,2]",
+          "expected": "[1,#,2]"
+        },
+        {
+          "name": "只有右子",
+          "input": "root = [1,null,3]",
+          "expected": "[1,#,3]"
+        },
+        {
+          "name": "3层左倾",
+          "input": "root = [1,2,3,4]",
+          "expected": "[1,#,2,3,#,4]"
+        },
+        {
+          "name": "3层右倾",
+          "input": "root = [1,2,3,null,5]",
+          "expected": "[1,#,2,3,#,5]"
+        },
+        {
+          "name": "缺右子",
+          "input": "root = [1,2,3,4,5,6]",
+          "expected": "[1,#,2,3,#,4,5,6]"
+        },
+        {
+          "name": "缺左子",
+          "input": "root = [1,2,3,null,5,null,7]",
+          "expected": "[1,#,2,3,#,5,7]"
+        },
+        {
+          "name": "4层不完全",
+          "input": "root = [1,2,3,4,5,6,7,8]",
+          "expected": "[1,#,2,3,#,4,5,6,7,#,8]"
+        },
+        {
+          "name": "单子左",
+          "input": "root = [1,2]",
+          "expected": "[1,#,2]"
+        },
+        {
+          "name": "单子右",
+          "input": "root = [1,null,3]",
+          "expected": "[1,#,3]"
+        },
+        {
+          "name": "3层完全",
+          "input": "root = [1,2,3,4,5,6,7]",
+          "expected": "[1,#,2,3,#,4,5,6,7]"
+        },
+        {
+          "name": "缺中间",
+          "input": "root = [1,2,3,4,null,null,7]",
+          "expected": "[1,#,2,3,#,4,7]"
+        },
+        {
+          "name": "右子树深",
+          "input": "root = [1,2,null,3]",
+          "expected": "[1,#,2,#,3]"
+        },
+        {
+          "name": "左子树深",
+          "input": "root = [1,null,3,null,7]",
+          "expected": "[1,#,3,#,7]"
+        },
+        {
+          "name": "混合",
+          "input": "root = [1,2,3,4,5,null,7]",
+          "expected": "[1,#,2,3,#,4,5,7]"
+        }
+      ]
+    },
+    {
+      "title": "环形链表",
+      "description": "给你一个链表的头节点 head，判断链表中是否有环。如果链表中存在环，则返回 true；否则，返回 false。\n\n示例 1：\n输入：head = [3,2,0,-4], pos = 1\n输出：true\n解释：链表中有一个环，其尾部连接到第二个节点。\n\n示例 2：\n输入：head = [1,2], pos = 0\n输出：true\n\n示例 3：\n输入：head = [1], pos = -1\n输出：false\n\n提示：\n- 链表中节点的数目范围是 [0, 10^4]\n- -10^5 <= Node.val <= 10^5",
+      "methodName": "hasCycle",
+      "methodSignature": "boolean hasCycle(ListNode)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "链表",
+        "双指针"
+      ],
+      "testCases": [
+        {
+          "name": "有环4节点",
+          "input": "head = [3,2,0,-4], pos = 1",
+          "expected": "true"
+        },
+        {
+          "name": "有环2节点",
+          "input": "head = [1,2], pos = 0",
+          "expected": "true"
+        },
+        {
+          "name": "无环1节点",
+          "input": "head = [1], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "空链表",
+          "input": "head = []",
+          "expected": "false"
+        },
+        {
+          "name": "单节点自环",
+          "input": "head = [1], pos = 0",
+          "expected": "true"
+        },
+        {
+          "name": "2节点无环",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "3节点有环",
+          "input": "head = [1,2,3], pos = 1",
+          "expected": "true"
+        },
+        {
+          "name": "3节点无环",
+          "input": "head = [1,2,3], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "5节点有环",
+          "input": "head = [1,2,3,4,5], pos = 2",
+          "expected": "true"
+        },
+        {
+          "name": "5节点无环",
+          "input": "head = [1,2,3,4,5], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "负数有环",
+          "input": "head = [-1,-2,-3], pos = 0",
+          "expected": "true"
+        },
+        {
+          "name": "负数无环",
+          "input": "head = [-1,-2,-3], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "大数值有环",
+          "input": "head = [10000,-10000], pos = 1",
+          "expected": "true"
+        },
+        {
+          "name": "大数值无环",
+          "input": "head = [10000,-10000], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "10节点有环",
+          "input": "head = [1,2,3,4,5,6,7,8,9,10], pos = 5",
+          "expected": "true"
+        },
+        {
+          "name": "10节点无环",
+          "input": "head = [1,2,3,4,5,6,7,8,9,10], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "单节点有环",
+          "input": "head = [1], pos = 0",
+          "expected": "true"
+        },
+        {
+          "name": "2节点有环",
+          "input": "head = [1,2], pos = 1",
+          "expected": "true"
+        },
+        {
+          "name": "4节点无环",
+          "input": "head = [1,2,3,4], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "4节点有环",
+          "input": "head = [1,2,3,4], pos = 2",
+          "expected": "true"
+        }
+      ]
+    },
+    {
+      "title": "二叉树的最大深度",
+      "description": "给定一个二叉树，找出其最大深度。最大深度是从根节点到最远叶节点的最长路径上的节点数。\n\n示例 1：\n输入：root = [3,9,20,null,null,15,7]\n输出：3\n\n示例 2：\n输入：root = [1,null,2]\n输出：2\n\n提示：\n- 树中节点的数量在 [0, 10^4] 范围内\n- -100 <= Node.val <= 100",
+      "methodName": "maxDepth",
+      "methodSignature": "int maxDepth(TreeNode)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "树",
+        "深度优先搜索"
+      ],
+      "testCases": [
+        {
+          "name": "完全二叉树",
+          "input": "root = [3,9,20,null,null,15,7]",
+          "expected": "3"
+        },
+        {
+          "name": "右斜树",
+          "input": "root = [1,null,2]",
+          "expected": "2"
+        },
+        {
+          "name": "空树",
+          "input": "root = []",
+          "expected": "0"
+        },
+        {
+          "name": "单节点",
+          "input": "root = [1]",
+          "expected": "1"
+        },
+        {
+          "name": "左斜树",
+          "input": "root = [1,2,null,3]",
+          "expected": "3"
+        },
+        {
+          "name": "2层完全",
+          "input": "root = [1,2,3]",
+          "expected": "2"
+        },
+        {
+          "name": "3层完全",
+          "input": "root = [1,2,3,4,5,6,7]",
+          "expected": "3"
+        },
+        {
+          "name": "4层完全",
+          "input": "root = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]",
+          "expected": "4"
+        },
+        {
+          "name": "只有左子",
+          "input": "root = [1,2]",
+          "expected": "2"
+        },
+        {
+          "name": "只有右子",
+          "input": "root = [1,null,3]",
+          "expected": "2"
+        },
+        {
+          "name": "左深右浅",
+          "input": "root = [1,2,3,4]",
+          "expected": "3"
+        },
+        {
+          "name": "右深左浅",
+          "input": "root = [1,2,3,null,5]",
+          "expected": "3"
+        },
+        {
+          "name": "5层左斜",
+          "input": "root = [1,2,null,3,null,4,null,5]",
+          "expected": "5"
+        },
+        {
+          "name": "5层右斜",
+          "input": "root = [1,null,2,null,3,null,4,null,5]",
+          "expected": "5"
+        },
+        {
+          "name": "不平衡",
+          "input": "root = [1,2,3,4,5,null,null,6]",
+          "expected": "4"
+        },
+        {
+          "name": "负数节点",
+          "input": "root = [-1,-2,-3]",
+          "expected": "2"
+        },
+        {
+          "name": "大数值",
+          "input": "root = [100,-100,200]",
+          "expected": "2"
+        },
+        {
+          "name": "单左子树",
+          "input": "root = [1,2]",
+          "expected": "2"
+        },
+        {
+          "name": "单右子树",
+          "input": "root = [1,null,3]",
+          "expected": "2"
+        },
+        {
+          "name": "3层不完全",
+          "input": "root = [1,2,3,4,null,null,7]",
+          "expected": "3"
+        }
+      ]
+    },
+    {
+      "title": "对称二叉树",
+      "description": "给你一个二叉树的根节点 root，检查它是否轴对称。\n\n示例 1：\n输入：root = [1,2,2,3,4,4,3]\n输出：true\n\n示例 2：\n输入：root = [1,2,2,null,3,null,3]\n输出：false\n\n提示：\n- 树中节点数目在范围 [1, 1000] 内\n- -100 <= Node.val <= 100",
+      "methodName": "isSymmetric",
+      "methodSignature": "boolean isSymmetric(TreeNode)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
+      "testCases": [
+        {
+          "name": "对称3层",
+          "input": "root = [1,2,2,3,4,4,3]",
+          "expected": "true"
+        },
+        {
+          "name": "不对称",
+          "input": "root = [1,2,2,null,3,null,3]",
+          "expected": "false"
+        },
+        {
+          "name": "单节点",
+          "input": "root = [1]",
+          "expected": "true"
+        },
+        {
+          "name": "空树",
+          "input": "root = []",
+          "expected": "true"
+        },
+        {
+          "name": "2层对称",
+          "input": "root = [1,2,2]",
+          "expected": "true"
+        },
+        {
+          "name": "2层不对称",
+          "input": "root = [1,2,3]",
+          "expected": "false"
+        },
+        {
+          "name": "3层对称2",
+          "input": "root = [1,2,2,3,4,4,3]",
+          "expected": "true"
+        },
+        {
+          "name": "3层不对称2",
+          "input": "root = [1,2,2,3,4,4,5]",
+          "expected": "false"
+        },
+        {
+          "name": "左斜不对称",
+          "input": "root = [1,2,null,3]",
+          "expected": "false"
+        },
+        {
+          "name": "右斜不对称",
+          "input": "root = [1,null,2,null,3]",
+          "expected": "false"
+        },
+        {
+          "name": "只有左子",
+          "input": "root = [1,2]",
+          "expected": "false"
+        },
+        {
+          "name": "只有右子",
+          "input": "root = [1,null,3]",
+          "expected": "false"
+        },
+        {
+          "name": "4层对称",
+          "input": "root = [1,2,2,3,4,4,3,5,6,7,8,8,7,6,5]",
+          "expected": "true"
+        },
+        {
+          "name": "4层不对称",
+          "input": "root = [1,2,2,3,4,4,3,5,6,7,8,8,7,6,9]",
+          "expected": "false"
+        },
+        {
+          "name": "负数对称",
+          "input": "root = [1,-2,-2,-3,-4,-4,-3]",
+          "expected": "true"
+        },
+        {
+          "name": "负数不对称",
+          "input": "root = [1,-2,-2,-3,-4,-4,3]",
+          "expected": "false"
+        },
+        {
+          "name": "单左子树",
+          "input": "root = [1,2]",
+          "expected": "false"
+        },
+        {
+          "name": "单右子树",
+          "input": "root = [1,null,3]",
+          "expected": "false"
+        },
+        {
+          "name": "3层完全对称",
+          "input": "root = [1,2,2,3,4,4,3]",
+          "expected": "true"
+        },
+        {
+          "name": "3层完全不对称",
+          "input": "root = [1,2,2,3,4,4,5]",
+          "expected": "false"
+        }
+      ]
+    },
+    {
+      "title": "最大子数组和",
+      "description": "给你一个整数数组 nums，请你找出一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。\n\n示例 1：\n输入：nums = [-2,1,-3,4,-1,2,1,-5,4]\n输出：6\n解释：连续子数组 [4,-1,2,1] 的和最大，为 6 。\n\n示例 2：\n输入：nums = [1]\n输出：1\n\n示例 3：\n输入：nums = [5,4,-1,7,8]\n输出：23\n\n提示：\n- 1 <= nums.length <= 10^5\n- -10^4 <= nums[i] <= 10^4",
+      "methodName": "maxSubArray",
+      "methodSignature": "int maxSubArray(int[])",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "数组",
+        "分治",
+        "动态规划"
+      ],
+      "testCases": [
+        {
+          "name": "经典用例",
+          "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+          "expected": "6"
+        },
+        {
+          "name": "单元素",
+          "input": "nums = [1]",
+          "expected": "1"
+        },
+        {
+          "name": "全正数",
+          "input": "nums = [5,4,-1,7,8]",
+          "expected": "23"
+        },
+        {
+          "name": "全负数",
+          "input": "nums = [-3,-2,-1,-4]",
+          "expected": "-1"
+        },
+        {
+          "name": "单个负数",
+          "input": "nums = [-5]",
+          "expected": "-5"
+        },
+        {
+          "name": "两端负中间正",
+          "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+          "expected": "6"
+        },
+        {
+          "name": "递增数组",
+          "input": "nums = [1,2,3,4,5]",
+          "expected": "15"
+        },
+        {
+          "name": "递减数组",
+          "input": "nums = [5,4,3,2,1]",
+          "expected": "15"
+        },
+        {
+          "name": "交替正负",
+          "input": "nums = [1,-1,1,-1,1]",
+          "expected": "1"
+        },
+        {
+          "name": "大正小负",
+          "input": "nums = [10,-1,10,-1,10]",
+          "expected": "29"
+        },
+        {
+          "name": "大负小正",
+          "input": "nums = [-10,1,-10,1,-10]",
+          "expected": "1"
+        },
+        {
+          "name": "两元素",
+          "input": "nums = [1,2]",
+          "expected": "3"
+        },
+        {
+          "name": "两元素负正",
+          "input": "nums = [-1,2]",
+          "expected": "2"
+        },
+        {
+          "name": "两元素正负",
+          "input": "nums = [2,-1]",
+          "expected": "2"
+        },
+        {
+          "name": "两元素全负",
+          "input": "nums = [-1,-2]",
+          "expected": "-1"
+        },
+        {
+          "name": "3元素",
+          "input": "nums = [1,2,3]",
+          "expected": "6"
+        },
+        {
+          "name": "3元素负正负",
+          "input": "nums = [-1,2,-1]",
+          "expected": "2"
+        },
+        {
+          "name": "5元素",
+          "input": "nums = [1,-2,3,-4,5]",
+          "expected": "5"
+        },
+        {
+          "name": "全零",
+          "input": "nums = [0,0,0,0]",
+          "expected": "0"
+        },
+        {
+          "name": "零和正",
+          "input": "nums = [0,1,0,1,0]",
+          "expected": "2"
+        }
+      ]
+    },
+    {
+      "title": "最长递增子序列",
+      "description": "给你一个整数数组 nums，找到其中最长严格递增子序列的长度。\n\n示例 1：\n输入：nums = [10,9,2,5,3,7,101,18]\n输出：4\n解释：最长递增子序列是 [2,3,7,101]，长度为 4。\n\n示例 2：\n输入：nums = [0,1,0,3,2,3]\n输出：4\n\n示例 3：\n输入：nums = [7,7,7,7,7,7,7]\n输出：1\n\n提示：\n- 1 <= nums.length <= 2500\n- -10^4 <= nums[i] <= 10^4",
+      "methodName": "lengthOfLIS",
+      "methodSignature": "int lengthOfLIS(int[])",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "数组",
+        "二分查找",
+        "动态规划"
+      ],
+      "testCases": [
+        {
+          "name": "经典用例",
+          "input": "nums = [10,9,2,5,3,7,101,18]",
+          "expected": "4"
+        },
+        {
+          "name": "全相同",
+          "input": "nums = [7,7,7,7,7,7,7]",
+          "expected": "1"
+        },
+        {
+          "name": "递增数组",
+          "input": "nums = [1,2,3,4,5]",
+          "expected": "5"
+        },
+        {
+          "name": "递减数组",
+          "input": "nums = [5,4,3,2,1]",
+          "expected": "1"
+        },
+        {
+          "name": "单元素",
+          "input": "nums = [1]",
+          "expected": "1"
+        },
+        {
+          "name": "两元素递增",
+          "input": "nums = [1,2]",
+          "expected": "2"
+        },
+        {
+          "name": "两元素递减",
+          "input": "nums = [2,1]",
+          "expected": "1"
+        },
+        {
+          "name": "两元素相同",
+          "input": "nums = [1,1]",
+          "expected": "1"
+        },
+        {
+          "name": "3元素递增",
+          "input": "nums = [1,2,3]",
+          "expected": "3"
+        },
+        {
+          "name": "3元素递减",
+          "input": "nums = [3,2,1]",
+          "expected": "1"
+        },
+        {
+          "name": "3元素波浪",
+          "input": "nums = [1,3,2]",
+          "expected": "2"
+        },
+        {
+          "name": "5元素",
+          "input": "nums = [0,1,0,3,2]",
+          "expected": "3"
+        },
+        {
+          "name": "负数递增",
+          "input": "nums = [-3,-2,-1]",
+          "expected": "3"
+        },
+        {
+          "name": "负数递减",
+          "input": "nums = [-1,-2,-3]",
+          "expected": "1"
+        },
+        {
+          "name": "正负交替",
+          "input": "nums = [-1,0,1,0,-1]",
+          "expected": "3"
+        },
+        {
+          "name": "大数组",
+          "input": "nums = [1,3,6,7,9,4,10,5,6]",
+          "expected": "6"
+        },
+        {
+          "name": "重复元素",
+          "input": "nums = [1,1,1,1,2,2,2,3,3]",
+          "expected": "3"
+        },
+        {
+          "name": "先增后减",
+          "input": "nums = [1,2,3,2,1]",
+          "expected": "3"
+        },
+        {
+          "name": "先减后增",
+          "input": "nums = [3,2,1,2,3]",
+          "expected": "3"
+        },
+        {
+          "name": "长序列",
+          "input": "nums = [10,9,2,5,3,7,101,18,19,20]",
+          "expected": "6"
+        }
+      ]
+    }
+  ]
+}

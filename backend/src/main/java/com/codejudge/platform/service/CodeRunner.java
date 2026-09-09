@@ -124,6 +124,10 @@ public class CodeRunner {
     public String generateMain(MethodSignature signature, List<String> helperClasses) {
         Map<String, Set<String>> classFields = parseClassFields(helperClasses);
         NodeKind nodeKind = nodeKind(classFields.get("Node"));
+        // 如果 Node 包含所有字段（无法区分形态），从方法名推断
+        if (hasAllNodeFields(classFields.get("Node"))) {
+            nodeKind = detectNodeKindFromSignature(signature);
+        }
 
         StringBuilder sb = new StringBuilder();
         sb.append("import java.util.*;\n\n");
@@ -206,10 +210,10 @@ public class CodeRunner {
              + "    public int val;\n"
              + "    public Node next;\n"
              + "    public Node random;\n"
-             + "    public List<Node> children;\n"
+             + "    public List<Node> children = new ArrayList<>();\n"
              + "    public Node left;\n"
              + "    public Node right;\n"
-             + "    public List<Node> neighbors;\n"
+             + "    public List<Node> neighbors = new ArrayList<>();\n"
              + "    public Node() {}\n"
              + "    public Node(int v) { val = v; }\n"
              + "    public Node(int v, Node n) { val = v; next = n; }\n"
@@ -269,7 +273,7 @@ public class CodeRunner {
             case "List<List<Double>>" -> "parseDoubleList2D(" + raw + ")";
             case "List<List<Boolean>>" -> "parseBooleanList2D(" + raw + ")";
             case "List<List<String>>" -> "parseStringList2D(" + raw + ")";
-            case "ListNode" -> "parseListNode(" + raw + ")";
+            case "ListNode" -> "parseListNodeWithCycle(" + raw + ", nextPosParam(p, " + idx + "))";
             case "TreeNode" -> "parseTreeNode(" + raw + ")";
             case "Node" -> nodeKind(nodeKind) + "(" + raw + ")";
             // 包装类型（LeetCode 有时用 Integer 代替 int）
@@ -381,7 +385,7 @@ public class CodeRunner {
         Pattern classPattern = Pattern.compile("(?:public\\s+)?(?:class|interface)\\s+([A-Za-z_]\\w*)");
         Pattern fieldPattern = Pattern.compile(
                 "^\\s*(?:public\\s+)?(?:int|long|double|boolean|char|String|ListNode|TreeNode|Node|"
-                        + "List\\s*<\\s*Node\\s*>)\\s+([A-Za-z_]\\w*)\\s*;\\s*$",
+                        + "List\\s*<\\s*Node\\s*>)\\s+([A-Za-z_]\\w*)\\s*(?:=.*?)?;\\s*$",
                 Pattern.MULTILINE);
         for (String src : helperClasses) {
             if (src == null || src.isBlank()) {
@@ -420,6 +424,40 @@ public class CodeRunner {
             return NodeKind.NEXT_TREE;
         }
         return NodeKind.UNKNOWN;
+    }
+
+    /** 判断 Node 字段集合是否包含所有字段（无法区分形态） */
+    private boolean hasAllNodeFields(Set<String> fields) {
+        if (fields == null) return false;
+        return fields.contains("random") && fields.contains("children")
+                && fields.contains("neighbors") && fields.contains("next");
+    }
+
+    /** 当 Node 包含所有字段时，从方法名推断形态 */
+    private NodeKind detectNodeKindFromSignature(MethodSignature sig) {
+        String name = sig.methodName().toLowerCase();
+        String ret = sig.returnType().toLowerCase();
+        String all = (sig.returnType() + " " + String.join(" ", sig.paramTypes())).toLowerCase();
+        // 明确的方法名关键词
+        if (name.contains("random") || name.contains("copyrandom")) {
+            return NodeKind.RANDOM_LIST;
+        }
+        if (name.contains("next") || name.contains("connect")) {
+            return NodeKind.NEXT_TREE;
+        }
+        if (name.contains("graph") || name.contains("clone")) {
+            return NodeKind.GRAPH;
+        }
+        // 返回类型是 List（非 Node）→ N 叉树遍历（levelOrder / preorder / postorder）
+        if (ret.contains("list") && !ret.equals("node")) {
+            return NodeKind.NARY_TREE;
+        }
+        // 方法名含 nary
+        if (name.contains("nary") || name.contains("n-ary")) {
+            return NodeKind.NARY_TREE;
+        }
+        // 默认按图处理
+        return NodeKind.GRAPH;
     }
 
     /** 按顶层逗号切分签名参数列表，跟踪 {@code <>} 与 {@code []} 深度以正确处理泛型/数组。 */
@@ -494,6 +532,20 @@ static String value(String seg) {
         return s.substring(eq + 1).trim();
     }
     return s;
+}
+
+// 查找 pos 参数（用于环形链表），返回 -1 表示无环
+static int nextPosParam(String[] p, int currentIdx) {
+    for (int i = currentIdx + 1; i < p.length; i++) {
+        String seg = p[i].trim();
+        if (seg.startsWith("pos")) {
+            String v = value(seg);
+            if (!v.isEmpty() && !v.equals("null")) {
+                return Integer.parseInt(v);
+            }
+        }
+    }
+    return -1;
 }
 
 static String parseString(String s) {
@@ -793,7 +845,7 @@ static String qlIntArray(int[] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(a[i]);
     }
@@ -804,7 +856,7 @@ static String qlLongArray(long[] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(a[i]);
     }
@@ -815,7 +867,7 @@ static String qlDoubleArray(double[] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(a[i]);
     }
@@ -826,7 +878,7 @@ static String qlBooleanArray(boolean[] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(a[i]);
     }
@@ -837,7 +889,7 @@ static String qlCharArray(char[] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(a[i]);
     }
@@ -848,7 +900,7 @@ static String qlStringArray(String[] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append('"').append(a[i]).append('"');
     }
@@ -859,7 +911,7 @@ static String qlInt2D(int[][] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlIntArray(a[i]));
     }
@@ -870,7 +922,7 @@ static String qlLong2D(long[][] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlLongArray(a[i]));
     }
@@ -881,7 +933,7 @@ static String qlDouble2D(double[][] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlDoubleArray(a[i]));
     }
@@ -892,7 +944,7 @@ static String qlBoolean2D(boolean[][] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlBooleanArray(a[i]));
     }
@@ -903,7 +955,7 @@ static String qlChar2D(char[][] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlCharArray(a[i]));
     }
@@ -914,7 +966,7 @@ static String qlString2D(String[][] a) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < a.length; i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlStringArray(a[i]));
     }
@@ -925,7 +977,7 @@ static String qlIntList(List<Integer> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(list.get(i));
     }
@@ -936,7 +988,7 @@ static String qlLongList(List<Long> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(list.get(i));
     }
@@ -947,7 +999,7 @@ static String qlDoubleList(List<Double> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(list.get(i));
     }
@@ -958,7 +1010,7 @@ static String qlBooleanList(List<Boolean> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(list.get(i));
     }
@@ -969,7 +1021,7 @@ static String qlStringList(List<String> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append('"').append(list.get(i)).append('"');
     }
@@ -980,7 +1032,7 @@ static String qlIntList2D(List<List<Integer>> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlIntList(list.get(i)));
     }
@@ -991,7 +1043,7 @@ static String qlLongList2D(List<List<Long>> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlLongList(list.get(i)));
     }
@@ -1002,7 +1054,7 @@ static String qlDoubleList2D(List<List<Double>> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlDoubleList(list.get(i)));
     }
@@ -1013,7 +1065,7 @@ static String qlBooleanList2D(List<List<Boolean>> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlBooleanList(list.get(i)));
     }
@@ -1024,7 +1076,7 @@ static String qlStringList2D(List<List<String>> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
         if (i > 0) {
-            sb.append(", ");
+            sb.append(',');
         }
         sb.append(qlStringList(list.get(i)));
     }
@@ -1057,7 +1109,7 @@ static List<Character> parseCharacterList(String s) {
 static String qlCharacterList(List<Character> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
-        if (i > 0) sb.append(", ");
+        if (i > 0) sb.append(',');
         sb.append('"').append(list.get(i)).append('"');
     }
     return sb.append(']').toString();
@@ -1253,7 +1305,7 @@ static List<List<List<Integer>>> parseIntList3D(String s) {
 static String qlIntList3D(List<List<List<Integer>>> list) {
     StringBuilder sb = new StringBuilder("[");
     for (int i = 0; i < list.size(); i++) {
-        if (i > 0) sb.append(", ");
+        if (i > 0) sb.append(',');
         sb.append(qlIntList2D(list.get(i)));
     }
     return sb.append(']').toString();
@@ -1278,14 +1330,35 @@ static ListNode parseListNode(String s) {
     return dummy.next;
 }
 
+static ListNode parseListNodeWithCycle(String s, int pos) {
+    ListNode head = parseListNode(s);
+    if (head == null || pos < 0) return head;
+    ListNode tail = head;
+    ListNode cycleEntry = null;
+    int idx = 0;
+    if (idx == pos) cycleEntry = head;
+    while (tail.next != null) {
+        tail = tail.next;
+        idx++;
+        if (idx == pos) cycleEntry = tail;
+    }
+    if (cycleEntry != null) {
+        tail.next = cycleEntry;
+    }
+    return head;
+}
+
 static String qlListNode(ListNode head) {
+    Set<ListNode> visited = new HashSet<>();
     StringBuilder sb = new StringBuilder("[");
     ListNode p = head;
+    boolean first = true;
     while (p != null) {
-        if (p != head) {
-            sb.append(", ");
-        }
+        if (!first) sb.append(',');
+        first = false;
         sb.append(p.val);
+        if (visited.contains(p)) break;
+        visited.add(p);
         p = p.next;
     }
     return sb.append(']').toString();
@@ -1394,7 +1467,7 @@ static String qlRandomList(Node head) {
     boolean first = true;
     while (p != null) {
         if (!first) {
-            sb.append(", ");
+            sb.append(',');
         }
         first = false;
         sb.append('[').append(p.val).append(',');
@@ -1418,25 +1491,29 @@ static Node parseNaryTree(String s) {
     }
     String body = s.substring(1, s.length() - 1);
     String[] t = split(body);
+    if (t.length == 0) return null;
     Node root = new Node(Integer.parseInt(t[0].trim()));
-    Queue<Node> q = new ArrayDeque<>();
-    q.add(root);
+    List<Node> currentLevel = new ArrayList<>();
+    currentLevel.add(root);
     int i = 1;
-    while (i < t.length && !q.isEmpty()) {
-        Node parent = q.poll();
-        List<Node> children = new ArrayList<>();
-        while (i < t.length) {
-            String tok = t[i].trim();
-            if (tok.equals("null")) {
-                i++;
-                break;
-            }
-            Node child = new Node(Integer.parseInt(tok));
-            children.add(child);
-            q.add(child);
+    while (i < t.length && !currentLevel.isEmpty()) {
+        // 跳过层分隔符 null
+        if (t[i].trim().equals("null")) {
             i++;
+            continue;
         }
-        parent.children = children;
+        List<Node> nextLevel = new ArrayList<>();
+        for (Node parent : currentLevel) {
+            List<Node> children = new ArrayList<>();
+            while (i < t.length && !t[i].trim().equals("null")) {
+                Node child = new Node(Integer.parseInt(t[i].trim()));
+                children.add(child);
+                nextLevel.add(child);
+                i++;
+            }
+            parent.children = children;
+        }
+        currentLevel = nextLevel;
     }
     return root;
 }
@@ -1516,14 +1593,14 @@ static String qlGraph(Node node) {
     StringBuilder sb = new StringBuilder("[");
     for (int v = 1; v <= n; v++) {
         if (v > 1) {
-            sb.append(", ");
+            sb.append(',');
         }
         Node cur = all.get(v);
         sb.append('[');
         if (cur != null && cur.neighbors != null) {
             for (int j = 0; j < cur.neighbors.size(); j++) {
                 if (j > 0) {
-                    sb.append(", ");
+                    sb.append(',');
                 }
                 sb.append(cur.neighbors.get(j).val);
             }
@@ -1579,14 +1656,10 @@ static String qlNextTree(Node root) {
         for (int k = 0; k < size; k++) {
             Node n = q.poll();
             out.add(String.valueOf(n.val));
-            if (n.left != null) {
-                q.add(n.left);
-            }
-            if (n.right != null) {
-                q.add(n.right);
-            }
+            if (n.left != null) q.add(n.left);
+            if (n.right != null) q.add(n.right);
         }
-        out.add("#");
+        if (!q.isEmpty()) out.add("#");
     }
     return "[" + String.join(",", out) + "]";
 }

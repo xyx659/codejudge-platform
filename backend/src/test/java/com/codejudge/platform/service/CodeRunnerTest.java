@@ -74,7 +74,7 @@ class CodeRunnerTest {
                 "class Solution { public int[] twoSum(int[] nums, int target) { return new int[]{0, 1}; } }",
                 "int[] twoSum(int[], int)",
                 "nums = [2,7,11,15], target = 9\n");
-        assertEquals("[0, 1]", output.trim());
+        assertEquals("[0,1]", output.trim());
     }
 
     private String runGenerated(String solution, String signature, String input) throws Exception {
