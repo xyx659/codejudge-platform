@@ -1,11 +1,14 @@
 package com.codejudge.platform.controller.teacher;
 
 import com.codejudge.platform.common.ApiResponse;
+import com.codejudge.platform.common.PageResult;
+import com.codejudge.platform.dto.AlertItem;
 import com.codejudge.platform.dto.MonitorSummary;
 import com.codejudge.platform.service.MonitorService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -27,5 +30,13 @@ public class MonitorController {
     @GetMapping("/{examId}")
     public ApiResponse<MonitorSummary> summary(@PathVariable String examId) {
         return ApiResponse.ok(monitorService.summary(examId));
+    }
+
+    /** 分页查询一场考试的预警（按时间倒序） */
+    @GetMapping("/{examId}/alerts")
+    public ApiResponse<PageResult<AlertItem>> alerts(@PathVariable String examId,
+                                                      @RequestParam(defaultValue = "0") int page,
+                                                      @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.ok(monitorService.alerts(examId, page, size));
     }
 }

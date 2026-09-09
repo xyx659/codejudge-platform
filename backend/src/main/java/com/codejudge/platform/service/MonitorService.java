@@ -2,6 +2,7 @@ package com.codejudge.platform.service;
 
 import com.codejudge.platform.common.BadRequestException;
 import com.codejudge.platform.common.NotFoundException;
+import com.codejudge.platform.common.PageResult;
 import com.codejudge.platform.dto.AlertItem;
 import com.codejudge.platform.dto.MonitorStudentStatus;
 import com.codejudge.platform.dto.MonitorSummary;
@@ -75,11 +76,10 @@ public class MonitorService {
                 .toList();
         // 学生 -> 已作答题目集合 / 各题最佳得分
         SubmissionState state = computeSubmissionState(questions);
-        // 学生 -> 作弊事件次数，int[]{切屏次数, 切页面次数}
-        Map<Long, int[]> cheatCounts = computeCheatCounts(examId);
+        // 学生 -> 作弊事件统计（次数 + 最近一次事件时间）
+        Map<Long, CheatState> cheatStates = computeCheatCounts(examId);
 
         List<MonitorStudentStatus> statusList = new ArrayList<MonitorStudentStatus>();
-        List<AlertItem> alerts = new ArrayList<AlertItem>();
         int submittedCount = 0;
         double scoreSum = 0.0;
 
@@ -105,14 +105,85 @@ public class MonitorService {
                 scoreSum += score;
             }
 
-            int[] cheat = cheatCounts.getOrDefault(student.getId(), new int[]{0, 0});
-            int switchTabCount = cheat[0];
-            int leavePageCount = cheat[1];
+            CheatState cheat = cheatStates.getOrDefault(student.getId(),
+                    new CheatState(new int[]{0, 0}, new LocalDateTime[]{null, null}));
+            int switchTabCount = cheat.counts()[0];
+            int leavePageCount = cheat.counts()[1];
 
             statusList.add(new MonitorStudentStatus(
                     student.getId(), student.getStudentNo(), student.getName(),
                     submitted, questions.size(), score, statusText,
                     switchTabCount, leavePageCount));
+
+        }
+
+        // 预警独立生成，按时间倒序排列
+        List<AlertItem> alerts = buildAlerts(exam, students, questions, state, cheatStates, now, ongoing, ended);
+        double avgScore = submittedCount == 0 ? 0.0 : round1(scoreSum / submittedCount);
+
+        return new MonitorSummary(
+                exam.getId(), exam.getTitle(), exam.getStatus(),
+                students.size(), submittedCount, avgScore, statusList, alerts);
+    }
+
+    /**
+     * 分页查询一场考试的预警。
+     *
+     * <p>预警按时间倒序排列后切片返回，供前端预警面板分页展示。</p>
+     *
+     * @param page 页码，从 0 开始
+     * @param size 每页条数
+     */
+    public PageResult<AlertItem> alerts(String examId, int page, int size) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new NotFoundException("考试不存在"));
+        if ("DRAFT".equals(exam.getStatus())) {
+            throw new BadRequestException("考试尚未发布，无法监考");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime start = exam.getStartTime();
+        LocalDateTime end = exam.getEndTime();
+        boolean ongoing = start != null && end != null && !now.isBefore(start) && now.isBefore(end);
+        boolean ended = end != null && !now.isBefore(end);
+
+        List<ExamQuestion> questions = exam.getQuestions();
+        List<Student> students = studentRepository.findAll().stream()
+                .filter(s -> visibleByClass(exam, s))
+                .toList();
+        SubmissionState state = computeSubmissionState(questions);
+        Map<Long, CheatState> cheatStates = computeCheatCounts(examId);
+
+        List<AlertItem> all = buildAlerts(exam, students, questions, state, cheatStates, now, ongoing, ended);
+
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
+        int from = Math.min(safePage * safeSize, all.size());
+        int to = Math.min(from + safeSize, all.size());
+        List<AlertItem> pageList = all.subList(from, to);
+        return new PageResult<AlertItem>(pageList, safePage, safeSize, all.size());
+    }
+
+    /**
+     * 生成一场考试的全部预警，按时间倒序排列。
+     *
+     * <p>状态类预警（未开始/缺考/未交卷/零分题）的时间记为「当前时刻」；
+     * 切屏/切页面预警的时间记为「最近一次对应作弊事件的发生时间」。</p>
+     */
+    private List<AlertItem> buildAlerts(Exam exam, List<Student> students, List<ExamQuestion> questions,
+                                        SubmissionState state, Map<Long, CheatState> cheatStates,
+                                        LocalDateTime now, boolean ongoing, boolean ended) {
+        List<AlertItem> alerts = new ArrayList<AlertItem>();
+        for (Student student : students) {
+            Set<String> submittedQuestions = state.submitted().getOrDefault(student.getId(), Set.of());
+            Map<String, Integer> best = state.bestScores().getOrDefault(student.getId(), Map.of());
+            int submitted = (int) questions.stream()
+                    .filter(q -> submittedQuestions.contains(q.getQuestionId()))
+                    .count();
+            CheatState cheat = cheatStates.getOrDefault(student.getId(),
+                    new CheatState(new int[]{0, 0}, new LocalDateTime[]{null, null}));
+            int switchTabCount = cheat.counts()[0];
+            int leavePageCount = cheat.counts()[1];
 
             // 预警一：按考试时间窗判断「未开始 / 缺考 / 未交卷」
             // 开考之前不算异常，不预警；进行中未作答、结束后未交卷才预警。
@@ -120,38 +191,48 @@ public class MonitorService {
                 if (submitted == 0) {
                     if (ongoing) {
                         alerts.add(new AlertItem(student.getId(), student.getName(),
-                                "未开始", "考试进行中，尚未开始作答"));
+                                "未开始", "考试进行中，尚未开始作答", now));
                     } else if (ended) {
                         alerts.add(new AlertItem(student.getId(), student.getName(),
-                                "缺考", "考试已结束，未提交任何题目"));
+                                "缺考", "考试已结束，未提交任何题目", now));
                     }
                 } else if (submitted < questions.size() && ended) {
                     alerts.add(new AlertItem(student.getId(), student.getName(),
-                            "未交卷", "考试已结束，仅作答 " + submitted + "/" + questions.size() + " 题"));
+                            "未交卷", "考试已结束，仅作答 " + submitted + "/" + questions.size() + " 题", now));
                 }
             }
             // 预警二：作答过但存在 0 分的题目
             boolean hasZero = best.values().stream().anyMatch(v -> v <= 0);
             if (submitted > 0 && hasZero) {
                 alerts.add(new AlertItem(student.getId(), student.getName(),
-                        "零分题", "存在得 0 分的题目，请关注"));
+                        "零分题", "存在得 0 分的题目，请关注", now));
             }
-            // 预警三/四：切屏 / 切页面
+            // 预警三/四：切屏 / 切页面（时间取最近一次事件）
             if (switchTabCount > 0) {
                 alerts.add(new AlertItem(student.getId(), student.getName(),
-                        "切屏", "考试期间切屏 " + switchTabCount + " 次"));
+                        "切屏", "考试期间切屏 " + switchTabCount + " 次", cheat.latestTimes()[0]));
             }
             if (leavePageCount > 0) {
                 alerts.add(new AlertItem(student.getId(), student.getName(),
-                        "切页面", "考试期间离开页面 " + leavePageCount + " 次"));
+                        "切页面", "考试期间离开页面 " + leavePageCount + " 次", cheat.latestTimes()[1]));
             }
         }
-
-        double avgScore = submittedCount == 0 ? 0.0 : round1(scoreSum / submittedCount);
-
-        return new MonitorSummary(
-                exam.getId(), exam.getTitle(), exam.getStatus(),
-                students.size(), submittedCount, avgScore, statusList, alerts);
+        // 按时间倒序排列，最新的预警排最前
+        alerts.sort((a, b) -> {
+            LocalDateTime ta = a.time();
+            LocalDateTime tb = b.time();
+            if (ta == null && tb == null) {
+                return 0;
+            }
+            if (ta == null) {
+                return 1;
+            }
+            if (tb == null) {
+                return -1;
+            }
+            return tb.compareTo(ta);
+        });
+        return alerts;
     }
 
     /** 学生作答情况：已作答题目集合 + 各题最佳得分（仅统计已出分的提交） */
@@ -216,23 +297,42 @@ public class MonitorService {
         return target.equals(student.getClassName());
     }
 
+    /** 某个学生的防作弊统计：事件次数 + 最近一次事件时间 */
+    private record CheatState(int[] counts, LocalDateTime[] latestTimes) {
+    }
+
     /**
-     * 汇总一场考试里每个学生的防作弊事件次数。
+     * 汇总一场考试里每个学生的防作弊事件。
      *
-     * <p>返回 {@code 学生ID -> int[]{切屏次数, 切页面次数}}。</p>
+     * <p>返回 {@code 学生ID -> CheatState}，其中 {@code counts} 为 int[]{切屏次数, 切页面次数}，
+     * {@code latestTimes} 为 LocalDateTime[]{最近切屏时间, 最近切页面时间}。</p>
      */
-    private Map<Long, int[]> computeCheatCounts(String examId) {
-        Map<Long, int[]> counts = new HashMap<Long, int[]>();
+    private Map<Long, CheatState> computeCheatCounts(String examId) {
+        Map<Long, CheatState> states = new HashMap<Long, CheatState>();
         List<CheatEvent> events = cheatEventRepository.findByExamId(examId);
         for (CheatEvent event : events) {
-            int[] arr = counts.computeIfAbsent(event.getStudentId(), k -> new int[]{0, 0});
+            CheatState st = states.computeIfAbsent(event.getStudentId(),
+                    k -> new CheatState(new int[]{0, 0}, new LocalDateTime[]{null, null}));
             if ("LEAVE_PAGE".equals(event.getEventType())) {
-                arr[1]++;
+                st.counts()[1]++;
+                st.latestTimes()[1] = later(st.latestTimes()[1], event.getOccurredAt());
             } else {
-                arr[0]++;
+                st.counts()[0]++;
+                st.latestTimes()[0] = later(st.latestTimes()[0], event.getOccurredAt());
             }
         }
-        return counts;
+        return states;
+    }
+
+    /** 取两者中较晚的时间（a 为 null 时返回 b） */
+    private LocalDateTime later(LocalDateTime a, LocalDateTime b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        return a.isAfter(b) ? a : b;
     }
 
     /** 保留一位小数 */
