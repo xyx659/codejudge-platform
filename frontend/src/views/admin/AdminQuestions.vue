@@ -187,15 +187,23 @@
             <span>题目描述</span>
             <textarea v-model="form.description" rows="4" maxlength="10000"></textarea>
           </label>
-          <div class="form-grid">
+          <div class="ai-row">
+            <button type="button" class="ai-btn" :disabled="aiGenerating || !form.description" @click="aiGenerate">
+              {{ aiGenerating ? 'AI 生成中...' : '✨ AI 生成测试用例' }}
+            </button>
+            <span class="ai-hint">根据标题和描述自动生成：方法签名、难度、标签、20 个测试用例</span>
+          </div>
+          <div class="field-row">
             <label class="field">
               <span>方法名</span>
               <input v-model.trim="form.methodName" type="text" maxlength="100" />
             </label>
             <label class="field">
-              <span>方法签名（可留空，留空按输入推断全 int）</span>
+              <span>方法签名（如 int[] twoSum(int[], int)）</span>
               <input v-model.trim="form.methodSignature" type="text" maxlength="200" placeholder="如：int sum(int, int)" />
             </label>
+          </div>
+          <div class="field-row">
             <label class="field">
               <span>语言</span>
               <select v-model="form.language">
@@ -306,6 +314,7 @@ import {
   updateQuestion,
   updateTestCase
 } from '../../api/questions'
+import { aiGenerateQuestion } from '../../api/admin'
 
 const activeTab = ref('library')
 const loading = ref(false)
@@ -325,12 +334,54 @@ const form = reactive({
   title: '',
   description: '',
   methodName: '',
+  methodSignature: '',
   language: 'Java',
   difficulty: '简单',
   tagsText: '',
   published: false,
   testCases: []
 })
+
+const aiGenerating = ref(false)
+
+function extractJson(text) {
+  // 去掉 markdown 代码块标记
+  let s = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+  // 尝试直接解析
+  try { return JSON.parse(s) } catch {}
+  // 提取第一个 { 到最后一个 } 之间的内容
+  const start = s.indexOf('{')
+  const end = s.lastIndexOf('}')
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(s.substring(start, end + 1)) } catch {}
+  }
+  return null
+}
+
+async function aiGenerate() {
+  if (!form.description) return
+  aiGenerating.value = true
+  try {
+    const res = await aiGenerateQuestion({ title: form.title, description: form.description })
+    const data = extractJson(res.data)
+    if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
+    if (data.methodSignature) form.methodSignature = data.methodSignature
+    if (data.methodName) form.methodName = data.methodName
+    if (data.difficulty) form.difficulty = data.difficulty
+    if (data.tags) form.tagsText = data.tags.join(', ')
+    if (data.testCases && data.testCases.length) {
+      form.testCases = data.testCases.map(tc => ({
+        name: tc.name || '',
+        input: tc.input || '',
+        expected: tc.expected || ''
+      }))
+    }
+  } catch (e) {
+    alert('AI 生成失败：' + (e.message || '请检查 AI 配置'))
+  } finally {
+    aiGenerating.value = false
+  }
+}
 
 const external = reactive({ platform: 'LEETCODE_CN', keyword: '', difficulty: '' })
 const externalResults = ref([])
@@ -653,8 +704,15 @@ th { background: #f9fafb; color: #374151; font-weight: 600; white-space: nowrap;
 .success-text { color: #15803d; }
 .import-errors { max-height: 260px; overflow-y: auto; }
 .import-error { display: grid; grid-template-columns: 90px 120px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #b91c1c; }
+.ai-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ai-btn { padding: 8px 16px; border: 1px solid #059669; border-radius: 6px; background: #059669; color: #fff; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.ai-btn:hover { background: #047857; }
+.ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ai-hint { color: #6b7280; font-size: 13px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
 @media (max-width: 720px) {
-  .form-grid, .testcase-row { grid-template-columns: 1fr; }
+  .form-grid, .field-row, .testcase-row { grid-template-columns: 1fr; }
   .page-header { flex-direction: column; }
   .header-actions { width: 100%; }
 }

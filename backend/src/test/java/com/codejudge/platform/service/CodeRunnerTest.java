@@ -51,8 +51,8 @@ class CodeRunnerTest {
         String main = codeRunner.generateMain(codeRunner.parseSignature("int sum(int, int)"));
         assertTrue(main.contains("public class Main"));
         assertTrue(main.contains("new Solution().sum(a0, a1)"));
-        assertTrue(main.contains("Integer.parseInt(value(p[0]))"));
-        assertTrue(main.contains("System.out.println(r)"));
+        assertTrue(main.contains("Json.parse(value(p[0])"));
+        assertTrue(main.contains("System.out.println(Json.serialize(r))"));
     }
 
     @Test

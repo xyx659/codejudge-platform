@@ -61,3 +61,8 @@ export function updateProfile(data) {
 export function changePassword(data) {
   return put('/admin/profile/password', data)
 }
+
+/** AI 根据题目描述自动生成测试用例（不入库） */
+export function aiGenerateQuestion(data) {
+  return post('/admin/questions/ai-generate', data)
+}

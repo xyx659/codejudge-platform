@@ -100,11 +100,35 @@ public class CodeRunner {
         if (!paramsBody.isEmpty()) {
             for (String p : splitTopLevel(paramsBody)) {
                 if (!p.isBlank()) {
-                    paramTypes.add(p.trim());
+                    paramTypes.add(stripParamName(p.trim()));
                 }
             }
         }
         return new MethodSignature(returnType, methodName, paramTypes);
+    }
+
+    /**
+     * 去掉参数名，只保留类型。
+     * 输入格式如 {@code int[][] matrix}、{@code int target}、{@code String[]}，
+     * 最后一个空格后的词视为参数名（如果它不是类型关键字的一部分）。
+     */
+    private String stripParamName(String param) {
+        // 把最后一个空格后的词当作参数名去掉
+        // int[][] matrix → int[][]
+        // int target     → int
+        // String s       → String
+        // int[]          → int[]（无参数名，原样返回）
+        int lastSpace = param.lastIndexOf(' ');
+        if (lastSpace < 0) {
+            return param;
+        }
+        String after = param.substring(lastSpace + 1);
+        String before = param.substring(0, lastSpace);
+        // 如果 after 是合法标识符，视为参数名，去掉
+        if (after.matches("[A-Za-z_]\\w*")) {
+            return before;
+        }
+        return param;
     }
 
     /**
@@ -162,6 +186,7 @@ public class CodeRunner {
             sb.append(printLine(signature.returnType(), "r", nodeKind));
         }
         sb.append("    }\n\n");
+        sb.append(HELPERS_JSON);
         sb.append(HELPERS_BASE);
         // 按需注入 ListNode/TreeNode 辅助方法（仅当签名涉及这些类型时）
         String sigAll = signature.returnType() + " " + String.join(" ", signature.paramTypes());
@@ -245,54 +270,10 @@ public class CodeRunner {
     private String parseExpr(String type, int idx, NodeKind nodeKind) {
         String raw = "value(p[" + idx + "])";
         return switch (type) {
-            case "int" -> "Integer.parseInt(" + raw + ")";
-            case "long" -> "Long.parseLong(" + raw + ")";
-            case "double" -> "Double.parseDouble(" + raw + ")";
-            case "boolean" -> "Boolean.parseBoolean(" + raw + ")";
-            case "char" -> raw + ".charAt(0)";
-            case "String" -> "parseString(" + raw + ")";
-            case "int[]" -> "parseIntArray(" + raw + ")";
-            case "long[]" -> "parseLongArray(" + raw + ")";
-            case "double[]" -> "parseDoubleArray(" + raw + ")";
-            case "boolean[]" -> "parseBooleanArray(" + raw + ")";
-            case "char[]" -> "parseCharArray(" + raw + ")";
-            case "String[]" -> "parseStringArray(" + raw + ")";
-            case "int[][]" -> "parseInt2D(" + raw + ")";
-            case "long[][]" -> "parseLong2D(" + raw + ")";
-            case "double[][]" -> "parseDouble2D(" + raw + ")";
-            case "boolean[][]" -> "parseBoolean2D(" + raw + ")";
-            case "char[][]" -> "parseChar2D(" + raw + ")";
-            case "String[][]" -> "parseString2D(" + raw + ")";
-            case "List<Integer>" -> "parseIntList(" + raw + ")";
-            case "List<Long>" -> "parseLongList(" + raw + ")";
-            case "List<Double>" -> "parseDoubleList(" + raw + ")";
-            case "List<Boolean>" -> "parseBooleanList(" + raw + ")";
-            case "List<String>" -> "parseStringList(" + raw + ")";
-            case "List<List<Integer>>" -> "parseIntList2D(" + raw + ")";
-            case "List<List<Long>>" -> "parseLongList2D(" + raw + ")";
-            case "List<List<Double>>" -> "parseDoubleList2D(" + raw + ")";
-            case "List<List<Boolean>>" -> "parseBooleanList2D(" + raw + ")";
-            case "List<List<String>>" -> "parseStringList2D(" + raw + ")";
             case "ListNode" -> "parseListNodeWithCycle(" + raw + ", nextPosParam(p, " + idx + "))";
             case "TreeNode" -> "parseTreeNode(" + raw + ")";
             case "Node" -> nodeKind(nodeKind) + "(" + raw + ")";
-            // 包装类型（LeetCode 有时用 Integer 代替 int）
-            case "Integer" -> "Integer.parseInt(" + raw + ")";
-            case "Long" -> "Long.parseLong(" + raw + ")";
-            case "Double" -> "Double.parseDouble(" + raw + ")";
-            case "Boolean" -> "Boolean.parseBoolean(" + raw + ")";
-            case "Character" -> raw + ".charAt(0)";
-            // 字符列表（LeetCode 部分题目用 List<Character>）
-            case "List<Character>" -> "parseCharacterList(" + raw + ")";
-            // Map 类型（哈希表题目常用）
-            case "Map<Integer,Integer>" -> "parseIntIntMap(" + raw + ")";
-            case "Map<String,Integer>" -> "parseStringIntMap(" + raw + ")";
-            case "Map<Integer,List<Integer>>" -> "parseIntIntListMap(" + raw + ")";
-            case "Map<String,List<String>>" -> "parseStringStringListMap(" + raw + ")";
-            case "Map<String,String>" -> "parseStringStringMap(" + raw + ")";
-            // 三维列表（部分困难题用到）
-            case "List<List<List<Integer>>>" -> "parseIntList3D(" + raw + ")";
-            default -> throw new IllegalArgumentException("暂不支持的参数类型: " + type);
+            default -> "(" + type + ") Json.parse(" + raw + ", \"" + type + "\")";
         };
     }
 
@@ -310,46 +291,10 @@ public class CodeRunner {
     /** 返回类型的打印语句（序列化为 LeetCode 无空格风格）。 */
     private String printLine(String returnType, String var, NodeKind nodeKind) {
         String expr = switch (returnType) {
-            case "int", "long", "double", "boolean", "char" -> var;
-            case "String" -> "qlString(" + var + ")";
-            case "int[]" -> "qlIntArray(" + var + ")";
-            case "long[]" -> "qlLongArray(" + var + ")";
-            case "double[]" -> "qlDoubleArray(" + var + ")";
-            case "boolean[]" -> "qlBooleanArray(" + var + ")";
-            case "char[]" -> "qlCharArray(" + var + ")";
-            case "String[]" -> "qlStringArray(" + var + ")";
-            case "int[][]" -> "qlInt2D(" + var + ")";
-            case "long[][]" -> "qlLong2D(" + var + ")";
-            case "double[][]" -> "qlDouble2D(" + var + ")";
-            case "boolean[][]" -> "qlBoolean2D(" + var + ")";
-            case "char[][]" -> "qlChar2D(" + var + ")";
-            case "String[][]" -> "qlString2D(" + var + ")";
-            case "List<Integer>" -> "qlIntList(" + var + ")";
-            case "List<Long>" -> "qlLongList(" + var + ")";
-            case "List<Double>" -> "qlDoubleList(" + var + ")";
-            case "List<Boolean>" -> "qlBooleanList(" + var + ")";
-            case "List<String>" -> "qlStringList(" + var + ")";
-            case "List<List<Integer>>" -> "qlIntList2D(" + var + ")";
-            case "List<List<Long>>" -> "qlLongList2D(" + var + ")";
-            case "List<List<Double>>" -> "qlDoubleList2D(" + var + ")";
-            case "List<List<Boolean>>" -> "qlBooleanList2D(" + var + ")";
-            case "List<List<String>>" -> "qlStringList2D(" + var + ")";
             case "ListNode" -> "qlListNode(" + var + ")";
             case "TreeNode" -> "qlTreeNode(" + var + ")";
             case "Node" -> qlNode(nodeKind, var);
-            // 包装类型（输出与基本类型一致）
-            case "Integer", "Long", "Double", "Boolean", "Character" -> var;
-            // 字符列表
-            case "List<Character>" -> "qlCharacterList(" + var + ")";
-            // Map 类型
-            case "Map<Integer,Integer>" -> "qlIntIntMap(" + var + ")";
-            case "Map<String,Integer>" -> "qlStringIntMap(" + var + ")";
-            case "Map<Integer,List<Integer>>" -> "qlIntIntListMap(" + var + ")";
-            case "Map<String,List<String>>" -> "qlStringStringListMap(" + var + ")";
-            case "Map<String,String>" -> "qlStringStringMap(" + var + ")";
-            // 三维列表
-            case "List<List<List<Integer>>>" -> "qlIntList3D(" + var + ")";
-            default -> var;
+            default -> "Json.serialize(" + var + ")";
         };
         return "        System.out.println(" + expr + ");\n";
     }
@@ -492,8 +437,374 @@ public class CodeRunner {
 
     // 以下为生成进 Main 的静态工具方法（纯文本常量）。
 
+    /**
+     * JSON 通用解析/序列化类：覆盖全部标准 Java 类型，新增类型零改动。
+     * 自定义结构（ListNode/TreeNode/Node）由各自的 parse/serialize 方法处理，不经过此类。
+     */
+    private static final String HELPERS_JSON = """
+// —— JSON 通用解析 / 序列化 ——
+static class Json {
+    static Object parse(String s, String type) {
+        s = s.trim();
+        switch (type) {
+            case "int": case "Integer": return Integer.parseInt(s);
+            case "long": case "Long": return Long.parseLong(s);
+            case "double": case "Double": return Double.parseDouble(s);
+            case "boolean": case "Boolean": return Boolean.parseBoolean(s);
+            case "char": case "Character": return s.charAt(0);
+            case "String": return unquote(s);
+        }
+        // 数组：int[], long[], double[], boolean[], char[], String[]
+        if (type.endsWith("[][]")) {
+            return parseArr2D(s, type.substring(0, type.length() - 4));
+        }
+        if (type.endsWith("[]")) {
+            return parseArr(s, type.substring(0, type.length() - 2));
+        }
+        // List / Map
+        if (type.startsWith("List<") && type.endsWith(">")) {
+            return parseList(s, splitTypeParams(type.substring(5, type.length() - 1)));
+        }
+        if (type.startsWith("Map<") && type.endsWith(">")) {
+            String[] kv = splitTypeParams(type.substring(4, type.length() - 1));
+            return parseMap(s, kv[0], kv.length > 1 ? kv[1] : "Object");
+        }
+        throw new IllegalArgumentException("不支持的类型: " + type);
+    }
+
+    static String serialize(Object obj) {
+        if (obj == null) return "null";
+        if (obj instanceof Integer || obj instanceof Long || obj instanceof Double || obj instanceof Boolean) return obj.toString();
+        if (obj instanceof Character) return "'" + obj + "'";
+        if (obj instanceof String) return "\\\"" + obj + "\\\"";
+        if (obj instanceof int[]) return serializeArr((int[]) obj);
+        if (obj instanceof long[]) return serializeArr((long[]) obj);
+        if (obj instanceof double[]) return serializeArr((double[]) obj);
+        if (obj instanceof boolean[]) return serializeArr((boolean[]) obj);
+        if (obj instanceof char[]) return serializeArr((char[]) obj);
+        if (obj instanceof String[]) return serializeStrArr((String[]) obj);
+        if (obj instanceof int[][]) return serializeArr2D((int[][]) obj);
+        if (obj instanceof long[][]) return serializeArr2D((long[][]) obj);
+        if (obj instanceof double[][]) return serializeArr2D((double[][]) obj);
+        if (obj instanceof boolean[][]) return serializeArr2D((boolean[][]) obj);
+        if (obj instanceof char[][]) return serializeArr2D((char[][]) obj);
+        if (obj instanceof String[][]) return serializeStrArr2D((String[][]) obj);
+        if (obj instanceof List<?>) return serializeList((List<?>) obj);
+        if (obj instanceof Map<?,?>) return serializeMap((Map<?,?>) obj);
+        return obj.toString();
+    }
+
+    // —— 解析：数组 ——
+    static Object parseArr(String s, String inner) {
+        if (s.equals("[]")) return newEmptyArr(inner, 0);
+        String body = s.substring(1, s.length() - 1);
+        String[] raw = split(body);
+        // 过滤掉 "..." 等非数值占位符
+        List<String> valid = new ArrayList<>();
+        for (String r : raw) {
+            String v = r.trim();
+            if (!v.equals("...") && !v.isEmpty()) valid.add(v);
+        }
+        String[] t = valid.toArray(new String[0]);
+        switch (inner) {
+            case "int": { int[] a = new int[t.length]; for (int i=0;i<t.length;i++) a[i]=Integer.parseInt(t[i].trim()); return a; }
+            case "long": { long[] a = new long[t.length]; for (int i=0;i<t.length;i++) a[i]=Long.parseLong(t[i].trim()); return a; }
+            case "double": { double[] a = new double[t.length]; for (int i=0;i<t.length;i++) a[i]=Double.parseDouble(t[i].trim()); return a; }
+            case "boolean": { boolean[] a = new boolean[t.length]; for (int i=0;i<t.length;i++) a[i]=Boolean.parseBoolean(t[i].trim()); return a; }
+            case "char": { char[] a = new char[t.length]; for (int i=0;i<t.length;i++) a[i]=unquote(t[i].trim()).charAt(0); return a; }
+            case "String": { String[] a = new String[t.length]; for (int i=0;i<t.length;i++) a[i]=unquote(t[i].trim()); return a; }
+            default: throw new IllegalArgumentException("不支持的数组类型: " + inner);
+        }
+    }
+
+    static Object newEmptyArr(String inner, int len) {
+        switch (inner) {
+            case "int": return new int[len]; case "long": return new long[len];
+            case "double": return new double[len]; case "boolean": return new boolean[len];
+            case "char": return new char[len]; case "String": return new String[len];
+            default: throw new IllegalArgumentException("不支持的数组类型: " + inner);
+        }
+    }
+
+    static Object parseArr2D(String s, String inner) {
+        if (s.equals("[]")) return newEmptyArr2D(inner, 0);
+        String body = s.substring(1, s.length() - 1);
+        String[] t = split(body);
+        switch (inner) {
+            case "int": { int[][] a = new int[t.length][]; for (int i=0;i<t.length;i++) a[i]=(int[])parseArr(t[i].trim(),"int"); return a; }
+            case "long": { long[][] a = new long[t.length][]; for (int i=0;i<t.length;i++) a[i]=(long[])parseArr(t[i].trim(),"long"); return a; }
+            case "double": { double[][] a = new double[t.length][]; for (int i=0;i<t.length;i++) a[i]=(double[])parseArr(t[i].trim(),"double"); return a; }
+            case "boolean": { boolean[][] a = new boolean[t.length][]; for (int i=0;i<t.length;i++) a[i]=(boolean[])parseArr(t[i].trim(),"boolean"); return a; }
+            case "char": { char[][] a = new char[t.length][]; for (int i=0;i<t.length;i++) a[i]=(char[])parseArr(t[i].trim(),"char"); return a; }
+            case "String": { String[][] a = new String[t.length][]; for (int i=0;i<t.length;i++) a[i]=(String[])parseArr(t[i].trim(),"String"); return a; }
+            default: throw new IllegalArgumentException("不支持的二维数组类型: " + inner);
+        }
+    }
+
+    static Object newEmptyArr2D(String inner, int len) {
+        switch (inner) {
+            case "int": return new int[len][]; case "long": return new long[len][];
+            case "double": return new double[len][]; case "boolean": return new boolean[len][];
+            case "char": return new char[len][]; case "String": return new String[len][];
+            default: throw new IllegalArgumentException("不支持的二维数组类型: " + inner);
+        }
+    }
+
+    // —— 解析：List ——
+    static Object parseList(String s, String[] types) {
+        if (s.equals("[]")) return new ArrayList<>();
+        String body = s.substring(1, s.length() - 1);
+        String[] t = split(body);
+        String inner = types[0];
+        // 一维 List
+        if (types.length == 1) {
+            if (inner.startsWith("List<")) {
+                // List<List<X>> — 递归
+                String[] innerTypes = splitTypeParams(inner.substring(5, inner.length() - 1));
+                List<List<Object>> result = new ArrayList<>();
+                for (String e : t) result.add((List<Object>) parseList(e.trim(), innerTypes));
+                return result;
+            }
+            return parsePrimitiveList(t, inner);
+        }
+        // 二维 List（List<List<X>>）
+        if (types.length == 2 && types[0].equals("List")) {
+            String innerType = types[1];
+            List<List<Object>> result = new ArrayList<>();
+            for (String e : t) {
+                String[] innerTypes = new String[]{innerType};
+                result.add((List<Object>) parseList(e.trim(), innerTypes));
+            }
+            return result;
+        }
+        // 三维 List
+        if (types.length == 3 && types[0].equals("List") && types[1].equals("List")) {
+            List<List<List<Object>>> result = new ArrayList<>();
+            for (String e : t) {
+                String[] innerTypes = new String[]{"List", types[2]};
+                result.add((List<List<Object>>) parseList(e.trim(), innerTypes));
+            }
+            return result;
+        }
+        throw new IllegalArgumentException("不支持的 List 嵌套深度: " + String.join(",", types));
+    }
+
+    static Object parsePrimitiveList(String[] t, String inner) {
+        List<Object> list = new ArrayList<>();
+        for (String e : t) {
+            String v = e.trim();
+            if (v.equals("...") || v.isEmpty()) continue;
+            switch (inner) {
+                case "Integer": case "int": list.add(Integer.parseInt(v)); break;
+                case "Long": case "long": list.add(Long.parseLong(v)); break;
+                case "Double": case "double": list.add(Double.parseDouble(v)); break;
+                case "Boolean": case "boolean": list.add(Boolean.parseBoolean(v)); break;
+                case "Character": case "char": list.add(unquote(v).charAt(0)); break;
+                case "String": list.add(unquote(v)); break;
+                default: throw new IllegalArgumentException("不支持的 List 元素类型: " + inner);
+            }
+        }
+        return list;
+    }
+
+    // —— 解析：Map ——
+    static Object parseMap(String s, String keyType, String valType) {
+        Map<Object, Object> map = new HashMap<>();
+        if (s.equals("{}") || s.isEmpty()) return map;
+        String body = s.substring(1, s.length() - 1);
+        String[] pairs = splitMapPairs(body);
+        for (String pair : pairs) {
+            String[] kv = splitMapKV(pair);
+            Object key = parseKey(kv[0].trim(), keyType);
+            Object val;
+            if (valType.startsWith("List<")) {
+                String[] innerTypes = splitTypeParams(valType.substring(5, valType.length() - 1));
+                val = parseList(kv[1].trim(), innerTypes);
+            } else {
+                val = parseVal(kv[1].trim(), valType);
+            }
+            map.put(key, val);
+        }
+        return map;
+    }
+
+    static Object parseKey(String s, String type) {
+        s = unquote(s);
+        switch (type) {
+            case "Integer": case "int": return Integer.parseInt(s);
+            case "String": return s;
+            default: return s;
+        }
+    }
+
+    static Object parseVal(String s, String type) {
+        s = s.trim();
+        switch (type) {
+            case "Integer": case "int": return Integer.parseInt(s);
+            case "Long": case "long": return Long.parseLong(s);
+            case "Double": case "double": return Double.parseDouble(s);
+            case "Boolean": case "boolean": return Boolean.parseBoolean(s);
+            case "String": return unquote(s);
+            default: return unquote(s);
+        }
+    }
+
+    // —— 序列化：数组 ——
+    static String serializeArr(int[] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr(long[] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr(double[] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr(boolean[] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr(char[] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
+        return sb.append(']').toString();
+    }
+    static String serializeStrArr(String[] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append('"').append(a[i]).append('"'); }
+        return sb.append(']').toString();
+    }
+
+    // —— 序列化：二维数组 ——
+    static String serializeArr2D(int[][] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeArr(a[i])); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr2D(long[][] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeArr(a[i])); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr2D(double[][] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeArr(a[i])); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr2D(boolean[][] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeArr(a[i])); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr2D(char[][] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeArr(a[i])); }
+        return sb.append(']').toString();
+    }
+    static String serializeStrArr2D(String[][] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeStrArr(a[i])); }
+        return sb.append(']').toString();
+    }
+
+    // —— 序列化：List ——
+    static String serializeList(List<?> list) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) sb.append(',');
+            Object item = list.get(i);
+            if (item instanceof List<?>) sb.append(serializeList((List<?>) item));
+            else if (item instanceof Map<?,?>) sb.append(serializeMap((Map<?,?>) item));
+            else if (item instanceof String) sb.append('"').append(item).append('"');
+            else if (item == null) sb.append("null");
+            else sb.append(item);
+        }
+        return sb.append(']').toString();
+    }
+
+    // —— 序列化：Map ——
+    static String serializeMap(Map<?,?> map) {
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<?,?> e : map.entrySet()) {
+            if (!first) sb.append(',');
+            first = false;
+            Object key = e.getKey();
+            if (key instanceof String) sb.append('"').append(key).append('"');
+            else sb.append(key);
+            sb.append(':');
+            Object val = e.getValue();
+            if (val instanceof List<?>) sb.append(serializeList((List<?>) val));
+            else if (val instanceof Map<?,?>) sb.append(serializeMap((Map<?,?>) val));
+            else if (val instanceof String) sb.append('"').append(val).append('"');
+            else if (val == null) sb.append("null");
+            else sb.append(val);
+        }
+        return sb.append('}').toString();
+    }
+
+    // —— Map 输入解析辅助 ——
+    static String[] splitMapPairs(String s) {
+        List<String> out = new ArrayList<>();
+        int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') inStr = !inStr;
+            if (!inStr) {
+                if (c == '{' || c == '[' || c == '(') depth++;
+                else if (c == '}' || c == ']' || c == ')') depth--;
+            }
+            if (!inStr && depth == 0 && c == ',') { out.add(cur.toString()); cur.setLength(0); continue; }
+            cur.append(c);
+        }
+        if (cur.length() > 0) out.add(cur.toString());
+        return out.toArray(new String[0]);
+    }
+
+    static String[] splitMapKV(String s) {
+        int depth = 0; boolean inStr = false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') inStr = !inStr;
+            if (!inStr) {
+                if (c == '{' || c == '[' || c == '(' || c == '<') depth++;
+                else if (c == '}' || c == ']' || c == ')' || c == '>') depth--;
+                else if (c == ':' && depth == 0) return new String[]{s.substring(0, i), s.substring(i + 1)};
+            }
+        }
+        return new String[]{s, ""};
+    }
+
+    // —— 类型字符串解析：List<List<Integer>> → ["List","List","Integer"] ——
+    static String[] splitTypeParams(String s) {
+        List<String> out = new ArrayList<>();
+        int depth = 0; StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '<') depth++;
+            else if (c == '>') depth--;
+            if (c == ',' && depth == 0) { out.add(cur.toString().trim()); cur.setLength(0); continue; }
+            cur.append(c);
+        }
+        if (cur.length() > 0) out.add(cur.toString().trim());
+        return out.toArray(new String[0]);
+    }
+
+    static String unquote(String s) {
+        if (s.length() >= 2 && s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') return s.substring(1, s.length() - 1);
+        return s;
+    }
+}
+""";
+
     private static final String HELPERS_BASE = """
-// —— 输入解析工具 ——
+// —— 输入解析工具（仅保留 split / value / nextPosParam，其余由 Json 类处理）——
 
 static String[] split(String s) {
     List<String> out = new ArrayList<>();
@@ -547,769 +858,6 @@ static int nextPosParam(String[] p, int currentIdx) {
     }
     return -1;
 }
-
-static String parseString(String s) {
-    s = s.trim();
-    if (s.length() >= 2 && s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') {
-        return s.substring(1, s.length() - 1);
-    }
-    return s;
-}
-
-static int[] parseIntArray(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new int[0];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    int[] a = new int[t.length];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = Integer.parseInt(t[i].trim());
-    }
-    return a;
-}
-
-static long[] parseLongArray(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new long[0];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    long[] a = new long[t.length];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = Long.parseLong(t[i].trim());
-    }
-    return a;
-}
-
-static double[] parseDoubleArray(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new double[0];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    double[] a = new double[t.length];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = Double.parseDouble(t[i].trim());
-    }
-    return a;
-}
-
-static boolean[] parseBooleanArray(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new boolean[0];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    boolean[] a = new boolean[t.length];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = Boolean.parseBoolean(t[i].trim());
-    }
-    return a;
-}
-
-static char[] parseCharArray(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new char[0];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    char[] a = new char[t.length];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseString(t[i]).charAt(0);
-    }
-    return a;
-}
-
-static String[] parseStringArray(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new String[0];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    String[] a = new String[t.length];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseString(t[i]);
-    }
-    return a;
-}
-
-static int[][] parseInt2D(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new int[0][];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    int[][] a = new int[t.length][];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseIntArray(t[i]);
-    }
-    return a;
-}
-
-static long[][] parseLong2D(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new long[0][];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    long[][] a = new long[t.length][];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseLongArray(t[i]);
-    }
-    return a;
-}
-
-static double[][] parseDouble2D(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new double[0][];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    double[][] a = new double[t.length][];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseDoubleArray(t[i]);
-    }
-    return a;
-}
-
-static boolean[][] parseBoolean2D(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new boolean[0][];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    boolean[][] a = new boolean[t.length][];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseBooleanArray(t[i]);
-    }
-    return a;
-}
-
-static char[][] parseChar2D(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new char[0][];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    char[][] a = new char[t.length][];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseCharArray(t[i]);
-    }
-    return a;
-}
-
-static String[][] parseString2D(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new String[0][];
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    String[][] a = new String[t.length][];
-    for (int i = 0; i < t.length; i++) {
-        a[i] = parseStringArray(t[i]);
-    }
-    return a;
-}
-
-static List<Integer> parseIntList(String s) {
-    int[] a = parseIntArray(s);
-    List<Integer> list = new ArrayList<>();
-    for (int v : a) {
-        list.add(v);
-    }
-    return list;
-}
-
-static List<Long> parseLongList(String s) {
-    long[] a = parseLongArray(s);
-    List<Long> list = new ArrayList<>();
-    for (long v : a) {
-        list.add(v);
-    }
-    return list;
-}
-
-static List<Double> parseDoubleList(String s) {
-    double[] a = parseDoubleArray(s);
-    List<Double> list = new ArrayList<>();
-    for (double v : a) {
-        list.add(v);
-    }
-    return list;
-}
-
-static List<Boolean> parseBooleanList(String s) {
-    boolean[] a = parseBooleanArray(s);
-    List<Boolean> list = new ArrayList<>();
-    for (boolean v : a) {
-        list.add(v);
-    }
-    return list;
-}
-
-static List<String> parseStringList(String s) {
-    String[] a = parseStringArray(s);
-    return new ArrayList<>(Arrays.asList(a));
-}
-
-static List<List<Integer>> parseIntList2D(String s) {
-    s = s.trim();
-    List<List<Integer>> res = new ArrayList<>();
-    if (s.equals("[]")) {
-        return res;
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    for (String e : t) {
-        res.add(parseIntList(e));
-    }
-    return res;
-}
-
-static List<List<Long>> parseLongList2D(String s) {
-    s = s.trim();
-    List<List<Long>> res = new ArrayList<>();
-    if (s.equals("[]")) {
-        return res;
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    for (String e : t) {
-        res.add(parseLongList(e));
-    }
-    return res;
-}
-
-static List<List<Double>> parseDoubleList2D(String s) {
-    s = s.trim();
-    List<List<Double>> res = new ArrayList<>();
-    if (s.equals("[]")) {
-        return res;
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    for (String e : t) {
-        res.add(parseDoubleList(e));
-    }
-    return res;
-}
-
-static List<List<Boolean>> parseBooleanList2D(String s) {
-    s = s.trim();
-    List<List<Boolean>> res = new ArrayList<>();
-    if (s.equals("[]")) {
-        return res;
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    for (String e : t) {
-        res.add(parseBooleanList(e));
-    }
-    return res;
-}
-
-static List<List<String>> parseStringList2D(String s) {
-    s = s.trim();
-    List<List<String>> res = new ArrayList<>();
-    if (s.equals("[]")) {
-        return res;
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    for (String e : t) {
-        res.add(parseStringList(e));
-    }
-    return res;
-}
-
-
-
-static String qlString(String s) {
-    return '"' + s + '"';
-}
-
-static String qlIntArray(int[] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(a[i]);
-    }
-    return sb.append(']').toString();
-}
-
-static String qlLongArray(long[] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(a[i]);
-    }
-    return sb.append(']').toString();
-}
-
-static String qlDoubleArray(double[] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(a[i]);
-    }
-    return sb.append(']').toString();
-}
-
-static String qlBooleanArray(boolean[] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(a[i]);
-    }
-    return sb.append(']').toString();
-}
-
-static String qlCharArray(char[] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(a[i]);
-    }
-    return sb.append(']').toString();
-}
-
-static String qlStringArray(String[] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append('"').append(a[i]).append('"');
-    }
-    return sb.append(']').toString();
-}
-
-static String qlInt2D(int[][] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlIntArray(a[i]));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlLong2D(long[][] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlLongArray(a[i]));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlDouble2D(double[][] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlDoubleArray(a[i]));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlBoolean2D(boolean[][] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlBooleanArray(a[i]));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlChar2D(char[][] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlCharArray(a[i]));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlString2D(String[][] a) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < a.length; i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlStringArray(a[i]));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlIntList(List<Integer> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(list.get(i));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlLongList(List<Long> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(list.get(i));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlDoubleList(List<Double> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(list.get(i));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlBooleanList(List<Boolean> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(list.get(i));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlStringList(List<String> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append('"').append(list.get(i)).append('"');
-    }
-    return sb.append(']').toString();
-}
-
-static String qlIntList2D(List<List<Integer>> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlIntList(list.get(i)));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlLongList2D(List<List<Long>> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlLongList(list.get(i)));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlDoubleList2D(List<List<Double>> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlDoubleList(list.get(i)));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlBooleanList2D(List<List<Boolean>> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlBooleanList(list.get(i)));
-    }
-    return sb.append(']').toString();
-}
-
-static String qlStringList2D(List<List<String>> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) {
-            sb.append(',');
-        }
-        sb.append(qlStringList(list.get(i)));
-    }
-    return sb.append(']').toString();
-}
-
-// —— 包装类型无需额外方法，Integer/Long/Double/Boolean/Character 的 toString() 已符合格式 ——
-
-// —— 字符列表 ——
-
-static List<Character> parseCharacterList(String s) {
-    s = s.trim();
-    if (s.equals("[]")) {
-        return new ArrayList<>();
-    }
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    List<Character> list = new ArrayList<>();
-    for (String e : t) {
-        String v = e.trim();
-        if (v.length() >= 2 && v.charAt(0) == '"' && v.charAt(v.length() - 1) == '"') {
-            list.add(v.charAt(1));
-        } else {
-            list.add(v.charAt(0));
-        }
-    }
-    return list;
-}
-
-static String qlCharacterList(List<Character> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) sb.append(',');
-        sb.append('"').append(list.get(i)).append('"');
-    }
-    return sb.append(']').toString();
-}
-
-// —— Map 类型解析 ——
-
-static Map<Integer,Integer> parseIntIntMap(String s) {
-    Map<Integer,Integer> m = new HashMap<>();
-    s = s.trim();
-    if (s.equals("{}") || s.isEmpty()) return m;
-    String body = s.substring(1, s.length() - 1);
-    String[] pairs = splitMapPairs(body);
-    for (String pair : pairs) {
-        String[] kv = splitMapKV(pair);
-        m.put(Integer.parseInt(kv[0].trim()), Integer.parseInt(kv[1].trim()));
-    }
-    return m;
-}
-
-static Map<String,Integer> parseStringIntMap(String s) {
-    Map<String,Integer> m = new HashMap<>();
-    s = s.trim();
-    if (s.equals("{}") || s.isEmpty()) return m;
-    String body = s.substring(1, s.length() - 1);
-    String[] pairs = splitMapPairs(body);
-    for (String pair : pairs) {
-        String[] kv = splitMapKV(pair);
-        m.put(unquote(kv[0].trim()), Integer.parseInt(kv[1].trim()));
-    }
-    return m;
-}
-
-static Map<Integer,List<Integer>> parseIntIntListMap(String s) {
-    Map<Integer,List<Integer>> m = new HashMap<>();
-    s = s.trim();
-    if (s.equals("{}") || s.isEmpty()) return m;
-    String body = s.substring(1, s.length() - 1);
-    String[] pairs = splitMapPairs(body);
-    for (String pair : pairs) {
-        String[] kv = splitMapKV(pair);
-        m.put(Integer.parseInt(kv[0].trim()), parseIntList(kv[1].trim()));
-    }
-    return m;
-}
-
-static Map<String,List<String>> parseStringStringListMap(String s) {
-    Map<String,List<String>> m = new HashMap<>();
-    s = s.trim();
-    if (s.equals("{}") || s.isEmpty()) return m;
-    String body = s.substring(1, s.length() - 1);
-    String[] pairs = splitMapPairs(body);
-    for (String pair : pairs) {
-        String[] kv = splitMapKV(pair);
-        m.put(unquote(kv[0].trim()), parseStringList(kv[1].trim()));
-    }
-    return m;
-}
-
-static Map<String,String> parseStringStringMap(String s) {
-    Map<String,String> m = new HashMap<>();
-    s = s.trim();
-    if (s.equals("{}") || s.isEmpty()) return m;
-    String body = s.substring(1, s.length() - 1);
-    String[] pairs = splitMapPairs(body);
-    for (String pair : pairs) {
-        String[] kv = splitMapKV(pair);
-        m.put(unquote(kv[0].trim()), unquote(kv[1].trim()));
-    }
-    return m;
-}
-
-// Map 内部工具：按顶层逗号切分键值对（跟踪 {} 深度）
-static String[] splitMapPairs(String s) {
-    List<String> out = new ArrayList<>();
-    int depth = 0;
-    boolean inStr = false;
-    StringBuilder cur = new StringBuilder();
-    for (int i = 0; i < s.length(); i++) {
-        char c = s.charAt(i);
-        if (c == '"') inStr = !inStr;
-        if (!inStr) {
-            if (c == '{' || c == '[' || c == '(') depth++;
-            else if (c == '}' || c == ']' || c == ')') depth--;
-        }
-        if (!inStr && depth == 0 && c == ',') {
-            out.add(cur.toString());
-            cur.setLength(0);
-            continue;
-        }
-        cur.append(c);
-    }
-    if (cur.length() > 0) out.add(cur.toString());
-    return out.toArray(new String[0]);
-}
-
-// Map 内部工具：按顶层冒号切分 key:value（跟踪 {} [] <> 深度）
-static String[] splitMapKV(String s) {
-    int depth = 0;
-    boolean inStr = false;
-    for (int i = 0; i < s.length(); i++) {
-        char c = s.charAt(i);
-        if (c == '"') inStr = !inStr;
-        if (!inStr) {
-            if (c == '{' || c == '[' || c == '(' || c == '<') depth++;
-            else if (c == '}' || c == ']' || c == ')' || c == '>') depth--;
-            else if (c == ':' && depth == 0) {
-                return new String[]{ s.substring(0, i), s.substring(i + 1) };
-            }
-        }
-    }
-    return new String[]{ s, "" };
-}
-
-static String unquote(String s) {
-    if (s.length() >= 2 && s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') {
-        return s.substring(1, s.length() - 1);
-    }
-    return s;
-}
-
-// —— Map 类型序列化 ——
-
-static String qlIntIntMap(Map<Integer,Integer> m) {
-    StringBuilder sb = new StringBuilder("{");
-    boolean first = true;
-    for (Map.Entry<Integer,Integer> e : m.entrySet()) {
-        if (!first) sb.append(',');
-        first = false;
-        sb.append(e.getKey()).append(':').append(e.getValue());
-    }
-    return sb.append('}').toString();
-}
-
-static String qlStringIntMap(Map<String,Integer> m) {
-    StringBuilder sb = new StringBuilder("{");
-    boolean first = true;
-    for (Map.Entry<String,Integer> e : m.entrySet()) {
-        if (!first) sb.append(',');
-        first = false;
-        sb.append('"').append(e.getKey()).append('"').append(':').append(e.getValue());
-    }
-    return sb.append('}').toString();
-}
-
-static String qlIntIntListMap(Map<Integer,List<Integer>> m) {
-    StringBuilder sb = new StringBuilder("{");
-    boolean first = true;
-    for (Map.Entry<Integer,List<Integer>> e : m.entrySet()) {
-        if (!first) sb.append(',');
-        first = false;
-        sb.append(e.getKey()).append(':').append(qlIntList(e.getValue()));
-    }
-    return sb.append('}').toString();
-}
-
-static String qlStringStringListMap(Map<String,List<String>> m) {
-    StringBuilder sb = new StringBuilder("{");
-    boolean first = true;
-    for (Map.Entry<String,List<String>> e : m.entrySet()) {
-        if (!first) sb.append(',');
-        first = false;
-        sb.append('"').append(e.getKey()).append('"').append(':').append(qlStringList(e.getValue()));
-    }
-    return sb.append('}').toString();
-}
-
-static String qlStringStringMap(Map<String,String> m) {
-    StringBuilder sb = new StringBuilder("{");
-    boolean first = true;
-    for (Map.Entry<String,String> e : m.entrySet()) {
-        if (!first) sb.append(',');
-        first = false;
-        sb.append('"').append(e.getKey()).append('"').append(':').append('"').append(e.getValue()).append('"');
-    }
-    return sb.append('}').toString();
-}
-
-// —— 三维列表 ——
-
-static List<List<List<Integer>>> parseIntList3D(String s) {
-    s = s.trim();
-    List<List<List<Integer>>> res = new ArrayList<>();
-    if (s.equals("[]")) return res;
-    String body = s.substring(1, s.length() - 1);
-    String[] t = split(body);
-    for (String e : t) {
-        res.add(parseIntList2D(e));
-    }
-    return res;
-}
-
-static String qlIntList3D(List<List<List<Integer>>> list) {
-    StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < list.size(); i++) {
-        if (i > 0) sb.append(',');
-        sb.append(qlIntList2D(list.get(i)));
-    }
-    return sb.append(']').toString();
-}
 """;
 
     /** ListNode 辅助方法（按需注入 Main）。 */
@@ -1324,7 +872,9 @@ static ListNode parseListNode(String s) {
     ListNode dummy = new ListNode(0);
     ListNode cur = dummy;
     for (String e : t) {
-        cur.next = new ListNode(Integer.parseInt(e.trim()));
+        String v = e.trim();
+        if (v.equals("...") || v.isEmpty()) continue;
+        cur.next = new ListNode(Integer.parseInt(v));
         cur = cur.next;
     }
     return dummy.next;

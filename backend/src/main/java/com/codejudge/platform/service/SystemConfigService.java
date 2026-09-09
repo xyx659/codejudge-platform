@@ -97,12 +97,16 @@ public class SystemConfigService {
     /** 仅供后端 AI 服务读取当前模型和已解密 Key */
     public AiRuntimeConfig getAiRuntimeConfig() {
         Map<String, SystemConfig> configs = configMap();
-        String encryptedKey = require(configs, SystemConfigKey.AI_API_KEY).getConfigValue();
+        SystemConfig aiKeyConfig = require(configs, SystemConfigKey.AI_API_KEY);
+        String keyValue = aiKeyConfig.getConfigValue();
+        // 兼容：encrypted 标志为 true 时才解密，否则视为明文
+        String apiKey = !hasText(keyValue) ? null
+                : aiKeyConfig.isEncrypted() ? decrypt(keyValue) : keyValue;
         return new AiRuntimeConfig(
                 stringValue(configs, SystemConfigKey.AI_PROVIDER),
                 stringValue(configs, SystemConfigKey.AI_MODEL),
                 stringValue(configs, SystemConfigKey.AI_BASE_URL),
-                hasText(encryptedKey) ? decrypt(encryptedKey) : null);
+                apiKey);
     }
 
     /** 供限流服务读取当前限流阈值 */

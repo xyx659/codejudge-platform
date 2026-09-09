@@ -3,8 +3,10 @@ package com.codejudge.platform.controller.teacher;
 import com.codejudge.platform.common.ApiResponse;
 import com.codejudge.platform.common.BadRequestException;
 import com.codejudge.platform.dto.TeacherProfile;
+import com.codejudge.platform.service.AiReviewService;
 import com.codejudge.platform.service.TeacherService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,9 +24,12 @@ import java.util.Map;
 public class TeacherController {
 
     private final TeacherService teacherService;
+    private final AiReviewService aiReviewService;
 
-    public TeacherController(TeacherService teacherService) {
+    public TeacherController(TeacherService teacherService,
+                             AiReviewService aiReviewService) {
         this.teacherService = teacherService;
+        this.aiReviewService = aiReviewService;
     }
 
     /** 获取当前教师个人信息 */
@@ -56,5 +61,18 @@ public class TeacherController {
         }
         teacherService.changePassword(oldPassword, newPassword);
         return ApiResponse.ok(null);
+    }
+
+    /**
+     * AI 根据题目描述自动生成测试用例（仅返回，不入库）。
+     */
+    @PostMapping("/questions/ai-generate")
+    public ApiResponse<String> aiGenerate(@RequestBody Map<String, String> body) {
+        String title = body.getOrDefault("title", "");
+        String description = body.getOrDefault("description", "");
+        if (description.isBlank()) {
+            throw new BadRequestException("题目描述不能为空");
+        }
+        return ApiResponse.ok(aiReviewService.generateQuestion(title, description));
     }
 }

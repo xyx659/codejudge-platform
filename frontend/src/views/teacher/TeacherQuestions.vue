@@ -109,11 +109,23 @@
             <span>题目描述</span>
             <textarea v-model="form.description" rows="3"></textarea>
           </label>
+          <div class="ai-row">
+            <button type="button" class="ai-btn" :disabled="aiGenerating || !form.description" @click="aiGenerate">
+              {{ aiGenerating ? 'AI 生成中...' : '✨ AI 生成测试用例' }}
+            </button>
+            <span class="ai-hint">根据标题和描述自动生成方法签名、难度、标签、20 个测试用例</span>
+          </div>
           <div class="field-row">
             <label class="field">
               <span>方法名（如 sum）</span>
               <input v-model.trim="form.methodName" type="text" maxlength="50" />
             </label>
+            <label class="field">
+              <span>方法签名（如 int[] twoSum(int[], int)）</span>
+              <input v-model.trim="form.methodSignature" type="text" maxlength="200" />
+            </label>
+          </div>
+          <div class="field-row">
             <label class="field">
               <span>编程语言</span>
               <input v-model.trim="form.language" type="text" maxlength="20" />
@@ -190,6 +202,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
+  aiGenerateQuestion,
   createQuestion,
   deleteQuestion,
   getQuestion,
@@ -221,6 +234,7 @@ const form = reactive({
   title: '',
   description: '',
   methodName: '',
+  methodSignature: '',
   language: 'Java',
   difficulty: '简单',
   categoryId: '',
@@ -229,6 +243,43 @@ const form = reactive({
   published: false
 })
 const formError = ref('')
+const aiGenerating = ref(false)
+
+function extractJson(text) {
+  let s = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+  try { return JSON.parse(s) } catch {}
+  const start = s.indexOf('{')
+  const end = s.lastIndexOf('}')
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(s.substring(start, end + 1)) } catch {}
+  }
+  return null
+}
+
+async function aiGenerate() {
+  if (!form.description) return
+  aiGenerating.value = true
+  try {
+    const res = await aiGenerateQuestion({ title: form.title, description: form.description })
+    const data = extractJson(res.data)
+    if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
+    if (data.methodSignature) form.methodSignature = data.methodSignature
+    if (data.methodName) form.methodName = data.methodName
+    if (data.difficulty) form.difficulty = data.difficulty
+    if (data.tags) form.tagsStr = data.tags.join(', ')
+    if (data.testCases && data.testCases.length) {
+      form.testCases = data.testCases.map(tc => ({
+        name: tc.name || '',
+        input: tc.input || '',
+        expected: tc.expected || ''
+      }))
+    }
+  } catch (e) {
+    alert('AI 生成失败：' + (e.message || '请检查 AI 配置'))
+  } finally {
+    aiGenerating.value = false
+  }
+}
 const submitting = ref(false)
 
 const confirmOpen = ref(false)
@@ -314,6 +365,7 @@ function resetForm() {
   form.title = ''
   form.description = ''
   form.methodName = ''
+  form.methodSignature = ''
   form.language = 'Java'
   form.difficulty = '简单'
   form.categoryId = ''
@@ -339,6 +391,7 @@ async function openEdit(q) {
     form.title = d.title || ''
     form.description = d.description || ''
     form.methodName = d.methodName || ''
+    form.methodSignature = d.methodSignature || ''
     form.language = d.language || 'Java'
     form.difficulty = d.difficulty || '简单'
     form.categoryId = d.categoryId || ''
@@ -389,6 +442,7 @@ async function submitForm() {
       title: form.title,
       description: form.description,
       methodName: form.methodName,
+      methodSignature: form.methodSignature,
       language: form.language,
       difficulty: form.difficulty,
       categoryId: form.categoryId || null,
@@ -710,7 +764,7 @@ th {
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
@@ -750,5 +804,37 @@ th {
 .confirm-body {
   color: #4b5563;
   line-height: 1.6;
+}
+
+.ai-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ai-btn {
+  padding: 8px 16px;
+  border: 1px solid #059669;
+  border-radius: 6px;
+  background: #059669;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ai-btn:hover {
+  background: #047857;
+}
+
+.ai-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-hint {
+  color: #6b7280;
+  font-size: 13px;
 }
 </style>

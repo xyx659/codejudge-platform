@@ -87,6 +87,55 @@ public class AiReviewService {
         }
     }
 
+    /**
+     * 根据题目描述 AI 生成：测试用例（20 个）、标签、难度、方法名、方法签名。
+     *
+     * @param title       题目标题
+     * @param description 题目描述
+     * @return 生成结果 JSON 字符串（含 testCases / tags / difficulty / methodName / methodSignature）
+     */
+    public String generateQuestion(String title, String description) {
+        AiRuntimeConfig config = currentConfig();
+        if (config.apiKey() == null || config.apiKey().isBlank()) {
+            throw new IllegalStateException("未配置 AI API Key，无法生成题目");
+        }
+        String prompt = buildGeneratePrompt(title, description);
+        try {
+            return callChatCompletions(config, prompt);
+        } catch (Exception e) {
+            log.error("AI 生成题目失败：{}", e.getMessage());
+            throw new IllegalStateException("AI 生成失败：" + e.getMessage());
+        }
+    }
+
+    private String buildGeneratePrompt(String title, String description) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("你是一位 LeetCode 出题专家。请根据以下题目信息，生成完整的判题数据。\n\n");
+        sb.append("题目标题：").append(title).append("\n");
+        sb.append("题目描述：\n").append(description).append("\n\n");
+        sb.append("请严格按以下 JSON 格式输出，不要包含任何额外文字或 Markdown 标记：\n\n");
+        sb.append("{\n");
+        sb.append("  \"methodName\": \"方法名（如 twoSum）\",\n");
+        sb.append("  \"methodSignature\": \"完整签名（如 int[] twoSum(int[], int)）\",\n");
+        sb.append("  \"difficulty\": \"简单/中等/困难\",\n");
+        sb.append("  \"tags\": [\"标签1\", \"标签2\"],\n");
+        sb.append("  \"testCases\": [\n");
+        sb.append("    {\"name\": \"用例1\", \"input\": \"nums = [2,7,11,15], target = 9\", \"expected\": \"[0,1]\"},\n");
+        sb.append("    ...\n");
+        sb.append("  ]\n");
+        sb.append("}\n\n");
+        sb.append("要求：\n");
+        sb.append("1. 生成 20 个测试用例，覆盖正常情况、边界值、空输入、极端值等\n");
+        sb.append("2. input 采用 LeetCode 格式（参数名 = 值，多参数逗号分隔）\n");
+        sb.append("3. expected 采用 LeetCode 无空格输出格式\n");
+        sb.append("4. methodName 和 methodSignature 必须与题目描述一致\n");
+        sb.append("5. tags 选 2~4 个最相关的算法标签\n");
+        sb.append("6. difficulty 根据题目难度选择简单/中等/困难\n");
+        sb.append("7. 数组值必须完整列出，禁止使用 ... 省略号\n");
+        sb.append("8. 如果数组元素较多（超过20个），只生成5个用例，每组数据用较短的数组（10个元素以内），避免 JSON 过长");
+        return sb.toString();
+    }
+
     /** 组装 Prompt：题目信息 + 学生源码 + 黑盒结果，要求 AI 只回 JSON。 */
     private String buildPrompt(String title, String description, String signature,
                                String sourceCode, int passRate, List<TestCaseResult> results) {
@@ -118,9 +167,15 @@ public class AiReviewService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", config.model());
         body.put("temperature", 0.2);
+        body.put("stream", false);
         body.put("messages", List.of(
                 Map.of("role", "system", "content", "你是一位严谨的 Java 编程评审老师。"),
                 Map.of("role", "user", "content", prompt)));
+        // deepseek-v4-pro 需要 thinking 和 reasoning_effort 参数
+        if (config.model() != null && config.model().contains("v4-pro")) {
+            body.put("thinking", Map.of("type", "enabled"));
+            body.put("reasoning_effort", "high");
+        }
 
         String url = config.baseUrl().replaceAll("/+$", "") + "/chat/completions";
         HttpRequest request = HttpRequest.newBuilder()

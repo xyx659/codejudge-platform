@@ -10,6 +10,7 @@ import com.codejudge.platform.dto.QuestionManageDetail;
 import com.codejudge.platform.dto.QuestionManageSummary;
 import com.codejudge.platform.dto.QuestionSaveRequest;
 import com.codejudge.platform.dto.QuestionTestCaseRequest;
+import com.codejudge.platform.service.AiReviewService;
 import com.codejudge.platform.service.ExternalQuestionService;
 import com.codejudge.platform.service.QuestionService;
 import jakarta.validation.Valid;
@@ -38,12 +39,15 @@ public class AdminQuestionController {
 
     private final QuestionService questionService;
     private final ExternalQuestionService externalQuestionService;
+    private final AiReviewService aiReviewService;
 
     public AdminQuestionController(
             QuestionService questionService,
-            ExternalQuestionService externalQuestionService) {
+            ExternalQuestionService externalQuestionService,
+            AiReviewService aiReviewService) {
         this.questionService = questionService;
         this.externalQuestionService = externalQuestionService;
+        this.aiReviewService = aiReviewService;
     }
 
     @GetMapping
@@ -202,5 +206,18 @@ public class AdminQuestionController {
                         "attachment; filename=\"question-import-template.json\"")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * AI 根据题目描述自动生成测试用例、标签、难度等（仅返回，不入库）。
+     */
+    @PostMapping("/ai-generate")
+    public ApiResponse<String> aiGenerate(@RequestBody java.util.Map<String, String> body) {
+        String title = body.getOrDefault("title", "");
+        String description = body.getOrDefault("description", "");
+        if (description.isBlank()) {
+            throw new com.codejudge.platform.common.BadRequestException("题目描述不能为空");
+        }
+        return ApiResponse.ok(aiReviewService.generateQuestion(title, description));
     }
 }
