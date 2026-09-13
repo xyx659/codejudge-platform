@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,6 +31,12 @@ public class TeacherController {
                              AiReviewService aiReviewService) {
         this.teacherService = teacherService;
         this.aiReviewService = aiReviewService;
+    }
+
+    /** 班级列表（去重排序，供组卷「目标班级」下拉使用） */
+    @GetMapping("/classes")
+    public ApiResponse<List<String>> classes() {
+        return ApiResponse.ok(teacherService.listClassNames());
     }
 
     /** 获取当前教师个人信息 */

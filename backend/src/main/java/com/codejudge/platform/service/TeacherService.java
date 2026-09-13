@@ -5,10 +5,13 @@ import com.codejudge.platform.common.NotFoundException;
 import com.codejudge.platform.dto.TeacherProfile;
 import com.codejudge.platform.entity.Teacher;
 import com.codejudge.platform.repository.TeacherRepository;
+import com.codejudge.platform.repository.TeacherStudentRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * 教师业务逻辑（个人信息、修改密码等）。
@@ -19,11 +22,14 @@ import org.springframework.stereotype.Service;
 public class TeacherService {
 
     private final TeacherRepository teacherRepository;
+    private final TeacherStudentRepository teacherStudentRepository;
     private final PasswordEncoder passwordEncoder;
 
     public TeacherService(TeacherRepository teacherRepository,
+                          TeacherStudentRepository teacherStudentRepository,
                           PasswordEncoder passwordEncoder) {
         this.teacherRepository = teacherRepository;
+        this.teacherStudentRepository = teacherStudentRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -54,6 +60,11 @@ public class TeacherService {
         }
         teacher.updatePassword(passwordEncoder.encode(newPassword));
         teacherRepository.save(teacher);
+    }
+
+    /** 查询学生表里所有去重班级名（供组卷「目标班级」下拉使用） */
+    public List<String> listClassNames() {
+        return teacherStudentRepository.findDistinctClassNames();
     }
 
     private Teacher currentTeacher() {

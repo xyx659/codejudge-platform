@@ -27,4 +27,13 @@ public interface SubmissionQueryRepository extends JpaRepository<Submission, Lon
      * @return 这些题目的所有提交记录
      */
     List<Submission> findByQuestionIdIn(List<String> questionIds);
+
+    /**
+     * 查某个学生在某场考试里的全部提交（按题展开，用于阅卷查看每题答案）。
+     *
+     * @param studentId 学生 ID
+     * @param examId    考试 ID（对应 MongoDB exams._id）
+     * @return 该生本场考试的全部提交记录
+     */
+    List<Submission> findByStudentIdAndExamId(Long studentId, String examId);
 }

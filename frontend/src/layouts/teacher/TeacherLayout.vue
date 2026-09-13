@@ -11,6 +11,7 @@
         <router-link to="/teacher/exams">考试管理</router-link>
         <router-link to="/teacher/monitor">考试监考</router-link>
         <router-link to="/teacher/analytics">学情分析</router-link>
+        <router-link to="/teacher/scores">学生成绩</router-link>
         <router-link to="/teacher/profile">个人信息</router-link>
         <!-- ===== 教师端（M3）新增导航结束 ===== -->
       </nav>

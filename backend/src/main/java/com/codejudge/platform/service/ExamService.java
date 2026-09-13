@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * 考试业务逻辑（组卷、发布、关闭）。
@@ -46,9 +47,13 @@ public class ExamService {
         this.visibilityIndex = visibilityIndex;
     }
 
-    /** 分页查询考试，支持按状态 / 分类筛选 */
-    public PageResult<ExamSummary> list(int page, int size, String status, String categoryId) {
+    /** 分页查询考试，支持按关键字（标题）/ 状态 / 分类筛选 */
+    public PageResult<ExamSummary> list(int page, int size, String status, String categoryId, String keyword) {
         List<Criteria> conditions = new ArrayList<Criteria>();
+        if (keyword != null && !keyword.isBlank()) {
+            conditions.add(Criteria.where("title").regex(
+                    Pattern.compile(Pattern.quote(keyword.trim()), Pattern.CASE_INSENSITIVE)));
+        }
         if (status != null && !status.isBlank()) {
             conditions.add(Criteria.where("status").is(status));
         }

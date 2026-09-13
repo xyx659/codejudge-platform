@@ -35,6 +35,11 @@ export function deleteCategory(id) {
   return del(`/teacher/categories/${id}`)
 }
 
+// ===== 班级 =====
+export function listClasses() {
+  return get('/teacher/classes')
+}
+
 // ===== 题目 =====
 export function listQuestions(params = {}) {
   return get(`/teacher/questions${qs(params)}`)
@@ -89,6 +94,14 @@ export function getMonitorAlerts(examId, params = {}) {
 // ===== 学情分析 =====
 export function getAnalytics(examId) {
   return get(`/teacher/analytics/${examId}`)
+}
+// 学生成绩明细（分页 + 关键字/班级/及格筛选）
+export function listStudentScores(examId, params = {}) {
+  return get(`/teacher/analytics/${examId}/students${qs(params)}`)
+}
+// 某学生在某场考试里的逐题答卷
+export function getStudentAnswers(examId, studentId) {
+  return get(`/teacher/analytics/${examId}/students/${studentId}/answers`)
 }
 
 // ===== 个人信息 =====
