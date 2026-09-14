@@ -75,10 +75,32 @@
             <div class="stat"><span>综合分</span><b>{{ detail.aiReview.score ?? '—' }}</b></div>
             <div class="stat"><span>通过率</span><b>{{ detail.aiReview.passRate ?? '—' }}%</b></div>
             <div class="stat"><span>代码质量</span><b>{{ detail.aiReview.qualityScore ?? '—' }}</b></div>
+            <div class="stat"><span>时间复杂度</span><b>{{ detail.aiReview.timeComplexity ?? '—' }}</b></div>
+            <div class="stat"><span>空间复杂度</span><b>{{ detail.aiReview.spaceComplexity ?? '—' }}</b></div>
           </div>
+
+          <!-- 各维度评分 -->
+          <div v-if="detail.aiReview.dimensionScores && Object.keys(detail.aiReview.dimensionScores).length" class="dimensions">
+            <div class="dim-title">维度评分</div>
+            <div class="dim-grid">
+              <div v-for="(score, dim) in detail.aiReview.dimensionScores" :key="dim" class="dim-item">
+                <span class="dim-name">{{ dimensionNames[dim] || dim }}</span>
+                <div class="dim-bar-wrap">
+                  <div class="dim-bar" :style="{ width: score + '%', background: barColor(score) }"></div>
+                </div>
+                <span class="dim-score">{{ score }}</span>
+              </div>
+            </div>
+          </div>
+
           <ul v-if="detail.aiReview.feedback && detail.aiReview.feedback.length" class="feedback">
             <li v-for="(f, i) in detail.aiReview.feedback" :key="i">{{ f }}</li>
           </ul>
+
+          <div v-if="detail.aiReview.summary" class="summary">
+            <div class="summary-title">总评</div>
+            <p class="summary-text">{{ detail.aiReview.summary }}</p>
+          </div>
         </div>
         <p v-else class="hint">暂无 AI 反馈</p>
       </div>
@@ -95,6 +117,27 @@ const exams = ref([])
 const expanded = ref(null)
 const loading = ref(false)
 const error = ref('')
+
+// 维度ID → 中文名映射
+const dimensionNames = {
+  correctness: '正确性',
+  time_complexity: '时间复杂度',
+  space_complexity: '空间复杂度',
+  edge_cases: '边界与异常处理',
+  readability: '可读性与代码风格',
+  maintainability: '可维护性与模块化',
+  robustness: '鲁棒性与容错',
+  test_coverage: '测试覆盖',
+  algorithm_design: '算法思想与优化'
+}
+
+// 根据分数返回进度条颜色
+function barColor(score) {
+  if (score >= 90) return '#16a34a'
+  if (score >= 75) return '#2563eb'
+  if (score >= 60) return '#d97706'
+  return '#dc2626'
+}
 
 const selectedId = ref(null)
 const detail = ref(null)
@@ -405,6 +448,84 @@ onMounted(load)
 .feedback {
   padding-left: 20px;
   line-height: 1.8;
+  color: #374151;
+}
+
+.dimensions {
+  margin: 12px 0;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.dim-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #374151;
+}
+
+.dim-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dim-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dim-name {
+  width: 120px;
+  font-size: 13px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.dim-bar-wrap {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dim-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.dim-score {
+  width: 32px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.summary {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.summary-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #16a34a;
+}
+
+.summary-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
   color: #374151;
 }
 </style>

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,22 +106,60 @@ public class DockerJudgeEngine implements JudgeEngine {
             return;
         }
 
-        CodeRunner.MethodSignature signature;
-        try {
-            signature = codeRunner.parseSignature(question.getMethodSignature());
-        } catch (Exception e) {
-            finish(submission, detail, "COMPILE_ERROR", 0,
-                    List.of(new TestCaseResult("评测", false, "", "题目缺少合法方法签名", 0)));
-            return;
-        }
+        String judgeMode = question.getJudgeMode() == null ? "METHOD" : question.getJudgeMode();
+        boolean isDesign = "DESIGN".equals(judgeMode);
+        boolean isStdio = "STDIO".equals(judgeMode);
 
         JudgeRuntimeConfig config = systemConfigService.getJudgeRuntimeConfig();
 
         // ② 编译：Solution.java（学生源码） + Main.java（判题侧包装） + 数据结构定义文件
-        // 先获取辅助类源码，传给 generateMain 以正确识别 Node 形态（图/树/链表）
-        Map<String, String> helperSources = codeRunner.requiredHelperSources(signature);
-        List<String> helperClasses = new ArrayList<>(helperSources.values());
-        String mainSource = codeRunner.generateMain(signature, helperClasses);
+        Map<String, String> helperSources;
+        String mainSource;
+
+        if (isStdio) {
+            // STDIO 模式：学生写完整程序，Main 只是调用 Solution.main
+            helperSources = new HashMap<>();
+            mainSource = codeRunner.generateStdioMain();
+        } else if (isDesign) {
+            // 设计题：解析多个方法签名
+            List<String> methodDefs = question.getDesignMethods();
+            if (methodDefs == null || methodDefs.isEmpty()) {
+                finish(submission, detail, "COMPILE_ERROR", 0,
+                        List.of(new TestCaseResult("评测", false, "", "设计题缺少方法定义", 0)));
+                return;
+            }
+            List<CodeRunner.MethodSignature> signatures = new ArrayList<>();
+            for (String def : methodDefs) {
+                try {
+                    signatures.add(codeRunner.parseSignature(def));
+                } catch (Exception e) {
+                    finish(submission, detail, "COMPILE_ERROR", 0,
+                            List.of(new TestCaseResult("评测", false, "", "方法签名解析失败：" + def, 0)));
+                    return;
+                }
+            }
+            // 收集所有方法涉及的辅助类
+            helperSources = new HashMap<>();
+            for (CodeRunner.MethodSignature sig : signatures) {
+                helperSources.putAll(codeRunner.requiredHelperSources(sig));
+            }
+            // 从学生源码中提取实际类名（如 MinStack），支持任意类名
+            String className = codeRunner.extractClassName(detail.getSourceCode());
+            mainSource = codeRunner.generateDesignMain(signatures, className);
+        } else {
+            // 普通方法题
+            CodeRunner.MethodSignature signature;
+            try {
+                signature = codeRunner.parseSignature(question.getMethodSignature());
+            } catch (Exception e) {
+                finish(submission, detail, "COMPILE_ERROR", 0,
+                        List.of(new TestCaseResult("评测", false, "", "题目缺少合法方法签名", 0)));
+                return;
+            }
+            helperSources = codeRunner.requiredHelperSources(signature);
+            List<String> helperClasses = new ArrayList<>(helperSources.values());
+            mainSource = codeRunner.generateMain(signature, helperClasses);
+        }
         Map<String, byte[]> sources = new HashMap<>();
         sources.put("Solution.java", detail.getSourceCode().getBytes(StandardCharsets.UTF_8));
         sources.put("Main.java", mainSource.getBytes(StandardCharsets.UTF_8));
@@ -199,7 +238,7 @@ public class DockerJudgeEngine implements JudgeEngine {
         } else if (run.exitCode() != 0) {
             passed = false;
             message = "运行时错误：" + truncate(run.stderr());
-        } else if (!actual.equals(expected)) {
+        } else if (!outputMatches(actual, expected)) {
             passed = false;
             message = "输出不符：期望=" + expected + "，实际=" + actual;
         } else {
@@ -207,6 +246,92 @@ public class DockerJudgeEngine implements JudgeEngine {
             message = "通过";
         }
         return new TestCaseResult(tc.getName(), passed, actual, message, durationMs);
+    }
+
+    /**
+     * 智能输出比对：先精确匹配，失败后尝试浮点模糊比对和集合无序比对。
+     */
+    private boolean outputMatches(String actual, String expected) {
+        // 1. 精确匹配（最快路径）
+        if (actual.equals(expected)) {
+            return true;
+        }
+        // 2. 浮点模糊比对：两端都是单个数值时，允许 1e-5 误差
+        if (isNumeric(actual) && isNumeric(expected)) {
+            try {
+                double a = Double.parseDouble(actual);
+                double e = Double.parseDouble(expected);
+                if (Math.abs(a - e) < 1e-5) {
+                    return true;
+                }
+                // 处理相对误差（数值很大时）
+                if (e != 0 && Math.abs((a - e) / e) < 1e-5) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        // 3. 集合/数组无序比对：两端都是 [...] 格式时，排序后比较
+        if (actual.startsWith("[") && expected.startsWith("[")) {
+            return arrayMatches(actual, expected);
+        }
+        return false;
+    }
+
+    private boolean isNumeric(String s) {
+        if (s == null || s.isEmpty()) return false;
+        try {
+            Double.parseDouble(s);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 数组/集合无序比对：按逗号分割、排序后逐元素比较。
+     * 处理嵌套数组时保持子数组原样，只对顶层排序。
+     */
+    private boolean arrayMatches(String actual, String expected) {
+        try {
+            String[] aTokens = splitTopLevel(actual.substring(1, actual.length() - 1));
+            String[] eTokens = splitTopLevel(expected.substring(1, expected.length() - 1));
+            if (aTokens.length != eTokens.length) return false;
+            // 先尝试有序比较（多数情况有序即可）
+            if (Arrays.equals(aTokens, eTokens)) return true;
+            // 无序比较：排序后比较
+            String[] aSorted = aTokens.clone();
+            String[] eSorted = eTokens.clone();
+            Arrays.sort(aSorted);
+            Arrays.sort(eSorted);
+            return Arrays.equals(aSorted, eSorted);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 按顶层逗号拆分，忽略嵌套括号内的逗号。 */
+    private String[] splitTopLevel(String s) {
+        java.util.List<String> out = new ArrayList<>();
+        int depth = 0;
+        boolean inStr = false;
+        StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') inStr = !inStr;
+            if (!inStr) {
+                if (c == '[' || c == '(' || c == '{') depth++;
+                else if (c == ']' || c == ')' || c == '}') depth--;
+            }
+            if (!inStr && depth == 0 && c == ',') {
+                out.add(cur.toString().trim());
+                cur.setLength(0);
+                continue;
+            }
+            cur.append(c);
+        }
+        if (cur.length() > 0) out.add(cur.toString().trim());
+        return out.toArray(new String[0]);
     }
 
     /** Step 7：白盒 AI 评审。仅编译通过后触发；未配置 Key、调用或解析失败时 aiReview 保持为 null。 */

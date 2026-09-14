@@ -178,8 +178,26 @@ public class TeacherQuestionService {
         if (request.description() == null || request.description().isBlank()) {
             throw new BadRequestException("题目描述不能为空");
         }
-        if (request.methodName() == null || request.methodName().isBlank()) {
-            throw new BadRequestException("方法名不能为空");
+
+        String judgeMode = request.judgeMode() == null ? "METHOD" : request.judgeMode();
+        question.setJudgeMode(judgeMode);
+
+        if ("DESIGN".equals(judgeMode)) {
+            // 设计题：校验 designMethods
+            if (request.designMethods() == null || request.designMethods().isEmpty()) {
+                throw new BadRequestException("设计题必须提供方法定义列表");
+            }
+            question.setDesignMethods(request.designMethods());
+            question.setMethodName(request.methodName() == null ? "" : request.methodName().trim());
+            question.setMethodSignature(null);
+        } else {
+            // 普通方法题：校验 methodName
+            if (request.methodName() == null || request.methodName().isBlank()) {
+                throw new BadRequestException("方法名不能为空");
+            }
+            question.setMethodName(request.methodName().trim());
+            question.setMethodSignature(request.methodSignature());
+            question.setDesignMethods(new ArrayList<>());
         }
 
         String categoryId = blankToNull(request.categoryId());
@@ -189,8 +207,6 @@ public class TeacherQuestionService {
 
         question.setTitle(request.title().trim());
         question.setDescription(request.description());
-        question.setMethodName(request.methodName().trim());
-        question.setMethodSignature(request.methodSignature());
         question.setLanguage(request.language());
         question.setDifficulty(request.difficulty());
         question.setCategoryId(categoryId);

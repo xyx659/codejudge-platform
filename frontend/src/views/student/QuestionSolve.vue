@@ -152,8 +152,31 @@ onBeforeUnmount(() => {
   }
 })
 
-function defaultTemplate(methodName) {
-  return `// 实现方法 ${methodName}（评测由后端执行）\npublic class Solution {\n    public Object ${methodName}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
+function defaultTemplate(q) {
+  const mode = q.judgeMode || 'METHOD'
+  const name = q.methodName || 'Solution'
+  if (mode === 'DESIGN') {
+    const methods = (q.designMethods || []).map(s => {
+      const m = s.match(/^(\S+)\s+(\w+)\((.*)\)$/)
+      if (!m) return `    // ${s}`
+      const ret = m[1], mn = m[2], params = m[3]
+      if (mn === name) {
+        // 构造器
+        const paramDecl = params ? params.split(',').map((_, i) => `        // 参数${i + 1}`).join('\n') : ''
+        return `    public ${name}(${params}) {\n${paramDecl}        // TODO\n    }`
+      }
+      const paramDecl = params ? params.split(',').map(p => {
+        const parts = p.trim().split(/\s+/)
+        return `        ${parts[0]} ${parts[1] || 'arg'}`
+      }).join(',\n') : ''
+      return `    public ${ret} ${mn}(\n${paramDecl}\n    ) {\n        // TODO\n    }`
+    }).join('\n\n')
+    return `// 实现 ${name} 类（评测由后端执行）\nclass ${name} {\n${methods}\n}\n`
+  }
+  if (mode === 'STDIO') {
+    return `// 标准输入输出模式\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // 在这里编写你的代码\n    }\n}\n`
+  }
+  return `// 实现方法 ${name}（评测由后端执行）\npublic class Solution {\n    public Object ${name}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
 }
 
 // 根据当前状态创建编辑器：未提交用初始模板可编辑；已提交用源码只读回看
@@ -165,7 +188,7 @@ function initEditor() {
   }
   const value = submission.value
     ? submission.value.sourceCode || '// 无源码'
-    : defaultTemplate(question.value.methodName)
+    : defaultTemplate(question.value)
   editor = createEditor(editorRef.value, {
     value,
     readOnly: !!submission.value

@@ -31,11 +31,14 @@ public class Question {
     /** 需要实现的方法名（如 sum），用于生成评测模板 */
     private String methodName;
 
-    /** 判题模式：METHOD（方法题，判题侧生成 Main 包装）/ STDIO（完整程序读标准输入输出） */
+    /** 判题模式：METHOD（方法题，判题侧生成 Main 包装）/ DESIGN（设计题，多方法调用）/ STDIO（完整程序读标准输入输出） */
     private String judgeMode = "METHOD";
 
-    /** 方法签名，自包含形式，如「int sum(int, int)」；STDIO 模式下可为空 */
+    /** 方法签名，自包含形式，如「int sum(int, int)」；STDIO / DESIGN 模式下可为空 */
     private String methodSignature;
+
+    /** 设计题方法定义列表（仅 DESIGN 模式使用），每项格式如 "void put(int,int)" 或 "int get(int)" */
+    private List<String> designMethods = new ArrayList<String>();
 
     /** 编程语言（如 Java） */
     private String language;
@@ -118,6 +121,14 @@ public class Question {
 
     public void setMethodSignature(String methodSignature) {
         this.methodSignature = methodSignature;
+    }
+
+    public List<String> getDesignMethods() {
+        return designMethods;
+    }
+
+    public void setDesignMethods(List<String> designMethods) {
+        this.designMethods = designMethods;
     }
 
     public String getLanguage() {

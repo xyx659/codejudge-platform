@@ -268,8 +268,44 @@ function goBack() {
   router.push('/student/home')
 }
 
-function defaultTemplate(methodName) {
-  return `// 实现方法 ${methodName}（评测由后端执行）\npublic class Solution {\n    public Object ${methodName}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
+function defaultTemplate(q) {
+  const mode = q.judgeMode || 'METHOD'
+  const name = q.methodName || 'Solution'
+  if (mode === 'DESIGN') {
+    const methods = (q.designMethods || []).map(s => {
+      const m = s.match(/^(\S+)\s+(\w+)\((.*)\)$/)
+      if (!m) return `    // ${s}`
+      const ret = m[1], mn = m[2], params = m[3]
+      if (mn === name) {
+        const paramDecl = params ? params.split(',').map((_, i) => `        // 参数${i + 1}`).join('\n') : ''
+        return `    public ${name}(${params}) {\n${paramDecl}        // TODO\n    }`
+      }
+      const paramDecl = params ? params.split(',').map(p => {
+        const parts = p.trim().split(/\s+/)
+        return `        ${parts[0]} ${parts[1] || 'arg'}`
+      }).join(',\n') : ''
+      return `    public ${ret} ${mn}(\n${paramDecl}\n    ) {\n        // TODO\n    }`
+    }).join('\n\n')
+    return `// 实现 ${name} 类（评测由后端执行）\nclass ${name} {\n${methods}\n}\n`
+  }
+  if (mode === 'STDIO') {
+    return `// 标准输入输出模式\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // 在这里编写你的代码\n    }\n}\n`
+  }
+  // METHOD 模式：优先用 methodSignature 生成准确的方法签名
+  const sig = q.methodSignature
+  if (sig) {
+    const m = sig.match(/^(\S+)\s+(\w+)\((.*)\)$/)
+    if (m) {
+      const ret = m[1], mn = m[2], params = m[3]
+      const paramDecl = params ? params.split(',').map(p => {
+        const parts = p.trim().split(/\s+/)
+        return `        ${parts[0]} ${parts[1] || 'arg'}`
+      }).join(',\n') : ''
+      const returnStmt = ret === 'void' ? '' : `\n        return ${ret === 'int' || ret === 'long' || ret === 'float' || ret === 'double' ? '0' : ret === 'boolean' ? 'false' : 'null'};`
+      return `// 实现方法 ${mn}（评测由后端执行）\npublic class Solution {\n    public ${ret} ${mn}(\n${paramDecl}\n    ) {\n        // 在这里编写你的代码${returnStmt}\n    }\n}\n`
+    }
+  }
+  return `// 实现方法 ${name}（评测由后端执行）\npublic class Solution {\n    public Object ${name}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
 }
 
 function draftKey(questionId) {
@@ -277,7 +313,7 @@ function draftKey(questionId) {
 }
 
 function loadDraft(questionId) {
-  return localStorage.getItem(draftKey(questionId)) || ''
+  return localStorage.getItem(draftKey(questionId)) || null
 }
 
 function saveDraft(questionId, code) {
@@ -298,7 +334,7 @@ function initEditor() {
   if (!editorEl.value) return
   const i = current.value
   const value = editable.value
-    ? (answers.value[i] ?? loadDraft(q.questionId) ?? defaultTemplate(q.methodName))
+    ? (answers.value[i] ?? loadDraft(q.questionId) ?? defaultTemplate(q))
     : (q.sourceCode || '// 无源码')
   editor = createEditor(editorEl.value, {
     value,
@@ -366,13 +402,13 @@ function isAnswered(i) {
   if (!q) return false
   const code = answers.value[i]
   if (code == null || !code.trim()) return false
-  return code.trim() !== defaultTemplate(q.methodName).trim()
+  return code.trim() !== defaultTemplate(q).trim()
 }
 
 // 交卷时把「空白 / 还是默认模板」的题目当作未作答
 function normalizeAnswer(q, code) {
   if (!code || !code.trim()) return ''
-  if (code.trim() === defaultTemplate(q.methodName).trim()) return ''
+  if (code.trim() === defaultTemplate(q).trim()) return ''
   return code
 }
 

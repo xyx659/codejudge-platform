@@ -11,6 +11,8 @@ import java.util.List;
  * @param description      题目描述
  * @param methodName       需要实现的方法名（如 sum）
  * @param methodSignature  方法签名（如 int[] twoSum(int[], int)），容器判题生成 Main 包装类时使用
+ * @param judgeMode        判题模式：METHOD / DESIGN / STDIO
+ * @param designMethods    设计题方法定义列表（仅 DESIGN 模式），每项如 "void put(int,int)"
  * @param language         编程语言（如 Java）
  * @param difficulty       难度：简单 / 中等 / 困难
  * @param categoryId       所属分类 ID（对应 categories._id），可选
@@ -23,6 +25,8 @@ public record QuestionRequest(
         String description,
         String methodName,
         String methodSignature,
+        String judgeMode,
+        List<String> designMethods,
         String language,
         String difficulty,
         String categoryId,

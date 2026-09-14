@@ -15,6 +15,7 @@ import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.SubmissionDetailRepository;
 import com.codejudge.platform.repository.SubmissionRepository;
 import com.codejudge.platform.repository.TeacherRepository;
+import java.util.Map;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -120,7 +121,7 @@ public class DataInitializer implements CommandLineRunner {
                 detail.setAiReview(new AiReview(91, 100, 70, List.of(
                         "黑盒测试：通过 2/2 个用例。",
                         "白盒分析：代码简洁，建议补充注释。"
-                )));
+                ), "O(1)", "O(1)", Map.of("correctness", 100, "readability", 80), "代码简洁正确"));
                 submissionDetailRepository.save(detail);
             }
         }

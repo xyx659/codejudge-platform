@@ -254,11 +254,28 @@ public class QuestionService {
     }
 
     private QuestionSaveRequest parseTemplateQuestion(JsonNode node) {
+        String judgeMode = text(node, "judgeMode");
+        if (judgeMode == null || judgeMode.isBlank()) {
+            judgeMode = "METHOD";
+        }
+        // 设计题 methodName 可以从 designMethods 第一条推断，不必单独填
+        String methodName = text(node, "methodName");
+        if ("DESIGN".equals(judgeMode)) {
+            if (methodName == null || methodName.isBlank()) {
+                methodName = "";
+            }
+        } else {
+            if (methodName == null || methodName.isBlank()) {
+                throw new BadRequestException("方法名不能为空");
+            }
+        }
         return new QuestionSaveRequest(
                 required(text(node, "title"), "题目标题不能为空"),
                 text(node, "description"),
-                required(text(node, "methodName"), "方法名不能为空"),
+                methodName,
                 text(node, "methodSignature"),
+                judgeMode,
+                stringList(node.get("designMethods")),
                 required(text(node, "language"), "编程语言不能为空"),
                 required(text(node, "difficulty"), "难度不能为空"),
                 stringList(node.get("tags")),
@@ -294,8 +311,26 @@ public class QuestionService {
         }
         question.setTitle(required(request.title(), "题目标题不能为空"));
         question.setDescription(cleanText(request.description()));
-        question.setMethodName(required(request.methodName(), "方法名不能为空"));
-        question.setMethodSignature(cleanText(request.methodSignature()));
+
+        String judgeMode = request.judgeMode() == null ? "METHOD" : request.judgeMode();
+        question.setJudgeMode(judgeMode);
+
+        if ("DESIGN".equals(judgeMode)) {
+            if (request.designMethods() == null || request.designMethods().isEmpty()) {
+                throw new BadRequestException("设计题必须提供方法定义列表");
+            }
+            question.setDesignMethods(request.designMethods());
+            question.setMethodName(request.methodName() == null ? "" : request.methodName().trim());
+            question.setMethodSignature(null);
+        } else {
+            if (request.methodName() == null || request.methodName().isBlank()) {
+                throw new BadRequestException("方法名不能为空");
+            }
+            question.setMethodName(required(request.methodName(), "方法名不能为空"));
+            question.setMethodSignature(cleanText(request.methodSignature()));
+            question.setDesignMethods(new ArrayList<>());
+        }
+
         question.setLanguage(normalizeLanguage(request.language()));
         question.setDifficulty(requireDifficulty(request.difficulty()));
         question.setTags(cleanTags(request.tags()));
@@ -313,7 +348,9 @@ public class QuestionService {
             throw new BadRequestException("测试用例数量不能超过 " + MAX_TEST_CASES);
         }
         question.setTestCases(testCases);
-        applySignature(question, testCases);
+        if (!"DESIGN".equals(judgeMode)) {
+            applySignature(question, testCases);
+        }
     }
 
     /**
