@@ -157,8 +157,17 @@ public class AiReviewService {
         sb.append("\n【学生提交的代码】\n```java\n").append(sourceCode).append("\n```\n");
         sb.append("\n【黑盒测试结果】\n用例通过率：").append(passRate).append(" / 100\n").append(cases);
         sb.append("\n请只输出一个 JSON 对象，不要包含任何额外文字或 Markdown 代码块标记，格式如下：\n");
-        sb.append("{\"qualityScore\": 0到100的整数, \"feedback\": [\"建议1\", \"建议2\", \"...\"]}\n\n");
-        sb.append("qualityScore 是对代码正确性、命名、结构、边界处理、时间复杂度的综合质量评分；feedback 给出 2~5 条具体可操作的改进建议。");
+        sb.append("{\n");
+        sb.append("  \"qualityScore\": 0到100的整数,\n");
+        sb.append("  \"scoreExplanation\": \"评分说明：简要说明为何给出该质量分\",\n");
+        sb.append("  \"timeComplexity\": \"时间复杂度（如 O(n)）\",\n");
+        sb.append("  \"spaceComplexity\": \"空间复杂度（如 O(1)）\",\n");
+        sb.append("  \"feedback\": [\"建议1\", \"建议2\", \"...\"]\n");
+        sb.append("}\n\n");
+        sb.append("qualityScore 是对代码正确性、命名、结构、边界处理、时间复杂度的综合质量评分；");
+        sb.append("scoreExplanation 用一两句话说明给出该质量分的理由（扣分点/亮点）；");
+        sb.append("timeComplexity 与 spaceComplexity 用大 O 记法分析该解法的复杂度；");
+        sb.append("feedback 给出 2~5 条具体可操作的改进建议。");
         return sb.toString();
     }
 
@@ -217,8 +226,20 @@ public class AiReviewService {
             }
         }
 
-        int score = (int) Math.round(passRate * 0.7 + qualityScore * 0.3);
-        return new AiReview(score, passRate, qualityScore, feedback);
+        String scoreExplanation = textOrNull(node, "scoreExplanation");
+        String timeComplexity = textOrNull(node, "timeComplexity");
+        String spaceComplexity = textOrNull(node, "spaceComplexity");
+
+        // 综合分 = 代码测试(用例通过率)80% + AI 打分(代码质量)20%
+        int score = (int) Math.round(passRate * 0.8 + qualityScore * 0.2);
+        return new AiReview(score, passRate, qualityScore, feedback,
+                scoreExplanation, timeComplexity, spaceComplexity);
+    }
+
+    /** 读取节点下的文本字段，缺失或非文本时返回 null。 */
+    private String textOrNull(JsonNode node, String field) {
+        JsonNode child = node.get(field);
+        return (child != null && child.isTextual()) ? child.asText() : null;
     }
 
     /** 从 AI 输出中截取首个 JSON 对象（容忍 Markdown 代码块包裹与前后杂文）。 */

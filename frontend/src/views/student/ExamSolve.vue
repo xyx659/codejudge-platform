@@ -41,57 +41,63 @@
         >{{ i + 1 }}</button>
       </div>
 
-      <!-- 当前题目（一道题一页） -->
+      <!-- 当前题目（一道题一页，LeetCode 式左右两栏） -->
       <div v-if="currentQuestion" class="card qcard">
         <div class="qhead">
           <span class="qnum">第 {{ current + 1 }} 题 · {{ currentQuestion.title }}</span>
           <span class="badge" :class="difficultyClass(currentQuestion.difficulty)">{{ currentQuestion.difficulty }}</span>
           <span class="qscore">{{ currentQuestion.score }} 分</span>
         </div>
-        <div class="qdesc">{{ currentQuestion.description }}</div>
 
-        <div v-if="randomTestCases.length" class="samples">
-          <div class="samples-head">
-            <div class="label">样例测试用例（随机抽 {{ randomTestCases.length }}/{{ totalCases }} 条）</div>
-            <button v-if="totalCases > randomTestCases.length" class="btn small" @click="reshuffle">换一批</button>
+        <div class="qbody">
+          <!-- 左栏：描述 + 样例 + 得分 -->
+          <div class="pane pane-left">
+            <div class="qdesc">{{ currentQuestion.description }}</div>
+
+            <div v-if="randomTestCases.length" class="samples">
+              <div class="samples-head">
+                <div class="label">样例测试用例（随机抽 {{ randomTestCases.length }}/{{ totalCases }} 条）</div>
+                <button v-if="totalCases > randomTestCases.length" class="btn small" @click="reshuffle">换一批</button>
+              </div>
+              <div class="examples">
+                <div v-for="(tc, ti) in randomTestCases" :key="ti" class="example">
+                  <div class="example-head">
+                    <span class="example-no">示例 {{ ti + 1 }}</span>
+                    <span v-if="tc.name" class="example-name">{{ tc.name }}</span>
+                  </div>
+                  <div class="example-io">
+                    <div class="io-row"><span class="io-k">输入</span><pre class="io-v">{{ tc.input }}</pre></div>
+                    <div class="io-row"><span class="io-k">输出</span><pre class="io-v">{{ tc.expected }}</pre></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p v-if="currentQuestion.myScore != null" class="my-score">
+              本题得分：{{ currentQuestion.myScore }}（{{ judgeStatusText(currentQuestion.judgeStatus) }}）
+            </p>
           </div>
-          <table>
-            <thead>
-              <tr><th>名称</th><th>输入</th><th>期望输出</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="(tc, ti) in randomTestCases" :key="ti">
-                <td>{{ tc.name }}</td>
-                <td><code>{{ tc.input }}</code></td>
-                <td><code>{{ tc.expected }}</code></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
-        <div class="label">{{ editable ? `编写代码（${currentQuestion.methodName}）` : '代码' }}</div>
-        <div ref="editorEl" class="editor"></div>
-
-        <!-- 本地样例自测 -->
-        <div v-if="editable" class="testbar">
-          <button class="btn" :disabled="testing" @click="runTest">
-            {{ testing ? '测试中...' : '测试' }}
-          </button>
-          <span class="test-hint">用样例用例本地跑一遍（不提交）</span>
-        </div>
-        <p v-if="testError" class="test-error">{{ testError }}</p>
-        <div v-if="testResults" class="test-results">
-          <div v-for="(r, ri) in testResults" :key="ri" class="test-row" :class="{ pass: r.passed, fail: !r.passed }">
-            <span class="test-status">{{ r.passed ? '✓' : '✗' }}</span>
-            <span class="test-name">{{ r.name }}</span>
-            <span class="test-msg">{{ r.message }}</span>
-            <span v-if="!r.passed" class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+          <!-- 右栏：编辑器 + 本地自测 -->
+          <div class="pane pane-right">
+            <div class="editor-head">
+              <span class="label">{{ editable ? `编写代码（${currentQuestion.methodName}）` : '代码' }}</span>
+              <button v-if="editable" class="btn" :disabled="testing" @click="runTest">
+                {{ testing ? '测试中...' : '测试' }}
+              </button>
+            </div>
+            <div ref="editorEl" class="editor"></div>
+            <p v-if="testError" class="test-error">{{ testError }}</p>
+            <div v-if="testResults" class="test-results">
+              <div v-for="(r, ri) in testResults" :key="ri" class="test-row" :class="{ pass: r.passed, fail: !r.passed }">
+                <span class="test-status">{{ r.passed ? '✓' : '✗' }}</span>
+                <span class="test-name">{{ r.name }}</span>
+                <span class="test-msg">{{ r.message }}</span>
+                <span v-if="!r.passed" class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+              </div>
+            </div>
           </div>
         </div>
-
-        <p v-if="currentQuestion.myScore != null" class="my-score">
-          本题得分：{{ currentQuestion.myScore }}（{{ judgeStatusText(currentQuestion.judgeStatus) }}）
-        </p>
       </div>
 
       <!-- 底部翻页 + 交卷 -->
@@ -604,6 +610,29 @@ function formatTime(s) {
   overflow: hidden;
 }
 
+.qbody {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 0 16px 16px;
+}
+
+.pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pane-left {
+  flex: 0 0 42%;
+  max-width: 46%;
+}
+
+.pane-right {
+  flex: 1;
+}
+
 .qhead {
   display: flex;
   align-items: center;
@@ -626,7 +655,7 @@ function formatTime(s) {
   white-space: pre-wrap;
   color: #374151;
   line-height: 1.6;
-  padding: 0 16px 12px;
+  padding: 0 0 4px;
 }
 
 .label {
@@ -635,7 +664,7 @@ function formatTime(s) {
 }
 
 .samples {
-  padding: 0 16px 12px;
+  padding: 0;
 }
 
 .samples-head {
@@ -648,30 +677,87 @@ function formatTime(s) {
   padding: 0 0 8px;
 }
 
-.samples table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+.examples {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.samples th,
-.samples td {
+.example {
   border: 1px solid #e5e7eb;
-  padding: 6px 10px;
-  text-align: left;
-}
-
-.samples th {
+  border-radius: 8px;
+  overflow: hidden;
   background: #f9fafb;
 }
 
+.example-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.example-no {
+  font-weight: 700;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.example-name {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.example-io {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.io-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.io-k {
+  flex: 0 0 auto;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.io-v {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-head .label {
+  padding: 0;
+}
+
 .editor {
-  height: 260px;
-  border-top: 1px solid #e5e7eb;
+  height: calc(100vh - 360px);
+  min-height: 400px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
 }
 
 .my-score {
-  padding: 8px 16px 12px;
+  padding: 0;
   color: #16a34a;
   font-size: 13px;
 }
@@ -690,13 +776,13 @@ function formatTime(s) {
 }
 
 .test-error {
-  padding: 0 16px 10px;
+  padding: 0;
   color: #dc2626;
   font-size: 13px;
 }
 
 .test-results {
-  padding: 0 16px 12px;
+  padding: 0;
 }
 
 .test-row {
@@ -787,5 +873,22 @@ function formatTime(s) {
 .submit-msg {
   color: #16a34a;
   padding: 8px 0;
+}
+
+/* 窄屏降级为上下堆叠 */
+@media (max-width: 900px) {
+  .qbody {
+    flex-direction: column;
+  }
+
+  .pane-left {
+    flex: none;
+    max-width: none;
+    width: 100%;
+  }
+
+  .editor {
+    height: 400px;
+  }
 }
 </style>

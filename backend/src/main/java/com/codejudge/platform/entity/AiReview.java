@@ -22,6 +22,15 @@ public class AiReview {
     /** 评审反馈列表 */
     private List<String> feedback = new ArrayList<String>();
 
+    /** 评分说明（AI 对质量分的文字解释） */
+    private String scoreExplanation;
+
+    /** 时间复杂度（如 O(n)） */
+    private String timeComplexity;
+
+    /** 空间复杂度（如 O(1)） */
+    private String spaceComplexity;
+
     public AiReview() {
     }
 
@@ -30,6 +39,17 @@ public class AiReview {
         this.passRate = passRate;
         this.qualityScore = qualityScore;
         this.feedback = feedback;
+    }
+
+    public AiReview(Integer score, Integer passRate, Integer qualityScore, List<String> feedback,
+                    String scoreExplanation, String timeComplexity, String spaceComplexity) {
+        this.score = score;
+        this.passRate = passRate;
+        this.qualityScore = qualityScore;
+        this.feedback = feedback;
+        this.scoreExplanation = scoreExplanation;
+        this.timeComplexity = timeComplexity;
+        this.spaceComplexity = spaceComplexity;
     }
 
     public Integer getScore() {
@@ -62,5 +82,29 @@ public class AiReview {
 
     public void setFeedback(List<String> feedback) {
         this.feedback = feedback;
+    }
+
+    public String getScoreExplanation() {
+        return scoreExplanation;
+    }
+
+    public void setScoreExplanation(String scoreExplanation) {
+        this.scoreExplanation = scoreExplanation;
+    }
+
+    public String getTimeComplexity() {
+        return timeComplexity;
+    }
+
+    public void setTimeComplexity(String timeComplexity) {
+        this.timeComplexity = timeComplexity;
+    }
+
+    public String getSpaceComplexity() {
+        return spaceComplexity;
+    }
+
+    public void setSpaceComplexity(String spaceComplexity) {
+        this.spaceComplexity = spaceComplexity;
     }
 }

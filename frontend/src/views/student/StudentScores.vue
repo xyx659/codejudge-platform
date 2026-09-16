@@ -9,7 +9,7 @@
     <p v-else-if="exams.length === 0" class="hint">暂无成绩，去考试首页参加一场考试吧</p>
 
     <template v-else>
-      <div v-for="g in exams" :key="g.examId || 'legacy'" class="card exam-group">
+      <div v-for="g in pagedExams" :key="g.examId || 'legacy'" class="card exam-group">
         <div class="exam-head" @click="toggle(g)">
           <div class="head-left">
             <h3 class="title">{{ g.examTitle }}</h3>
@@ -38,6 +38,12 @@
             <span class="link">AI 评审 →</span>
           </div>
         </div>
+      </div>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="page <= 0" @click="changePage(page - 1)">上一页</button>
+        <span>第 {{ page + 1 }} / {{ totalPages }} 页</span>
+        <button class="page-btn" :disabled="page >= totalPages - 1" @click="changePage(page + 1)">下一页</button>
       </div>
 
       <!-- 成绩详情（用例结果 + AI 评审） -->
@@ -76,6 +82,11 @@
             <div class="stat"><span>通过率</span><b>{{ detail.aiReview.passRate ?? '—' }}%</b></div>
             <div class="stat"><span>代码质量</span><b>{{ detail.aiReview.qualityScore ?? '—' }}</b></div>
           </div>
+          <div v-if="detail.aiReview.timeComplexity || detail.aiReview.spaceComplexity" class="complexity">
+            <span v-if="detail.aiReview.timeComplexity" class="cx">时间复杂度：<b>{{ detail.aiReview.timeComplexity }}</b></span>
+            <span v-if="detail.aiReview.spaceComplexity" class="cx">空间复杂度：<b>{{ detail.aiReview.spaceComplexity }}</b></span>
+          </div>
+          <p v-if="detail.aiReview.scoreExplanation" class="explain">{{ detail.aiReview.scoreExplanation }}</p>
           <ul v-if="detail.aiReview.feedback && detail.aiReview.feedback.length" class="feedback">
             <li v-for="(f, i) in detail.aiReview.feedback" :key="i">{{ f }}</li>
           </ul>
@@ -87,11 +98,13 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getSubmissionResult, listExamScores } from '../../api/student'
 import { judgeStatusText } from '../../utils/format'
 
 const exams = ref([])
+const page = ref(0)
+const size = ref(5)
 const expanded = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -100,6 +113,12 @@ const selectedId = ref(null)
 const detail = ref(null)
 const detailLoading = ref(false)
 const detailError = ref('')
+
+const totalPages = computed(() => Math.max(1, Math.ceil(exams.value.length / size.value)))
+const pagedExams = computed(() => {
+  const start = page.value * size.value
+  return exams.value.slice(start, start + size.value)
+})
 
 async function load() {
   loading.value = true
@@ -148,6 +167,10 @@ async function openDetail(id) {
 function closeDetail() {
   selectedId.value = null
   detail.value = null
+}
+
+function changePage(p) {
+  page.value = p
 }
 
 function statusClass(status) {
@@ -402,9 +425,55 @@ onMounted(load)
   font-size: 18px;
 }
 
+.complexity {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.cx {
+  color: #374151;
+  font-size: 14px;
+}
+
+.cx b {
+  color: #1f2937;
+}
+
+.explain {
+  color: #374151;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
 .feedback {
   padding-left: 20px;
   line-height: 1.8;
   color: #374151;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #6b7280;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.page-btn {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

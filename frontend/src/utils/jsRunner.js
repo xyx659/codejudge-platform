@@ -4,8 +4,11 @@
 // 支持两种写法：
 //   1. 直接写 JavaScript（function sum(...) {...} / const sum = (...) => ...）；
 //   2. Java 的 Solution 类（public int sum(int a,int b){...}）——会做一次轻量转换。
-// 输入支持：空格分隔的标量、数组字面量 [1,2,3]、带引号字符串 "a b"、true/false/null；
-// 数字自动转 number；比对 String(actual).trim() === expected.trim()。
+// 输入支持两种格式：
+//   1. 纯值空格分隔：「1 2」；
+//   2. LeetCode 格式：「nums = [2,7,11,15], target = 9」（自动取每个「名 = 值」的值部分）。
+// 值支持：数组字面量 [1,2,3]、带引号字符串 "a b"、true/false/null，数字自动转 number。
+// 输出比对：数组结果按 JSON 格式（[0,1]）与期望比对；其余 String(actual).trim() === expected.trim()。
 
 const WORKER_SOURCE = `
 function javaMethodToJs(source, methodName) {
@@ -26,11 +29,32 @@ function javaMethodToJs(source, methodName) {
     else if (source[i] === '}') {
       depth--;
       if (depth === 0) {
-        return 'function ' + methodName + '(' + params.join(',') + ') ' + source.slice(start, i + 1);
+        return 'function ' + methodName + '(' + params.join(',') + ') ' + javaBodyToJs(source.slice(start, i + 1));
       }
     }
   }
   return null;
+}
+
+// 把方法体里常见 Java 写法转成 JS 等价物（轻量转换，非完备 Java→JS）
+function javaBodyToJs(body) {
+  return body
+    // new int[]{1,2} / new String[]{"a"} / new char[]{'a'} → [1,2]
+    .replace(/new\\s+(?:int|long|double|float|short|byte|boolean|char|String)\\s*\\[\\s*\\]\\s*\\{([^}]*)\\}/g, '[$1]')
+    // new int[n] → new Array(n).fill(0)
+    .replace(/new\\s+int\\s*\\[\\s*([^\\]]+)\\s*\\]/g, 'new Array($1).fill(0)')
+    // Arrays.asList(a,b) → [a,b]
+    .replace(/Arrays\\.asList\\s*\\(([^)]*)\\)/g, '[$1]')
+    // new ArrayList<T>() → []
+    .replace(/new\\s+ArrayList\\s*<[^>]*>\\s*\\(\\)/g, '[]')
+    // int[] arr = ... → let arr = ...
+    .replace(/\\b(int|long|double|float|short|byte|boolean|char|String)\\s*\\[\\s*\\]\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*=/g, 'let $2 =')
+    // int i = 0 → let i = 0
+    .replace(/\\b(int|long|double|float|short|byte|boolean|char|String)\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s*=/g, 'let $2 =')
+    // Integer.parseInt(s) → parseInt(s)
+    .replace(/Integer\\.parseInt\\s*\\(/g, 'parseInt(')
+    .replace(/Integer\\.MAX_VALUE/g, '2147483647')
+    .replace(/Integer\\.MIN_VALUE/g, '-2147483648');
 }
 
 function isSpace(ch) {
@@ -98,6 +122,69 @@ function parseToken(t) {
   return t;
 }
 
+// 顶层切分：按 sep 切，但不切开数组/引号内的内容
+function splitTopLevel(s, sep) {
+  var parts = [];
+  var depth = 0, inStr = '';
+  var cur = '';
+  for (var i = 0; i < s.length; i++) {
+    var ch = s[i];
+    if (inStr) {
+      cur += ch;
+      if (ch === inStr) inStr = '';
+    } else if (ch === '"' || ch === "'") {
+      inStr = ch;
+      cur += ch;
+    } else if (ch === '[') {
+      depth++;
+      cur += ch;
+    } else if (ch === ']') {
+      depth--;
+      cur += ch;
+    } else if (ch === sep && depth === 0) {
+      if (cur.trim() !== '') parts.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.trim() !== '') parts.push(cur);
+  return parts;
+}
+
+// 解析输入为实参数组，兼容两种格式：
+//   1. 纯值空格分隔：「1 2」
+//   2. LeetCode 格式：「nums = [2,7,11,15], target = 9」（取每个「名 = 值」的值部分）
+function parseArgs(input) {
+  var s = String(input == null ? '' : input).trim();
+  if (!s) return [];
+  if (s.indexOf('=') !== -1) {
+    var vals = splitTopLevel(s, ',').map(function (seg) {
+      var eq = seg.indexOf('=');
+      return eq >= 0 ? seg.slice(eq + 1).trim() : seg.trim();
+    });
+    return vals.map(parseToken);
+  }
+  return tokenize(s).map(parseToken);
+}
+
+// 把执行结果转成可比较的字符串：数组 → JSON（[0,1]），其余 → String
+function formatResult(v) {
+  if (v === undefined) return 'undefined';
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return JSON.stringify(v);
+  return String(v).trim();
+}
+
+// 规范化期望输出：JSON 数组去掉内部空格（[0, 1] → [0,1]）
+function normalizeExpected(s) {
+  s = String(s).trim();
+  if (s.length >= 2 && s[0] === '[' && s[s.length - 1] === ']') {
+    try { return JSON.stringify(JSON.parse(s)); } catch (e) { return s; }
+  }
+  return s;
+}
+
 self.onmessage = function (e) {
   var data = e.data;
   var sourceCode = data.sourceCode;
@@ -137,15 +224,16 @@ self.onmessage = function (e) {
     var tc = testCases[i];
     var start = performance.now();
     try {
-      var args = tokenize(tc.input).map(parseToken);
+      var args = parseArgs(tc.input);
       var actual = fn.apply(null, args);
-      var actualStr = actual === undefined ? 'undefined' : String(actual).trim();
-      var passed = actualStr === String(tc.expected).trim();
+      var actualStr = formatResult(actual);
+      var expectedStr = normalizeExpected(String(tc.expected));
+      var passed = actualStr === expectedStr;
       results.push({
         name: tc.name,
         passed: passed,
         actual: actualStr,
-        expected: String(tc.expected),
+        expected: expectedStr,
         message: passed ? '通过' : '与期望输出不符',
         durationMs: Math.round(performance.now() - start)
       });
