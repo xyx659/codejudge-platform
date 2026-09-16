@@ -281,6 +281,9 @@ public class StudentService {
                         eq.getScore(),
                         q != null ? q.getDescription() : null,
                         q != null ? q.getMethodName() : null,
+                        q != null ? q.getMethodSignature() : null,
+                        q != null ? q.getJudgeMode() : null,
+                        q != null ? q.getDesignMethods() : List.of(),
                         q != null ? q.getLanguage() : null,
                         q != null ? q.getTestCases() : List.of(),
                         sourceCode, judgeStatus, myScore));

@@ -181,14 +181,22 @@ public class LeetCodeQuestionProvider implements ExternalQuestionProvider {
 
     /**
      * 由 metaData 的 params / return 生成自包含签名，形如「int[] twoSum(int[], int)」。
+     *
+     * <p>过滤掉仅供测试输入构造使用的特殊参数（如 pos），这些参数不应出现在方法签名中。</p>
      */
     private String buildSignature(JsonNode metaData, String name) {
         String returnType = mapJavaType(text(metaData.path("return"), "type"));
         List<String> params = new ArrayList<>();
         JsonNode paramsNode = metaData.get("params");
         if (paramsNode != null && paramsNode.isArray()) {
-            paramsNode.forEach(item -> params.add(
-                    mapJavaType(text(item, "type"))));
+            paramsNode.forEach(item -> {
+                String paramName = text(item, "name");
+                // pos 参数仅用于构造环形链表测试输入，不参与方法签名
+                if ("pos".equals(paramName)) {
+                    return;
+                }
+                params.add(mapJavaType(text(item, "type")));
+            });
         }
         if (params.isEmpty()) {
             return returnType + " " + name + "()";
@@ -207,19 +215,35 @@ public class LeetCodeQuestionProvider implements ExternalQuestionProvider {
             case "integer" -> "int";
             case "long" -> "long";
             case "double" -> "double";
+            case "float" -> "float";
             case "boolean" -> "boolean";
             case "character" -> "char";
             case "string" -> "String";
             case "integer[]" -> "int[]";
             case "long[]" -> "long[]";
             case "double[]" -> "double[]";
+            case "float[]" -> "float[]";
             case "boolean[]" -> "boolean[]";
             case "character[]" -> "char[]";
             case "string[]" -> "String[]";
+            case "listnode" -> "ListNode";
+            case "treenode" -> "TreeNode";
+            case "node" -> "Node";
+            case "nestedinteger" -> "NestedInteger";
             case "list<integer>" -> "List<Integer>";
-            case "list<list<integer>>" -> "List<List<Integer>>";
+            case "list<long>" -> "List<Long>";
+            case "list<double>" -> "List<Double>";
+            case "list<float>" -> "List<Float>";
+            case "list<boolean>" -> "List<Boolean>";
+            case "list<character>" -> "List<Character>";
             case "list<string>" -> "List<String>";
+            case "list<list<integer>>" -> "List<List<Integer>>";
+            case "list<list<long>>" -> "List<List<Long>>";
+            case "list<list<double>>" -> "List<List<Double>>";
+            case "list<list<float>>" -> "List<List<Float>>";
+            case "list<list<boolean>>" -> "List<List<Boolean>>";
             case "list<list<string>>" -> "List<List<String>>";
+            case "list<list<list<integer>>>" -> "List<List<List<Integer>>>";
             default -> type.trim();
         };
     }

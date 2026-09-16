@@ -90,11 +90,17 @@ public class CodeRunner {
                 break;
             }
         }
+
+        String returnType;
+        String methodName;
         if (split < 0) {
-            throw new IllegalArgumentException("签名缺少方法名：" + signature);
+            // 没有空格 → 构造器（如 DinnerPlates），返回类型设为 void
+            returnType = "void";
+            methodName = head;
+        } else {
+            returnType = head.substring(0, split).trim();
+            methodName = head.substring(split + 1).trim();
         }
-        String returnType = head.substring(0, split).trim();
-        String methodName = head.substring(split + 1).trim();
 
         List<String> paramTypes = new ArrayList<>();
         if (!paramsBody.isEmpty()) {
@@ -201,6 +207,106 @@ public class CodeRunner {
         }
         sb.append("}\n");
         return sb.toString();
+    }
+
+    /**
+     * 从学生源码中提取类名（匹配 {@code class ClassName} 或 {@code public class ClassName}）。
+     * 提取不到时回退到 "Solution"。
+     */
+    public String extractClassName(String sourceCode) {
+        if (sourceCode == null || sourceCode.isBlank()) {
+            return "Solution";
+        }
+        Matcher m = Pattern.compile("\\bclass\\s+(\\w+)").matcher(sourceCode);
+        return m.find() ? m.group(1) : "Solution";
+    }
+
+    /**
+     * 为设计题（DESIGN 模式）生成 Main.java。
+     *
+     * <p>输入格式（LeetCode 标准）：
+     * <pre>
+     * ["ClassName","method1","method2",...]
+     * [[ctorArgs],[args1],[args2],...]
+     * </pre>
+     *
+     * <p>输出格式：{@code [null,result1,result2,...]}
+     *
+     * @param methods   方法签名列表，第一个为构造器（如 "void LRUCache(int)"），后续为普通方法
+     * @param className 学生代码中的实际类名（如 "MinStack"），用于生成正确的类型转换
+     */
+    public String generateDesignMain(List<MethodSignature> methods, String className) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("import java.util.*;\n\n");
+        sb.append("public class Main {\n");
+        sb.append("    public static void main(String[] args) throws Exception {\n");
+        sb.append("        StringBuilder sb = new StringBuilder();\n");
+        sb.append("        Scanner sc = new Scanner(System.in);\n");
+        sb.append("        while (sc.hasNextLine()) {\n");
+        sb.append("            sb.append(sc.nextLine()).append('\\n');\n");
+        sb.append("        }\n");
+        sb.append("        String[] lines = sb.toString().trim().split(\"\\n\");\n");
+        sb.append("        String[] methods = Json.parseStringArray(lines[0].trim());\n");
+        sb.append("        String[][] allArgs = Json.parseArgArrays(lines[1].trim());\n\n");
+        sb.append("        List<String> results = new ArrayList<>();\n");
+        sb.append("        Object instance = null;\n\n");
+        sb.append("        for (int i = 0; i < methods.length; i++) {\n");
+        sb.append("            String m = methods[i].replace(\"\\\"\", \"\");\n");
+        sb.append("            String[] callArgs = allArgs[i];\n");
+
+        // 生成构造器分支
+        MethodSignature ctor = methods.get(0);
+        sb.append("            if (i == 0) {\n");
+        sb.append("                // 构造器\n");
+        sb.append("                instance = new ").append(className).append("(");
+        for (int i = 0; i < ctor.paramTypes().size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append("(").append(ctor.paramTypes().get(i)).append(") Json.parse(callArgs[").append(i).append("], \"").append(ctor.paramTypes().get(i)).append("\")");
+        }
+        sb.append(");\n");
+        sb.append("                results.add(\"null\");\n");
+
+        // 生成普通方法分支
+        for (int m = 1; m < methods.size(); m++) {
+            MethodSignature ms = methods.get(m);
+            sb.append("            } else if (m.equals(\"").append(ms.methodName()).append("\")) {\n");
+            if ("void".equals(ms.returnType())) {
+                sb.append("                ((").append(className).append(") instance).").append(ms.methodName()).append("(");
+            } else {
+                sb.append("                ").append(ms.returnType()).append(" r").append(m).append(" = ((").append(className).append(") instance).").append(ms.methodName()).append("(");
+            }
+            for (int p = 0; p < ms.paramTypes().size(); p++) {
+                if (p > 0) sb.append(", ");
+                sb.append("(").append(ms.paramTypes().get(p)).append(") Json.parse(callArgs[").append(p).append("], \"").append(ms.paramTypes().get(p)).append("\")");
+            }
+            sb.append(");\n");
+            if ("void".equals(ms.returnType())) {
+                sb.append("                results.add(\"null\");\n");
+            } else {
+                sb.append("                results.add(Json.serialize(r").append(m).append("));\n");
+            }
+        }
+        sb.append("            } else {\n");
+        sb.append("                results.add(\"null\");\n");
+        sb.append("            }\n");
+        sb.append("        }\n\n");
+        sb.append("        System.out.println(\"[\" + String.join(\",\", results) + \"]\");\n");
+        sb.append("    }\n\n");
+        sb.append(HELPERS_JSON_DESIGN);
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    /**
+     * 为 STDIO 模式生成 Main.java：直接调用 Solution.main(args)。
+     * 学生源码需包含完整的 {@code public class Solution { public static void main(String[] args) {...}}}。
+     */
+    public String generateStdioMain() {
+        return "public class Main {\n"
+             + "    public static void main(String[] args) throws Exception {\n"
+             + "        Solution.main(args);\n"
+             + "    }\n"
+             + "}\n";
     }
 
     // —— 数据结构独立源码文件（供 Solution.java 引用）——
@@ -450,16 +556,21 @@ static class Json {
             case "int": case "Integer": return Integer.parseInt(s);
             case "long": case "Long": return Long.parseLong(s);
             case "double": case "Double": return Double.parseDouble(s);
+            case "float": case "Float": return Float.parseFloat(s);
             case "boolean": case "Boolean": return Boolean.parseBoolean(s);
             case "char": case "Character": return s.charAt(0);
             case "String": return unquote(s);
         }
-        // 数组：int[], long[], double[], boolean[], char[], String[]
+        // 数组：int[], long[], double[], float[], boolean[], char[], String[]
         if (type.endsWith("[][]")) {
             return parseArr2D(s, type.substring(0, type.length() - 4));
         }
         if (type.endsWith("[]")) {
             return parseArr(s, type.substring(0, type.length() - 2));
+        }
+        // Set
+        if (type.startsWith("Set<") && type.endsWith(">")) {
+            return parseSet(s, splitTypeParams(type.substring(4, type.length() - 1)));
         }
         // List / Map
         if (type.startsWith("List<") && type.endsWith(">")) {
@@ -474,21 +585,24 @@ static class Json {
 
     static String serialize(Object obj) {
         if (obj == null) return "null";
-        if (obj instanceof Integer || obj instanceof Long || obj instanceof Double || obj instanceof Boolean) return obj.toString();
+        if (obj instanceof Integer || obj instanceof Long || obj instanceof Double || obj instanceof Float || obj instanceof Boolean) return obj.toString();
         if (obj instanceof Character) return "'" + obj + "'";
         if (obj instanceof String) return "\\\"" + obj + "\\\"";
         if (obj instanceof int[]) return serializeArr((int[]) obj);
         if (obj instanceof long[]) return serializeArr((long[]) obj);
         if (obj instanceof double[]) return serializeArr((double[]) obj);
+        if (obj instanceof float[]) return serializeArr((float[]) obj);
         if (obj instanceof boolean[]) return serializeArr((boolean[]) obj);
         if (obj instanceof char[]) return serializeArr((char[]) obj);
         if (obj instanceof String[]) return serializeStrArr((String[]) obj);
         if (obj instanceof int[][]) return serializeArr2D((int[][]) obj);
         if (obj instanceof long[][]) return serializeArr2D((long[][]) obj);
         if (obj instanceof double[][]) return serializeArr2D((double[][]) obj);
+        if (obj instanceof float[][]) return serializeArr2D((float[][]) obj);
         if (obj instanceof boolean[][]) return serializeArr2D((boolean[][]) obj);
         if (obj instanceof char[][]) return serializeArr2D((char[][]) obj);
         if (obj instanceof String[][]) return serializeStrArr2D((String[][]) obj);
+        if (obj instanceof Set<?>) return serializeSet((Set<?>) obj);
         if (obj instanceof List<?>) return serializeList((List<?>) obj);
         if (obj instanceof Map<?,?>) return serializeMap((Map<?,?>) obj);
         return obj.toString();
@@ -510,6 +624,7 @@ static class Json {
             case "int": { int[] a = new int[t.length]; for (int i=0;i<t.length;i++) a[i]=Integer.parseInt(t[i].trim()); return a; }
             case "long": { long[] a = new long[t.length]; for (int i=0;i<t.length;i++) a[i]=Long.parseLong(t[i].trim()); return a; }
             case "double": { double[] a = new double[t.length]; for (int i=0;i<t.length;i++) a[i]=Double.parseDouble(t[i].trim()); return a; }
+            case "float": { float[] a = new float[t.length]; for (int i=0;i<t.length;i++) a[i]=Float.parseFloat(t[i].trim()); return a; }
             case "boolean": { boolean[] a = new boolean[t.length]; for (int i=0;i<t.length;i++) a[i]=Boolean.parseBoolean(t[i].trim()); return a; }
             case "char": { char[] a = new char[t.length]; for (int i=0;i<t.length;i++) a[i]=unquote(t[i].trim()).charAt(0); return a; }
             case "String": { String[] a = new String[t.length]; for (int i=0;i<t.length;i++) a[i]=unquote(t[i].trim()); return a; }
@@ -520,8 +635,9 @@ static class Json {
     static Object newEmptyArr(String inner, int len) {
         switch (inner) {
             case "int": return new int[len]; case "long": return new long[len];
-            case "double": return new double[len]; case "boolean": return new boolean[len];
-            case "char": return new char[len]; case "String": return new String[len];
+            case "double": return new double[len]; case "float": return new float[len];
+            case "boolean": return new boolean[len]; case "char": return new char[len];
+            case "String": return new String[len];
             default: throw new IllegalArgumentException("不支持的数组类型: " + inner);
         }
     }
@@ -534,6 +650,7 @@ static class Json {
             case "int": { int[][] a = new int[t.length][]; for (int i=0;i<t.length;i++) a[i]=(int[])parseArr(t[i].trim(),"int"); return a; }
             case "long": { long[][] a = new long[t.length][]; for (int i=0;i<t.length;i++) a[i]=(long[])parseArr(t[i].trim(),"long"); return a; }
             case "double": { double[][] a = new double[t.length][]; for (int i=0;i<t.length;i++) a[i]=(double[])parseArr(t[i].trim(),"double"); return a; }
+            case "float": { float[][] a = new float[t.length][]; for (int i=0;i<t.length;i++) a[i]=(float[])parseArr(t[i].trim(),"float"); return a; }
             case "boolean": { boolean[][] a = new boolean[t.length][]; for (int i=0;i<t.length;i++) a[i]=(boolean[])parseArr(t[i].trim(),"boolean"); return a; }
             case "char": { char[][] a = new char[t.length][]; for (int i=0;i<t.length;i++) a[i]=(char[])parseArr(t[i].trim(),"char"); return a; }
             case "String": { String[][] a = new String[t.length][]; for (int i=0;i<t.length;i++) a[i]=(String[])parseArr(t[i].trim(),"String"); return a; }
@@ -544,8 +661,9 @@ static class Json {
     static Object newEmptyArr2D(String inner, int len) {
         switch (inner) {
             case "int": return new int[len][]; case "long": return new long[len][];
-            case "double": return new double[len][]; case "boolean": return new boolean[len][];
-            case "char": return new char[len][]; case "String": return new String[len][];
+            case "double": return new double[len][]; case "float": return new float[len][];
+            case "boolean": return new boolean[len][]; case "char": return new char[len][];
+            case "String": return new String[len][];
             default: throw new IllegalArgumentException("不支持的二维数组类型: " + inner);
         }
     }
@@ -598,6 +716,7 @@ static class Json {
                 case "Integer": case "int": list.add(Integer.parseInt(v)); break;
                 case "Long": case "long": list.add(Long.parseLong(v)); break;
                 case "Double": case "double": list.add(Double.parseDouble(v)); break;
+                case "Float": case "float": list.add(Float.parseFloat(v)); break;
                 case "Boolean": case "boolean": list.add(Boolean.parseBoolean(v)); break;
                 case "Character": case "char": list.add(unquote(v).charAt(0)); break;
                 case "String": list.add(unquote(v)); break;
@@ -665,6 +784,11 @@ static class Json {
         for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
         return sb.append(']').toString();
     }
+    static String serializeArr(float[] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
+        return sb.append(']').toString();
+    }
     static String serializeArr(boolean[] a) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
@@ -693,6 +817,11 @@ static class Json {
         return sb.append(']').toString();
     }
     static String serializeArr2D(double[][] a) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeArr(a[i])); }
+        return sb.append(']').toString();
+    }
+    static String serializeArr2D(float[][] a) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(serializeArr(a[i])); }
         return sb.append(']').toString();
@@ -749,6 +878,44 @@ static class Json {
         return sb.append('}').toString();
     }
 
+    // —— 解析：Set ——
+    static Object parseSet(String s, String[] types) {
+        if (s.equals("[]") || s.equals("{}")) return new LinkedHashSet<>();
+        String body = s.startsWith("[") ? s.substring(1, s.length() - 1) : s.substring(1, s.length() - 1);
+        String[] t = split(body);
+        String inner = types[0];
+        Set<Object> set = new LinkedHashSet<>();
+        for (String e : t) {
+            String v = e.trim();
+            if (v.equals("...") || v.isEmpty()) continue;
+            switch (inner) {
+                case "Integer": case "int": set.add(Integer.parseInt(v)); break;
+                case "Long": case "long": set.add(Long.parseLong(v)); break;
+                case "Double": case "double": set.add(Double.parseDouble(v)); break;
+                case "Float": case "float": set.add(Float.parseFloat(v)); break;
+                case "Boolean": case "boolean": set.add(Boolean.parseBoolean(v)); break;
+                case "Character": case "char": set.add(unquote(v).charAt(0)); break;
+                case "String": set.add(unquote(v)); break;
+                default: throw new IllegalArgumentException("不支持的 Set 元素类型: " + inner);
+            }
+        }
+        return set;
+    }
+
+    // —— 序列化：Set ——
+    static String serializeSet(Set<?> set) {
+        StringBuilder sb = new StringBuilder("[");
+        boolean first = true;
+        for (Object item : set) {
+            if (!first) sb.append(',');
+            first = false;
+            if (item instanceof String) sb.append('"').append(item).append('"');
+            else if (item == null) sb.append("null");
+            else sb.append(item);
+        }
+        return sb.append(']').toString();
+    }
+
     // —— Map 输入解析辅助 ——
     static String[] splitMapPairs(String s) {
         List<String> out = new ArrayList<>();
@@ -800,6 +967,244 @@ static class Json {
         if (s.length() >= 2 && s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') return s.substring(1, s.length() - 1);
         return s;
     }
+}
+""";
+
+    /**
+     * 设计题专用 Json 辅助：在通用 Json 类基础上增加 parseStringArray / parseArgArrays。
+     */
+    private static final String HELPERS_JSON_DESIGN = """
+// —— JSON 通用解析 / 序列化（设计题版）——
+static class Json {
+    static Object parse(String s, String type) {
+        s = s.trim();
+        switch (type) {
+            case "int": case "Integer": return Integer.parseInt(s);
+            case "long": case "Long": return Long.parseLong(s);
+            case "double": case "Double": return Double.parseDouble(s);
+            case "float": case "Float": return Float.parseFloat(s);
+            case "boolean": case "Boolean": return Boolean.parseBoolean(s);
+            case "char": case "Character": return s.charAt(0);
+            case "String": return unquote(s);
+        }
+        if (type.endsWith("[]")) {
+            return parseArr(s, type.substring(0, type.length() - 2));
+        }
+        if (type.startsWith("List<") && type.endsWith(">")) {
+            return parseList(s, splitTypeParams(type.substring(5, type.length() - 1)));
+        }
+        if (type.startsWith("Set<") && type.endsWith(">")) {
+            return parseSet(s, splitTypeParams(type.substring(4, type.length() - 1)));
+        }
+        if (type.startsWith("Map<") && type.endsWith(">")) {
+            String[] kv = splitTypeParams(type.substring(4, type.length() - 1));
+            return parseMap(s, kv[0], kv.length > 1 ? kv[1] : "Object");
+        }
+        throw new IllegalArgumentException("不支持的类型: " + type);
+    }
+
+    static String serialize(Object obj) {
+        if (obj == null) return "null";
+        if (obj instanceof Integer || obj instanceof Long || obj instanceof Double || obj instanceof Float || obj instanceof Boolean) return obj.toString();
+        if (obj instanceof Character) return "'" + obj + "'";
+        if (obj instanceof String) return "\\\"" + obj + "\\\"";
+        if (obj instanceof int[]) return serializeArr((int[]) obj);
+        if (obj instanceof long[]) return serializeArr((long[]) obj);
+        if (obj instanceof double[]) return serializeArr((double[]) obj);
+        if (obj instanceof float[]) return serializeArr((float[]) obj);
+        if (obj instanceof boolean[]) return serializeArr((boolean[]) obj);
+        if (obj instanceof char[]) return serializeArr((char[]) obj);
+        if (obj instanceof String[]) return serializeStrArr((String[]) obj);
+        if (obj instanceof Set<?>) return serializeSet((Set<?>) obj);
+        if (obj instanceof List<?>) return serializeList((List<?>) obj);
+        if (obj instanceof Map<?,?>) return serializeMap((Map<?,?>) obj);
+        return obj.toString();
+    }
+
+    // 解析设计题输入：第一行 ["ClassName","method1",...] → String[]
+    static String[] parseStringArray(String s) {
+        s = s.trim();
+        if (s.startsWith("[")) s = s.substring(1, s.length() - 1);
+        java.util.List<String> out = new ArrayList<>();
+        boolean inStr = false; StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') { inStr = !inStr; continue; }
+            if (!inStr && c == ',') { out.add(cur.toString().trim()); cur.setLength(0); continue; }
+            cur.append(c);
+        }
+        if (cur.length() > 0) out.add(cur.toString().trim());
+        return out.toArray(new String[0]);
+    }
+
+    // 解析设计题输入：第二行 [[args1],[args2],...] → String[][]
+    static String[][] parseArgArrays(String s) {
+        s = s.trim();
+        if (s.startsWith("[")) s = s.substring(1, s.length() - 1);
+        java.util.List<String[]> result = new ArrayList<>();
+        int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') inStr = !inStr;
+            if (!inStr) {
+                if (c == '[') { depth++; if (depth == 1) { cur.setLength(0); continue; } }
+                else if (c == ']') { depth--; if (depth == 0) { result.add(parseInnerArgs(cur.toString())); continue; } }
+            }
+            if (depth >= 1) cur.append(c);
+        }
+        return result.toArray(new String[0][]);
+    }
+
+    private static String[] parseInnerArgs(String s) {
+        if (s.trim().isEmpty()) return new String[0];
+        java.util.List<String> out = new ArrayList<>();
+        int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') inStr = !inStr;
+            if (!inStr) {
+                if (c == '[' || c == '{') depth++;
+                else if (c == ']' || c == '}') depth--;
+            }
+            if (!inStr && depth == 0 && c == ',') { out.add(cur.toString().trim()); cur.setLength(0); continue; }
+            cur.append(c);
+        }
+        if (cur.length() > 0) out.add(cur.toString().trim());
+        return out.toArray(new String[0]);
+    }
+
+    static Object parseArr(String s, String inner) {
+        if (s.equals("[]")) return newEmptyArr(inner, 0);
+        String body = s.substring(1, s.length() - 1);
+        String[] raw = split(body);
+        java.util.List<String> valid = new ArrayList<>();
+        for (String r : raw) { String v = r.trim(); if (!v.equals("...") && !v.isEmpty()) valid.add(v); }
+        String[] t = valid.toArray(new String[0]);
+        switch (inner) {
+            case "int": { int[] a = new int[t.length]; for (int i=0;i<t.length;i++) a[i]=Integer.parseInt(t[i].trim()); return a; }
+            case "long": { long[] a = new long[t.length]; for (int i=0;i<t.length;i++) a[i]=Long.parseLong(t[i].trim()); return a; }
+            case "double": { double[] a = new double[t.length]; for (int i=0;i<t.length;i++) a[i]=Double.parseDouble(t[i].trim()); return a; }
+            case "float": { float[] a = new float[t.length]; for (int i=0;i<t.length;i++) a[i]=Float.parseFloat(t[i].trim()); return a; }
+            case "boolean": { boolean[] a = new boolean[t.length]; for (int i=0;i<t.length;i++) a[i]=Boolean.parseBoolean(t[i].trim()); return a; }
+            case "char": { char[] a = new char[t.length]; for (int i=0;i<t.length;i++) a[i]=unquote(t[i].trim()).charAt(0); return a; }
+            case "String": { String[] a = new String[t.length]; for (int i=0;i<t.length;i++) a[i]=unquote(t[i].trim()); return a; }
+            default: throw new IllegalArgumentException("不支持的数组类型: " + inner);
+        }
+    }
+
+    static Object newEmptyArr(String inner, int len) {
+        switch (inner) {
+            case "int": return new int[len]; case "long": return new long[len];
+            case "double": return new double[len]; case "float": return new float[len];
+            case "boolean": return new boolean[len]; case "char": return new char[len];
+            case "String": return new String[len];
+            default: throw new IllegalArgumentException("不支持的数组类型: " + inner);
+        }
+    }
+
+    static Object parseList(String s, String[] types) {
+        if (s.equals("[]")) return new ArrayList<>();
+        String body = s.substring(1, s.length() - 1);
+        String[] t = split(body);
+        String inner = types[0];
+        if (types.length == 1) {
+            if (inner.startsWith("List<")) {
+                String[] innerTypes = splitTypeParams(inner.substring(5, inner.length() - 1));
+                java.util.List<java.util.List<Object>> result = new ArrayList<>();
+                for (String e : t) result.add((java.util.List<Object>) parseList(e.trim(), innerTypes));
+                return result;
+            }
+            return parsePrimitiveList(t, inner);
+        }
+        if (types.length == 2 && types[0].equals("List")) {
+            String innerType = types[1];
+            java.util.List<java.util.List<Object>> result = new ArrayList<>();
+            for (String e : t) { String[] innerTypes = new String[]{innerType}; result.add((java.util.List<Object>) parseList(e.trim(), innerTypes)); }
+            return result;
+        }
+        throw new IllegalArgumentException("不支持的 List 嵌套深度");
+    }
+
+    static Object parsePrimitiveList(String[] t, String inner) {
+        java.util.List<Object> list = new ArrayList<>();
+        for (String e : t) {
+            String v = e.trim();
+            if (v.equals("...") || v.isEmpty()) continue;
+            switch (inner) {
+                case "Integer": case "int": list.add(Integer.parseInt(v)); break;
+                case "Long": case "long": list.add(Long.parseLong(v)); break;
+                case "Double": case "double": list.add(Double.parseDouble(v)); break;
+                case "Float": case "float": list.add(Float.parseFloat(v)); break;
+                case "Boolean": case "boolean": list.add(Boolean.parseBoolean(v)); break;
+                case "Character": case "char": list.add(unquote(v).charAt(0)); break;
+                case "String": list.add(unquote(v)); break;
+                default: throw new IllegalArgumentException("不支持的 List 元素类型: " + inner);
+            }
+        }
+        return list;
+    }
+
+    static Object parseSet(String s, String[] types) {
+        if (s.equals("[]") || s.equals("{}")) return new LinkedHashSet<>();
+        String body = s.startsWith("[") ? s.substring(1, s.length() - 1) : s.substring(1, s.length() - 1);
+        String[] t = split(body);
+        String inner = types[0];
+        java.util.Set<Object> set = new LinkedHashSet<>();
+        for (String e : t) {
+            String v = e.trim(); if (v.equals("...") || v.isEmpty()) continue;
+            switch (inner) {
+                case "Integer": case "int": set.add(Integer.parseInt(v)); break;
+                case "Long": case "long": set.add(Long.parseLong(v)); break;
+                case "Double": case "double": set.add(Double.parseDouble(v)); break;
+                case "Float": case "float": set.add(Float.parseFloat(v)); break;
+                case "Boolean": case "boolean": set.add(Boolean.parseBoolean(v)); break;
+                case "Character": case "char": set.add(unquote(v).charAt(0)); break;
+                case "String": set.add(unquote(v)); break;
+                default: throw new IllegalArgumentException("不支持的 Set 元素类型: " + inner);
+            }
+        }
+        return set;
+    }
+
+    static Object parseMap(String s, String keyType, String valType) {
+        java.util.Map<Object, Object> map = new java.util.HashMap<>();
+        if (s.equals("{}") || s.isEmpty()) return map;
+        String body = s.substring(1, s.length() - 1);
+        String[] pairs = splitMapPairs(body);
+        for (String pair : pairs) {
+            String[] kv = splitMapKV(pair);
+            Object key = parseKey(kv[0].trim(), keyType);
+            Object val;
+            if (valType.startsWith("List<")) { String[] innerTypes = splitTypeParams(valType.substring(5, valType.length() - 1)); val = parseList(kv[1].trim(), innerTypes); }
+            else val = parseVal(kv[1].trim(), valType);
+            map.put(key, val);
+        }
+        return map;
+    }
+
+    static Object parseKey(String s, String type) { s = unquote(s); switch (type) { case "Integer": case "int": return Integer.parseInt(s); case "String": return s; default: return s; } }
+    static Object parseVal(String s, String type) { s = s.trim(); switch (type) { case "Integer": case "int": return Integer.parseInt(s); case "Long": case "long": return Long.parseLong(s); case "Double": case "double": return Double.parseDouble(s); case "Boolean": case "boolean": return Boolean.parseBoolean(s); case "String": return unquote(s); default: return unquote(s); } }
+
+    static String serializeArr(int[] a) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<a.length;i++) { if (i>0) sb.append(','); sb.append(a[i]); } return sb.append(']').toString(); }
+    static String serializeArr(long[] a) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<a.length;i++) { if (i>0) sb.append(','); sb.append(a[i]); } return sb.append(']').toString(); }
+    static String serializeArr(double[] a) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<a.length;i++) { if (i>0) sb.append(','); sb.append(a[i]); } return sb.append(']').toString(); }
+    static String serializeArr(float[] a) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<a.length;i++) { if (i>0) sb.append(','); sb.append(a[i]); } return sb.append(']').toString(); }
+    static String serializeArr(boolean[] a) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<a.length;i++) { if (i>0) sb.append(','); sb.append(a[i]); } return sb.append(']').toString(); }
+    static String serializeArr(char[] a) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<a.length;i++) { if (i>0) sb.append(','); sb.append(a[i]); } return sb.append(']').toString(); }
+    static String serializeStrArr(String[] a) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<a.length;i++) { if (i>0) sb.append(','); sb.append('"').append(a[i]).append('"'); } return sb.append(']').toString(); }
+    static String serializeSet(Set<?> set) { StringBuilder sb = new StringBuilder("["); boolean first = true; for (Object item : set) { if (!first) sb.append(','); first = false; if (item instanceof String) sb.append('"').append(item).append('"'); else if (item == null) sb.append("null"); else sb.append(item); } return sb.append(']').toString(); }
+    static String serializeList(List<?> list) { StringBuilder sb = new StringBuilder("["); for (int i=0;i<list.size();i++) { if (i>0) sb.append(','); Object item = list.get(i); if (item instanceof List<?>) sb.append(serializeList((List<?>) item)); else if (item instanceof Map<?,?>) sb.append(serializeMap((Map<?,?>) item)); else if (item instanceof String) sb.append('"').append(item).append('"'); else if (item == null) sb.append("null"); else sb.append(item); } return sb.append(']').toString(); }
+    static String serializeMap(Map<?,?> map) { StringBuilder sb = new StringBuilder("{"); boolean first = true; for (Map.Entry<?,?> e : map.entrySet()) { if (!first) sb.append(','); first = false; Object key = e.getKey(); if (key instanceof String) sb.append('"').append(key).append('"'); else sb.append(key); sb.append(':'); Object val = e.getValue(); if (val instanceof List<?>) sb.append(serializeList((List<?>) val)); else if (val instanceof Map<?,?>) sb.append(serializeMap((Map<?,?>) val)); else if (val instanceof String) sb.append('"').append(val).append('"'); else if (val == null) sb.append("null"); else sb.append(val); } return sb.append('}').toString(); }
+
+    static String[] split(String s) { java.util.List<String> out = new ArrayList<>(); int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder(); for (int i=0;i<s.length();i++) { char c = s.charAt(i); if (c=='"') inStr=!inStr; if (!inStr) { if (c=='['||c=='('||c=='{') depth++; else if (c==']'||c==')'||c=='}') depth--; } if (!inStr && depth==0 && (c==','||c=='\\n'||c=='\\r')) { out.add(cur.toString()); cur.setLength(0); continue; } cur.append(c); } if (cur.length()>0) out.add(cur.toString()); return out.toArray(new String[0]); }
+
+    static String[] splitMapPairs(String s) { java.util.List<String> out = new ArrayList<>(); int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder(); for (int i=0;i<s.length();i++) { char c = s.charAt(i); if (c=='"') inStr=!inStr; if (!inStr) { if (c=='{'||c=='['||c=='(') depth++; else if (c=='}'||c==']'||c==')') depth--; } if (!inStr && depth==0 && c==',') { out.add(cur.toString()); cur.setLength(0); continue; } cur.append(c); } if (cur.length()>0) out.add(cur.toString()); return out.toArray(new String[0]); }
+
+    static String[] splitMapKV(String s) { int depth = 0; boolean inStr = false; for (int i=0;i<s.length();i++) { char c = s.charAt(i); if (c=='"') inStr=!inStr; if (!inStr) { if (c=='{'||c=='['||c=='('||c=='<') depth++; else if (c=='}'||c==']'||c==')'||c=='>') depth--; else if (c==':' && depth==0) return new String[]{s.substring(0,i), s.substring(i+1)}; } } return new String[]{s,""}; }
+
+    static String[] splitTypeParams(String s) { java.util.List<String> out = new ArrayList<>(); int depth = 0; StringBuilder cur = new StringBuilder(); for (int i=0;i<s.length();i++) { char c = s.charAt(i); if (c=='<') depth++; else if (c=='>') depth--; if (c==',' && depth==0) { out.add(cur.toString().trim()); cur.setLength(0); continue; } cur.append(c); } if (cur.length()>0) out.add(cur.toString().trim()); return out.toArray(new String[0]); }
+
+    static String unquote(String s) { if (s.length()>=2 && s.charAt(0)=='"' && s.charAt(s.length()-1)=='"') return s.substring(1,s.length()-1); return s; }
 }
 """;
 

@@ -101,42 +101,51 @@ public class AiReviewService {
         }
         String prompt = buildGeneratePrompt(title, description);
         try {
-            return callChatCompletions(config, prompt);
+            // forGeneration=true：跳过 thinking 模式，加速生成
+            return callChatCompletions(config, prompt, true);
         } catch (Exception e) {
             log.error("AI 生成题目失败：{}", e.getMessage());
             throw new IllegalStateException("AI 生成失败：" + e.getMessage());
         }
     }
 
-    private String buildGeneratePrompt(String title, String description) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("你是一位 LeetCode 出题专家。请根据以下题目信息，生成完整的判题数据。\n\n");
-        sb.append("题目标题：").append(title).append("\n");
-        sb.append("题目描述：\n").append(description).append("\n\n");
-        sb.append("请严格按以下 JSON 格式输出，不要包含任何额外文字或 Markdown 标记：\n\n");
-        sb.append("{\n");
-        sb.append("  \"methodName\": \"方法名（如 twoSum）\",\n");
-        sb.append("  \"methodSignature\": \"完整签名（如 int[] twoSum(int[], int)）\",\n");
-        sb.append("  \"difficulty\": \"简单/中等/困难\",\n");
-        sb.append("  \"tags\": [\"标签1\", \"标签2\"],\n");
-        sb.append("  \"testCases\": [\n");
-        sb.append("    {\"name\": \"用例1\", \"input\": \"nums = [2,7,11,15], target = 9\", \"expected\": \"[0,1]\"},\n");
-        sb.append("    ...\n");
-        sb.append("  ]\n");
-        sb.append("}\n\n");
-        sb.append("要求：\n");
-        sb.append("1. 生成 20 个测试用例，覆盖正常情况、边界值、空输入、极端值等\n");
-        sb.append("2. input 采用 LeetCode 格式（参数名 = 值，多参数逗号分隔）\n");
-        sb.append("3. expected 采用 LeetCode 无空格输出格式\n");
-        sb.append("4. methodName 和 methodSignature 必须与题目描述一致\n");
-        sb.append("5. tags 选 2~4 个最相关的算法标签\n");
-        sb.append("6. difficulty 根据题目难度选择简单/中等/困难\n");
-        sb.append("7. 数组值必须完整列出，禁止使用 ... 省略号\n");
-        sb.append("8. 如果数组元素较多（超过20个），只生成5个用例，每组数据用较短的数组（10个元素以内），避免 JSON 过长");
-        return sb.toString();
+    public String buildGeneratePrompt(String title, String description) {
+        return "根据题目生成判题数据，只输出JSON，无额外文字。\n\n"
+             + "标题：" + title + "\n"
+             + "描述：" + description + "\n\n"
+             + "=== 判题模式 ===\n"
+             + "根据题目类型选择 judgeMode：\n"
+             + "- METHOD（默认）：单方法题，需填 methodName + methodSignature\n"
+             + "  input格式：参数名=值，如 nums = [2,7,11,15], target = 9\n"
+             + "  expected格式：方法返回值，如 [0,1]\n"
+             + "- DESIGN：设计题（LRU Cache/MinStack等多方法调用），需填 methodName + designMethods\n"
+             + "  designMethods格式：[\"void LRUCache(int)\",\"int get(int)\",\"void put(int,int)\"]\n"
+             + "  input格式：两行，第一行方法名JSON数组，第二行参数JSON数组\n"
+             + "  expected格式：结果JSON数组，如 [null,null,1,null,-1]\n"
+             + "- STDIO：标准输入输出完整程序，只需填 methodName=\"main\"\n"
+             + "  input/expected：直接文本\n\n"
+             + "=== 合法标签（只能从以下选取2~4个）===\n"
+             + "数组, 链表, 栈, 队列, 哈希表, 字符串, 二叉树, 树, 图, 堆（优先队列）\n"
+             + "动态规划, 贪心, 回溯, 递归, 分治, 二分查找, 双指针, 滑动窗口, 单调栈\n"
+             + "深度优先搜索, 广度优先搜索, 拓扑排序, 并查集, 字典树, 记忆化\n"
+             + "位运算, 数学, 几何, 模拟, 矩阵, 排序, 设计\n\n"
+             + "=== JSON输出格式 ===\n"
+             + "{\n"
+             + "  \"judgeMode\": \"METHOD/DESIGN/STDIO\",\n"
+             + "  \"methodName\": \"方法名\",\n"
+             + "  \"methodSignature\": \"签名（METHOD模式必填）\",\n"
+             + "  \"designMethods\": [\"签名1\",\"签名2\"]（DESIGN模式必填）,\n"
+             + "  \"difficulty\": \"简单/中等/困难\",\n"
+             + "  \"tags\": [\"标签1\",\"标签2\"],\n"
+             + "  \"testCases\": [{\"name\":\"用例1\",\"input\":\"...\",\"expected\":\"...\"}]\n"
+             + "}\n\n"
+             + "=== 要求 ===\n"
+             + "- 10个测试用例：3基本+3边界+2极端+2特殊\n"
+             + "- 数组完整列出，禁用省略号\n"
+             + "- 数组元素>15时用短数组(5个以内)";
     }
 
-    /** 组装 Prompt：题目信息 + 学生源码 + 黑盒结果，要求 AI 只回 JSON。 */
+    /** 组装 Prompt：题目信息 + 学生源码 + 黑盒结果 + 评分维度，要求 AI 只回 JSON。 */
     private String buildPrompt(String title, String description, String signature,
                                String sourceCode, int passRate, List<TestCaseResult> results) {
         StringBuilder cases = new StringBuilder();
@@ -156,23 +165,54 @@ public class AiReviewService {
         sb.append("方法签名：").append(nullToEmpty(signature)).append('\n');
         sb.append("\n【学生提交的代码】\n```java\n").append(sourceCode).append("\n```\n");
         sb.append("\n【黑盒测试结果】\n用例通过率：").append(passRate).append(" / 100\n").append(cases);
-        sb.append("\n请只输出一个 JSON 对象，不要包含任何额外文字或 Markdown 代码块标记，格式如下：\n");
+
+        sb.append("\n【评分维度与权重】\n");
+        sb.append("请对以下9个维度分别打分（0-100整数）：\n");
+        sb.append("1. correctness（正确性，权重30%）：代码能否正确解决目标问题\n");
+        sb.append("2. time_complexity（时间复杂度，权重15%）：算法效率是否高效\n");
+        sb.append("3. space_complexity（空间复杂度，权重10%）：内存使用是否合理\n");
+        sb.append("4. edge_cases（边界与异常处理，权重10%）：边界条件处理是否完善\n");
+        sb.append("5. readability（可读性与代码风格，权重10%）：命名、结构、注释是否清晰\n");
+        sb.append("6. maintainability（可维护性与模块化，权重8%）：模块划分是否合理\n");
+        sb.append("7. robustness（鲁棒性与容错，权重5%）：异常环境下的稳定性\n");
+        sb.append("8. test_coverage（测试覆盖，权重5%）：测试用例是否充分\n");
+        sb.append("9. algorithm_design（算法思想与优化，权重7%）：算法选择是否恰当\n");
+
+        sb.append("\n请只输出一个 JSON 对象，不要包含任何额外文字或 Markdown 代码块标记。\n\n");
+        sb.append("=== 输出格式（严格按此结构，不得省略任何字段） ===\n\n");
         sb.append("{\n");
-        sb.append("  \"qualityScore\": 0到100的整数,\n");
-        sb.append("  \"scoreExplanation\": \"评分说明：简要说明为何给出该质量分\",\n");
-        sb.append("  \"timeComplexity\": \"时间复杂度（如 O(n)）\",\n");
-        sb.append("  \"spaceComplexity\": \"空间复杂度（如 O(1)）\",\n");
-        sb.append("  \"feedback\": [\"建议1\", \"建议2\", \"...\"]\n");
+        sb.append("  \"timeComplexity\": \"分析代码中的主要算法，给出时间复杂度，如 O(n)、O(log n)、O(n^2)\",\n");
+        sb.append("  \"spaceComplexity\": \"分析代码中的主要算法，给出空间复杂度，如 O(1)、O(n)\",\n");
+        sb.append("  \"dimensionScores\": {\n");
+        sb.append("    \"correctness\": 0到100的整数,\n");
+        sb.append("    \"time_complexity\": 0到100的整数,\n");
+        sb.append("    \"space_complexity\": 0到100的整数,\n");
+        sb.append("    \"edge_cases\": 0到100的整数,\n");
+        sb.append("    \"readability\": 0到100的整数,\n");
+        sb.append("    \"maintainability\": 0到100的整数,\n");
+        sb.append("    \"robustness\": 0到100的整数,\n");
+        sb.append("    \"test_coverage\": 0到100的整数,\n");
+        sb.append("    \"algorithm_design\": 0到100的整数\n");
+        sb.append("  },\n");
+        sb.append("  \"feedback\": [\"建议1\", \"建议2\", \"...\"],\n");
+        sb.append("  \"summary\": \"一段总评语，概括代码整体质量、主要优点和改进方向\"\n");
         sb.append("}\n\n");
-        sb.append("qualityScore 是对代码正确性、命名、结构、边界处理、时间复杂度的综合质量评分；");
-        sb.append("scoreExplanation 用一两句话说明给出该质量分的理由（扣分点/亮点）；");
-        sb.append("timeComplexity 与 spaceComplexity 用大 O 记法分析该解法的复杂度；");
-        sb.append("feedback 给出 2~5 条具体可操作的改进建议。");
+        sb.append("注意：timeComplexity 和 spaceComplexity 是最优先必填字段，必须是类似 O(n) 的格式字符串。");
+        sb.append("qualityScore 由各维度加权计算得出，无需单独输出。");
         return sb.toString();
     }
 
     /** 调用 OpenAI 兼容 Chat Completions，返回首个 choice 的文本内容。 */
     private String callChatCompletions(AiRuntimeConfig config, String prompt) throws Exception {
+        return callChatCompletions(config, prompt, false);
+    }
+
+    /**
+     * 调用 OpenAI 兼容 Chat Completions。
+     *
+     * @param forGeneration true=生成题目用（跳过thinking，更快）; false=评审用（保留thinking）
+     */
+    private String callChatCompletions(AiRuntimeConfig config, String prompt, boolean forGeneration) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", config.model());
         body.put("temperature", 0.2);
@@ -181,7 +221,8 @@ public class AiReviewService {
                 Map.of("role", "system", "content", "你是一位严谨的 Java 编程评审老师。"),
                 Map.of("role", "user", "content", prompt)));
         // deepseek-v4-pro 需要 thinking 和 reasoning_effort 参数
-        if (config.model() != null && config.model().contains("v4-pro")) {
+        // 生成题目时跳过 thinking 以加速（评审时保留）
+        if (!forGeneration && config.model() != null && config.model().contains("v4-pro")) {
             body.put("thinking", Map.of("type", "enabled"));
             body.put("reasoning_effort", "high");
         }
@@ -204,17 +245,129 @@ public class AiReviewService {
         }
 
         JsonNode root = objectMapper.readTree(response.body());
-        JsonNode content = root.path("choices").path(0).path("message").path("content");
-        if (content.isMissingNode() || content.isNull()) {
-            throw new IllegalStateException("AI 响应缺少 choices[0].message.content");
+        JsonNode message = root.path("choices").path(0).path("message");
+
+        // 优先取 content；某些 thinking 模型可能把实际内容放在 reasoning_content 中
+        JsonNode content = message.path("content");
+        String result = null;
+        if (!content.isMissingNode() && !content.isNull()) {
+            result = content.asText();
         }
-        return content.asText();
+
+        // content 为空时，尝试从 reasoning_content 获取（部分 thinking 模型的兼容字段）
+        if (result == null || result.isBlank()) {
+            JsonNode reasoning = message.path("reasoning_content");
+            if (!reasoning.isMissingNode() && !reasoning.isNull()) {
+                result = reasoning.asText();
+                log.info("content 为空，使用 reasoning_content 作为 AI 响应");
+            }
+        }
+
+        if (result == null || result.isBlank()) {
+            log.warn("AI 响应原始内容：{}", abbreviate(response.body()));
+            throw new IllegalStateException("AI 响应缺少有效内容");
+        }
+        return result;
     }
 
-    /** 解析 AI 输出 JSON，计算综合分并组装 AiReview。 */
+    /**
+     * 流式调用 AI 生成题目，通过回调逐块返回内容。
+     *
+     * @param config   AI 配置
+     * @param prompt   提示词
+     * @param onChunk  每收到一块内容时的回调（参数为累积的完整文本）
+     * @return 最终完整文本
+     */
+    public String streamGenerate(AiRuntimeConfig config, String prompt,
+                                  java.util.function.Consumer<String> onChunk) throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", config.model());
+        body.put("temperature", 0.2);
+        body.put("stream", true);
+        body.put("messages", List.of(
+                Map.of("role", "system", "content", "你是一位严谨的 Java 编程评审老师。"),
+                Map.of("role", "user", "content", prompt)));
+
+        String url = config.baseUrl().replaceAll("/+$", "") + "/chat/completions";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(120))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + config.apiKey())
+                .POST(HttpRequest.BodyPublishers.ofString(
+                        objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
+                .build();
+
+        StringBuilder fullContent = new StringBuilder();
+        HttpResponse<java.io.InputStream> response = httpClient.send(request,
+                HttpResponse.BodyHandlers.ofInputStream());
+
+        if (response.statusCode() != 200) {
+            String errBody = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
+            throw new IllegalStateException("AI 接口返回 " + response.statusCode()
+                    + "：" + abbreviate(errBody));
+        }
+
+        // 解析 SSE 流
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("data: ")) {
+                    String data = line.substring(6).trim();
+                    if ("[DONE]".equals(data)) break;
+                    try {
+                        JsonNode node = objectMapper.readTree(data);
+                        JsonNode delta = node.path("choices").path(0).path("delta").path("content");
+                        if (!delta.isMissingNode() && !delta.isNull()) {
+                            fullContent.append(delta.asText());
+                            onChunk.accept(fullContent.toString());
+                        }
+                    } catch (Exception ignored) {
+                        // 跳过无法解析的行
+                    }
+                }
+            }
+        }
+        return fullContent.toString();
+    }
+
+    // 各维度权重（与 prompt 中一致）
+    private static final Map<String, Double> DIMENSION_WEIGHTS = Map.ofEntries(
+            Map.entry("correctness", 0.30),
+            Map.entry("time_complexity", 0.15),
+            Map.entry("space_complexity", 0.10),
+            Map.entry("edge_cases", 0.10),
+            Map.entry("readability", 0.10),
+            Map.entry("maintainability", 0.08),
+            Map.entry("robustness", 0.05),
+            Map.entry("test_coverage", 0.05),
+            Map.entry("algorithm_design", 0.07)
+    );
+
+    /** 解析 AI 输出 JSON，由维度加权计算质量分，组装 AiReview。 */
     private AiReview parseReview(String content, int passRate) throws Exception {
-        JsonNode node = objectMapper.readTree(extractJsonObject(content));
-        int qualityScore = clamp(node.path("qualityScore").asInt(0), 0, 100);
+        String json = extractJsonObject(content);
+        log.debug("AI 评审提取的 JSON：{}", abbreviate(json));
+        JsonNode node = objectMapper.readTree(json);
+
+        // 解析各维度分数
+        Map<String, Integer> dimensionScores = new LinkedHashMap<>();
+        JsonNode scoresNode = node.get("dimensionScores");
+        if (scoresNode != null && scoresNode.isObject()) {
+            for (String dimId : DIMENSION_WEIGHTS.keySet()) {
+                int s = clamp(scoresNode.path(dimId).asInt(0), 0, 100);
+                dimensionScores.put(dimId, s);
+            }
+        }
+
+        // 由维度加权计算 qualityScore
+        double weighted = 0;
+        for (Map.Entry<String, Integer> e : dimensionScores.entrySet()) {
+            double w = DIMENSION_WEIGHTS.getOrDefault(e.getKey(), 0.0);
+            weighted += e.getValue() * w;
+        }
+        int qualityScore = clamp((int) Math.round(weighted), 0, 100);
 
         List<String> feedback = new ArrayList<>();
         JsonNode feedbackNode = node.get("feedback");
@@ -226,33 +379,82 @@ public class AiReviewService {
             }
         }
 
-        String scoreExplanation = textOrNull(node, "scoreExplanation");
-        String timeComplexity = textOrNull(node, "timeComplexity");
-        String spaceComplexity = textOrNull(node, "spaceComplexity");
+        String timeComplexity = node.path("timeComplexity").asText(null);
+        String spaceComplexity = node.path("spaceComplexity").asText(null);
+        String summary = node.path("summary").asText(null);
 
-        // 综合分 = 代码测试(用例通过率)80% + AI 打分(代码质量)20%
-        int score = (int) Math.round(passRate * 0.8 + qualityScore * 0.2);
+        // 兜底：AI 未返回复杂度字段时，尝试从 feedback 和 summary 中提取
+        if (timeComplexity == null || spaceComplexity == null) {
+            String allText = String.join(" ", feedback) + " " + nullToEmpty(summary);
+            if (timeComplexity == null) {
+                timeComplexity = extractComplexity(allText, "时间");
+            }
+            if (spaceComplexity == null) {
+                spaceComplexity = extractComplexity(allText, "空间");
+            }
+            log.info("AI 评审复杂度兜底提取：timeComplexity={}, spaceComplexity={}", timeComplexity, spaceComplexity);
+        }
+
+        int score = (int) Math.round(passRate * 0.7 + qualityScore * 0.3);
         return new AiReview(score, passRate, qualityScore, feedback,
-                scoreExplanation, timeComplexity, spaceComplexity);
+                timeComplexity, spaceComplexity, dimensionScores, summary);
     }
 
-    /** 读取节点下的文本字段，缺失或非文本时返回 null。 */
-    private String textOrNull(JsonNode node, String field) {
-        JsonNode child = node.get(field);
-        return (child != null && child.isTextual()) ? child.asText() : null;
-    }
-
-    /** 从 AI 输出中截取首个 JSON 对象（容忍 Markdown 代码块包裹与前后杂文）。 */
+    /**
+     * 从 AI 输出中截取最后一个完整的 JSON 对象。
+     *
+     * <p>容忍 Markdown 代码块包裹、thinking 块等前后杂文。
+     * 使用「从后向前找匹配的 {」策略，确保取到的是真正的评审 JSON，
+     * 而非 thinking 过程中产生的中间 JSON。</p>
+     */
     private String extractJsonObject(String content) {
         String s = content.trim()
                 .replaceAll("^```[a-zA-Z]*\\s*", "")
                 .replaceAll("\\s*```$", "");
-        int start = s.indexOf('{');
+        // 从后向前扫描：找到最后一个 '}'，再向前匹配对应的 '{'
         int end = s.lastIndexOf('}');
-        if (start < 0 || end <= start) {
+        if (end < 0) {
             throw new IllegalStateException("AI 输出未包含 JSON 对象");
         }
+        int depth = 0;
+        int start = -1;
+        for (int i = end; i >= 0; i--) {
+            char c = s.charAt(i);
+            if (c == '}') depth++;
+            else if (c == '{') depth--;
+            if (depth == 0) {
+                start = i;
+                break;
+            }
+        }
+        if (start < 0) {
+            throw new IllegalStateException("AI 输出未包含完整 JSON 对象");
+        }
         return s.substring(start, end + 1);
+    }
+
+    /**
+     * 从文本中提取复杂度描述（如 "O(n)"、"O(log n)"）。
+     *
+     * <p>当 AI 未在 JSON 中返回 timeComplexity/spaceComplexity 时，
+     * 从 feedback 和 summary 文本中兜底提取含 "时间/空间复杂度" 上下文的 O(...) 表达式。</p>
+     *
+     * @param text     待搜索的文本（feedback + summary 拼接）
+     * @param keyword  "时间" 或 "空间"
+     * @return 复杂度字符串；未找到返回 null
+     */
+    private String extractComplexity(String text, String keyword) {
+        if (text == null || text.isBlank()) return null;
+        // 匹配模式：keyword + 复杂度 + O(...)，如 "时间复杂度为 O(n)"、"空间复杂度 O(1)"
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                keyword + "复杂度[^O]*?(O\\([^)]+\\))");
+        java.util.regex.Matcher m = p.matcher(text);
+        if (m.find()) {
+            return m.group(1);
+        }
+        // 兜底：文本中任意位置的 O(...) 表达式（仅当 keyword 相关上下文找不到时）
+        // 不做兜底，避免误提取无关的 O(...)
+        return null;
     }
 
     private int clamp(int value, int min, int max) {

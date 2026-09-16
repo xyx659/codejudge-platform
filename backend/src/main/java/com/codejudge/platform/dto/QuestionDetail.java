@@ -11,20 +11,24 @@ import java.util.List;
  * <p>和列表用的 {@link QuestionSummary} 不同，详情会<b>带上题目描述和测试用例</b>，
  * 供学生看清题目要求、知道评测会用哪些输入输出。</p>
  *
- * @param id         题目 ID（对应 MongoDB 的 _id）
- * @param title      题目标题
- * @param description 题目描述（完整题目要求）
- * @param methodName 需要实现的方法名（如 sum）
- * @param language   编程语言（如 Java）
- * @param difficulty 难度：简单 / 中等 / 困难
- * @param tags       标签列表
- * @param testCases  测试用例列表（每个含名称、输入、期望输出）
+ * @param id             题目 ID（对应 MongoDB 的 _id）
+ * @param title          题目标题
+ * @param description    题目描述（完整题目要求）
+ * @param methodName     需要实现的方法名（如 sum）
+ * @param judgeMode      判题模式：METHOD / DESIGN / STDIO
+ * @param designMethods  设计题方法定义列表（仅 DESIGN 模式）
+ * @param language       编程语言（如 Java）
+ * @param difficulty     难度：简单 / 中等 / 困难
+ * @param tags           标签列表
+ * @param testCases      测试用例列表（每个含名称、输入、期望输出）
  */
 public record QuestionDetail(
         String id,
         String title,
         String description,
         String methodName,
+        String judgeMode,
+        List<String> designMethods,
         String language,
         String difficulty,
         List<String> tags,
@@ -42,6 +46,8 @@ public record QuestionDetail(
                 q.getTitle(),
                 q.getDescription(),
                 q.getMethodName(),
+                q.getJudgeMode(),
+                q.getDesignMethods(),
                 q.getLanguage(),
                 q.getDifficulty(),
                 q.getTags(),

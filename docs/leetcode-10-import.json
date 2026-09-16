@@ -1,0 +1,1171 @@
+{
+  "questions": [
+    {
+      "title": "两数之和",
+      "description": "给定一个整数数组 nums 和一个整数目标值 target，请你在该数组中找出 和为目标值 target  的那 两个 整数，并返回它们的数组下标。 你可以假设每种输入只会对应一个答案，并且你不能使用两次相同的元素。 你可以按任意顺序返回答案。   示例 1： 输入：nums = [2,7,11,15], target = 9 输出：[0,1] 解释：因为 nums[0] + nums[1] == 9 ，返回 [0, 1] 。 示例 2： 输入：nums = [3,2,4], target = 6 输出：[1,2] 示例 3： 输入：nums = [3,3], target = 6 输出：[0,1]   提示： 2 <= nums.length <= 104 -109 <= nums[i] <= 109 -109 <= target <= 109 只会存在一个有效答案   进阶：你可以想出一个时间复杂度小于 O(n2) 的算法吗？",
+      "methodName": "twoSum",
+      "methodSignature": "int[] twoSum(int[], int)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "数组",
+        "哈希表"
+      ],
+      "sourceId": "1",
+      "sourceUrl": "https://leetcode.cn/problems/two-sum/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "nums = [2,7,11,15], target = 9",
+          "expected": "[0,1]"
+        },
+        {
+          "name": "示例2",
+          "input": "nums = [3,2,4], target = 6",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "示例3",
+          "input": "nums = [3,3], target = 6",
+          "expected": "[0,1]"
+        },
+        {
+          "name": "补充用例1",
+          "input": "nums = [-1,-2,-3,-4,-5], target = -8",
+          "expected": "[2,4]"
+        },
+        {
+          "name": "补充用例2",
+          "input": "nums = [0,4,3,0], target = 0",
+          "expected": "[0,3]"
+        },
+        {
+          "name": "补充用例3",
+          "input": "nums = [1,2,3,4,5,6,7,8,9,10], target = 19",
+          "expected": "[8,9]"
+        },
+        {
+          "name": "补充用例4",
+          "input": "nums = [-3,4,3,90], target = 0",
+          "expected": "[0,2]"
+        },
+        {
+          "name": "补充用例5",
+          "input": "nums = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], target = 2",
+          "expected": "[0,1]"
+        },
+        {
+          "name": "补充用例6",
+          "input": "nums = [3,2,4], target = 6",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "补充用例7",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例11",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例12",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例13",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例14",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例15",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例16",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例17",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例18",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例19",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        },
+        {
+          "name": "用例20",
+          "input": "nums = [2,5,5,11], target = 10",
+          "expected": "[1,2]"
+        }
+      ]
+    },
+    {
+      "title": "反转链表",
+      "description": "给你单链表的头节点 head ，请你反转链表，并返回反转后的链表。 示例 1： 输入：head = [1,2,3,4,5] 输出：[5,4,3,2,1] 示例 2： 输入：head = [1,2] 输出：[2,1] 示例 3： 输入：head = [] 输出：[] 提示： 链表中节点的数目范围是 [0, 5000] -5000 进阶：链表可以选用迭代或递归方式完成反转。你能否用两种方法解决这道题？",
+      "methodName": "reverseList",
+      "methodSignature": "ListNode reverseList(ListNode)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "递归",
+        "链表"
+      ],
+      "sourceId": "206",
+      "sourceUrl": "https://leetcode.cn/problems/reverse-linked-list/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "head = [1,2,3,4,5]",
+          "expected": "[5,4,3,2,1]"
+        },
+        {
+          "name": "示例2",
+          "input": "head = [1,2]",
+          "expected": "[2,1]"
+        },
+        {
+          "name": "示例3",
+          "input": "head = []",
+          "expected": "[]"
+        },
+        {
+          "name": "补充用例1",
+          "input": "head = [1]",
+          "expected": "[1]"
+        },
+        {
+          "name": "补充用例2",
+          "input": "head = [1,2]",
+          "expected": "[2,1]"
+        },
+        {
+          "name": "补充用例3",
+          "input": "head = []",
+          "expected": "[]"
+        },
+        {
+          "name": "补充用例4",
+          "input": "head = [-1,-2,-3]",
+          "expected": "[-3,-2,-1]"
+        },
+        {
+          "name": "补充用例5",
+          "input": "head = [1,2,3,4,5,6,7,8,9,10]",
+          "expected": "[10,9,8,7,6,5,4,3,2,1]"
+        },
+        {
+          "name": "补充用例6",
+          "input": "head = [100,200,300]",
+          "expected": "[300,200,100]"
+        },
+        {
+          "name": "补充用例7",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例11",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例12",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例13",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例14",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例15",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例16",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例17",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例18",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例19",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        },
+        {
+          "name": "用例20",
+          "input": "head = [0,0,0]",
+          "expected": "[0,0,0]"
+        }
+      ]
+    },
+    {
+      "title": "有效的括号",
+      "description": "给定一个只包括 '('，')'，'{'，'}'，'['，']' 的字符串 s ，判断字符串是否有效。 有效字符串需满足： 左括号必须用相同类型的右括号闭合。 左括号必须以正确的顺序闭合。 每个右括号都有一个对应的相同类型的左括号。   示例 1： 输入：s = \"()\" 输出：true 示例 2： 输入：s = \"()[]{}\" 输出：true 示例 3： 输入：s = \"(]\" 输出：false 示例 4： 输入：s = \"([])\" 输出：true 示例 5： 输入：s = \"([)]\" 输出：false   提示： 1 <= s.length <= 104 s 仅由括号 '()[]{}' 组成",
+      "methodName": "isValid",
+      "methodSignature": "boolean isValid(String)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "栈",
+        "字符串",
+        "括号序列"
+      ],
+      "sourceId": "20",
+      "sourceUrl": "https://leetcode.cn/problems/valid-parentheses/",
+      "testCases": [
+        {
+          "name": "补充用例1",
+          "input": "s = \"()\"",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例2",
+          "input": "s = \"()[]{}\"",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例3",
+          "input": "s = \"(]\"",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例4",
+          "input": "s = \"([)]\"",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例5",
+          "input": "s = \"{[()]}\"",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例6",
+          "input": "s = \"(\"",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例7",
+          "input": "s = \"\"",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例8",
+          "input": "s = \"((()))\"",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例9",
+          "input": "s = \"((())\"",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例10",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例11",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例12",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例13",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例14",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例15",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例16",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例17",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例18",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例19",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        },
+        {
+          "name": "用例20",
+          "input": "s = \"(){}}{\"",
+          "expected": "false"
+        }
+      ]
+    },
+    {
+      "title": "最大子数组和",
+      "description": "给你一个整数数组 nums ，请你找出一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。 子数组 是数组中的一个连续部分。   示例 1： 输入：nums = [-2,1,-3,4,-1,2,1,-5,4] 输出：6 解释：连续子数组 [4,-1,2,1] 的和最大，为 6 。 示例 2： 输入：nums = [1] 输出：1 示例 3： 输入：nums = [5,4,-1,7,8] 输出：23   提示： 1 <= nums.length <= 105 -104 <= nums[i] <= 104   进阶：如果你已经实现复杂度为 O(n) 的解法，尝试使用更为精妙的 分治法 求解。",
+      "methodName": "maxSubArray",
+      "methodSignature": "int maxSubArray(int[])",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "数组",
+        "分治",
+        "动态规划"
+      ],
+      "sourceId": "53",
+      "sourceUrl": "https://leetcode.cn/problems/maximum-subarray/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+          "expected": "6"
+        },
+        {
+          "name": "示例2",
+          "input": "nums = [1]",
+          "expected": "1"
+        },
+        {
+          "name": "示例3",
+          "input": "nums = [5,4,-1,7,8]",
+          "expected": "23"
+        },
+        {
+          "name": "补充用例1",
+          "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+          "expected": "6"
+        },
+        {
+          "name": "补充用例2",
+          "input": "nums = [1]",
+          "expected": "1"
+        },
+        {
+          "name": "补充用例3",
+          "input": "nums = [5,4,-1,7,8]",
+          "expected": "23"
+        },
+        {
+          "name": "补充用例4",
+          "input": "nums = [-1]",
+          "expected": "-1"
+        },
+        {
+          "name": "补充用例5",
+          "input": "nums = [-2,-1]",
+          "expected": "-1"
+        },
+        {
+          "name": "补充用例6",
+          "input": "nums = [1,2,3,4,5]",
+          "expected": "15"
+        },
+        {
+          "name": "补充用例7",
+          "input": "nums = [-1,-2,-3,0,-1,-2]",
+          "expected": "0"
+        },
+        {
+          "name": "补充用例8",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例12",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例13",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例14",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例15",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例16",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例17",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例18",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例19",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        },
+        {
+          "name": "用例20",
+          "input": "nums = [8,-19,5,-4,20]",
+          "expected": "21"
+        }
+      ]
+    },
+    {
+      "title": "二叉树的层序遍历",
+      "description": "给你二叉树的根节点 root ，返回其节点值的 层序遍历 。 （即逐层地，从左到右访问所有节点）。   示例 1： 输入：root = [3,9,20,null,null,15,7] 输出：[[3],[9,20],[15,7]] 示例 2： 输入：root = [1] 输出：[[1]] 示例 3： 输入：root = [] 输出：[]   提示： 树中节点数目在范围 [0, 2000] 内 -1000 <= Node.val <= 1000",
+      "methodName": "levelOrder",
+      "methodSignature": "List<List<Integer>> levelOrder(TreeNode)",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "树",
+        "广度优先搜索",
+        "二叉树"
+      ],
+      "sourceId": "102",
+      "sourceUrl": "https://leetcode.cn/problems/binary-tree-level-order-traversal/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "root = [3,9,20,null,null,15,7]",
+          "expected": "[[3],[9,20],[15,7]]"
+        },
+        {
+          "name": "示例2",
+          "input": "root = [1]",
+          "expected": "[[1]]"
+        },
+        {
+          "name": "示例3",
+          "input": "root = []",
+          "expected": "[]"
+        },
+        {
+          "name": "补充用例1",
+          "input": "root = [3,9,20,null,null,15,7]",
+          "expected": "[[3],[9,20],[15,7]]"
+        },
+        {
+          "name": "补充用例2",
+          "input": "root = [1]",
+          "expected": "[[1]]"
+        },
+        {
+          "name": "补充用例3",
+          "input": "root = []",
+          "expected": "[]"
+        },
+        {
+          "name": "补充用例4",
+          "input": "root = [1,2,3,4,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "补充用例5",
+          "input": "root = [1,2]",
+          "expected": "[[1],[2]]"
+        },
+        {
+          "name": "补充用例6",
+          "input": "root = [1,null,2,null,3]",
+          "expected": "[[1],[2],[3]]"
+        },
+        {
+          "name": "补充用例7",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例11",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例12",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例13",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例14",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例15",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例16",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例17",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例18",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例19",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        },
+        {
+          "name": "用例20",
+          "input": "root = [1,2,3,4,null,null,5]",
+          "expected": "[[1],[2,3],[4,5]]"
+        }
+      ]
+    },
+    {
+      "title": "爬楼梯",
+      "description": "假设你正在爬楼梯。需要 n 阶你才能到达楼顶。 每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？   示例 1： 输入：n = 2 输出：2 解释：有两种方法可以爬到楼顶。 1. 1 阶 + 1 阶 2. 2 阶 示例 2： 输入：n = 3 输出：3 解释：有三种方法可以爬到楼顶。 1. 1 阶 + 1 阶 + 1 阶 2. 1 阶 + 2 阶 3. 2 阶 + 1 阶   提示： 1 <= n <= 45",
+      "methodName": "climbStairs",
+      "methodSignature": "int climbStairs(int)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "记忆化",
+        "数学",
+        "动态规划"
+      ],
+      "sourceId": "70",
+      "sourceUrl": "https://leetcode.cn/problems/climbing-stairs/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "n = 2",
+          "expected": "2"
+        },
+        {
+          "name": "示例2",
+          "input": "n = 3",
+          "expected": "3"
+        },
+        {
+          "name": "补充用例1",
+          "input": "n = 2",
+          "expected": "2"
+        },
+        {
+          "name": "补充用例2",
+          "input": "n = 3",
+          "expected": "3"
+        },
+        {
+          "name": "补充用例3",
+          "input": "n = 1",
+          "expected": "1"
+        },
+        {
+          "name": "补充用例4",
+          "input": "n = 4",
+          "expected": "5"
+        },
+        {
+          "name": "补充用例5",
+          "input": "n = 5",
+          "expected": "8"
+        },
+        {
+          "name": "补充用例6",
+          "input": "n = 6",
+          "expected": "13"
+        },
+        {
+          "name": "补充用例7",
+          "input": "n = 10",
+          "expected": "89"
+        },
+        {
+          "name": "补充用例8",
+          "input": "n = 20",
+          "expected": "10946"
+        },
+        {
+          "name": "补充用例9",
+          "input": "n = 30",
+          "expected": "1346269"
+        },
+        {
+          "name": "补充用例10",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例13",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例14",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例15",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例16",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例17",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例18",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例19",
+          "input": "n = 45",
+          "expected": "1836311903"
+        },
+        {
+          "name": "用例20",
+          "input": "n = 45",
+          "expected": "1836311903"
+        }
+      ]
+    },
+    {
+      "title": "合并两个有序链表",
+      "description": "将两个升序链表合并为一个新的 升序 链表并返回。新链表是通过拼接给定的两个链表的所有节点组成的。 示例 1： 输入：l1 = [1,2,4], l2 = [1,3,4] 输出：[1,1,2,3,4,4] 示例 2： 输入：l1 = [], l2 = [] 输出：[] 示例 3： 输入：l1 = [], l2 = [0] 输出：[0] 提示： 两个链表的节点数目范围是 [0, 50] -100 l1 和 l2 均按 非递减顺序 排列",
+      "methodName": "mergeTwoLists",
+      "methodSignature": "ListNode mergeTwoLists(ListNode, ListNode)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "递归",
+        "链表"
+      ],
+      "sourceId": "21",
+      "sourceUrl": "https://leetcode.cn/problems/merge-two-sorted-lists/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "l1 = [1,2,4], l2 = [1,3,4]",
+          "expected": "[1,1,2,3,4,4]"
+        },
+        {
+          "name": "示例2",
+          "input": "l1 = [], l2 = []",
+          "expected": "[]"
+        },
+        {
+          "name": "示例3",
+          "input": "l1 = [], l2 = [0]",
+          "expected": "[0]"
+        },
+        {
+          "name": "补充用例1",
+          "input": "list1 = [1,2,4], list2 = [1,3,4]",
+          "expected": "[1,1,2,3,4,4]"
+        },
+        {
+          "name": "补充用例2",
+          "input": "list1 = [], list2 = []",
+          "expected": "[]"
+        },
+        {
+          "name": "补充用例3",
+          "input": "list1 = [], list2 = [0]",
+          "expected": "[0]"
+        },
+        {
+          "name": "补充用例4",
+          "input": "list1 = [1], list2 = []",
+          "expected": "[1]"
+        },
+        {
+          "name": "补充用例5",
+          "input": "list1 = [1,3,5,7], list2 = [2,4,6,8]",
+          "expected": "[1,2,3,4,5,6,7,8]"
+        },
+        {
+          "name": "补充用例6",
+          "input": "list1 = [1,1,1], list2 = [1,1,1]",
+          "expected": "[1,1,1,1,1,1]"
+        },
+        {
+          "name": "补充用例7",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例11",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例12",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例13",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例14",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例15",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例16",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例17",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例18",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例19",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        },
+        {
+          "name": "用例20",
+          "input": "list1 = [-3,-1,0], list2 = [-2,1,2]",
+          "expected": "[-3,-2,-1,0,1,2]"
+        }
+      ]
+    },
+    {
+      "title": "买卖股票的最佳时机",
+      "description": "给定一个数组 prices ，它的第 i 个元素 prices[i] 表示一支给定股票第 i 天的价格。 你只能选择 某一天 买入这只股票，并选择在 未来的某一个不同的日子 卖出该股票。设计一个算法来计算你所能获取的最大利润。 返回你可以从这笔交易中获取的最大利润。如果你不能获取任何利润，返回 0 。 示例 1： 输入：[7,1,5,3,6,4] 输出：5 解释：在第 2 天（股票价格 = 1）的时候买入，在第 5 天（股票价格 = 6）的时候卖出，最大利润 = 6-1 = 5 。 注意利润不能是 7-1 = 6, 因为卖出价格需要大于买入价格；同时，你不能在买入前卖出股票。 示例 2： 输入：prices = [7,6,4,3,1] 输出：0 解释：在这种情况下, 没有交易完成, 所以最大利润为 0。 提示： 1 5 0 4",
+      "methodName": "maxProfit",
+      "methodSignature": "int maxProfit(int[])",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "数组",
+        "动态规划"
+      ],
+      "sourceId": "121",
+      "sourceUrl": "https://leetcode.cn/problems/best-time-to-buy-and-sell-stock/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "[7,1,5,3,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "示例2",
+          "input": "prices = [7,6,4,3,1]",
+          "expected": "0"
+        },
+        {
+          "name": "补充用例1",
+          "input": "prices = [7,1,5,3,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "补充用例2",
+          "input": "prices = [7,6,4,3,1]",
+          "expected": "0"
+        },
+        {
+          "name": "补充用例3",
+          "input": "prices = [1]",
+          "expected": "0"
+        },
+        {
+          "name": "补充用例4",
+          "input": "prices = [1,2]",
+          "expected": "1"
+        },
+        {
+          "name": "补充用例5",
+          "input": "prices = [2,1]",
+          "expected": "0"
+        },
+        {
+          "name": "补充用例6",
+          "input": "prices = [3,3,5,0,0,3,1,4]",
+          "expected": "4"
+        },
+        {
+          "name": "补充用例7",
+          "input": "prices = [1,2,3,4,5]",
+          "expected": "4"
+        },
+        {
+          "name": "补充用例8",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例11",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例12",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例13",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例14",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例15",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例16",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例17",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例18",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例19",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        },
+        {
+          "name": "用例20",
+          "input": "prices = [7,2,5,1,6,4]",
+          "expected": "5"
+        }
+      ]
+    },
+    {
+      "title": "无重复字符的最长子串",
+      "description": "给定一个字符串 s ，请你找出其中不含有重复字符的 最长 子串 的长度。   示例 1: 输入: s = \"abcabcbb\" 输出: 3 解释: 因为无重复字符的最长子串是 \"abc\"，所以其长度为 3。注意 \"bca\" 和 \"cab\" 也是正确答案。 示例 2: 输入: s = \"bbbbb\" 输出: 1 解释: 因为无重复字符的最长子串是 \"b\"，所以其长度为 1。 示例 3: 输入: s = \"pwwkew\" 输出: 3 解释: 因为无重复字符的最长子串是 \"wke\"，所以其长度为 3。   请注意，你的答案必须是 子串 的长度，\"pwke\" 是一个子序列，不是子串。   提示： 0 <= s.length <= 105 s 由英文字母、数字、符号和空格组成",
+      "methodName": "lengthOfLongestSubstring",
+      "methodSignature": "int lengthOfLongestSubstring(String)",
+      "language": "Java",
+      "difficulty": "中等",
+      "tags": [
+        "哈希表",
+        "字符串",
+        "滑动窗口"
+      ],
+      "sourceId": "3",
+      "sourceUrl": "https://leetcode.cn/problems/longest-substring-without-repeating-characters/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "s = \"abcabcbb\"",
+          "expected": "3"
+        },
+        {
+          "name": "示例2",
+          "input": "s = \"bbbbb\"",
+          "expected": "1"
+        },
+        {
+          "name": "示例3",
+          "input": "s = \"pwwkew\"",
+          "expected": "3"
+        },
+        {
+          "name": "补充用例1",
+          "input": "s = \"abcabcbb\"",
+          "expected": "3"
+        },
+        {
+          "name": "补充用例2",
+          "input": "s = \"bbbbb\"",
+          "expected": "1"
+        },
+        {
+          "name": "补充用例3",
+          "input": "s = \"pwwkew\"",
+          "expected": "3"
+        },
+        {
+          "name": "补充用例4",
+          "input": "s = \"\"",
+          "expected": "0"
+        },
+        {
+          "name": "补充用例5",
+          "input": "s = \" \"",
+          "expected": "1"
+        },
+        {
+          "name": "补充用例6",
+          "input": "s = \"au\"",
+          "expected": "2"
+        },
+        {
+          "name": "补充用例7",
+          "input": "s = \"dvdf\"",
+          "expected": "3"
+        },
+        {
+          "name": "补充用例8",
+          "input": "s = \"abba\"",
+          "expected": "2"
+        },
+        {
+          "name": "补充用例9",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例13",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例14",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例15",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例16",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例17",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例18",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例19",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        },
+        {
+          "name": "用例20",
+          "input": "s = \"abcdef\"",
+          "expected": "6"
+        }
+      ]
+    },
+    {
+      "title": "环形链表",
+      "description": "给你一个链表的头节点 head ，判断链表中是否有环。 如果链表中有某个节点，可以通过连续跟踪 next 指针再次到达，则链表中存在环。 为了表示给定链表中的环，评测系统内部使用整数 pos 来表示链表尾连接到链表中的位置（索引从 0 开始）。注意：pos 不作为参数进行传递 。仅仅是为了标识链表的实际情况。 如果链表中存在环 ，则返回 true 。 否则，返回 false 。   示例 1： 输入：head = [3,2,0,-4], pos = 1 输出：true 解释：链表中有一个环，其尾部连接到第二个节点。 示例 2： 输入：head = [1,2], pos = 0 输出：true 解释：链表中有一个环，其尾部连接到第一个节点。 示例 3： 输入：head = [1], pos = -1 输出：false 解释：链表中没有环。   提示： 链表中节点的数目范围是 [0, 104] -105 <= Node.val <= 105 pos 为 -1 或者链表中的一个 有效索引 。   进阶：你能用 O(1)（即，常量）内存解决此问题吗？",
+      "methodName": "hasCycle",
+      "methodSignature": "boolean hasCycle(ListNode, int)",
+      "language": "Java",
+      "difficulty": "简单",
+      "tags": [
+        "哈希表",
+        "链表",
+        "双指针",
+        "Floyd 判圈算法"
+      ],
+      "sourceId": "141",
+      "sourceUrl": "https://leetcode.cn/problems/linked-list-cycle/",
+      "testCases": [
+        {
+          "name": "示例1",
+          "input": "head = [3,2,0,-4], pos = 1",
+          "expected": "true"
+        },
+        {
+          "name": "示例2",
+          "input": "head = [1,2], pos = 0",
+          "expected": "true"
+        },
+        {
+          "name": "示例3",
+          "input": "head = [1], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例1",
+          "input": "head = [3,2,0,-4], pos = 1",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例2",
+          "input": "head = [1,2], pos = 0",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例3",
+          "input": "head = [1], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例4",
+          "input": "head = [], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例5",
+          "input": "head = [1,2,3,4,5], pos = 2",
+          "expected": "true"
+        },
+        {
+          "name": "补充用例6",
+          "input": "head = [1,2,3], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "补充用例7",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例11",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例12",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例13",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例14",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例15",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例16",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例17",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例18",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例19",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        },
+        {
+          "name": "用例20",
+          "input": "head = [1,2], pos = -1",
+          "expected": "false"
+        }
+      ]
+    }
+  ]
+}
