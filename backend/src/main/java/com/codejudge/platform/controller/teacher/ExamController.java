@@ -31,14 +31,15 @@ public class ExamController {
         this.examService = examService;
     }
 
-    /** 考试列表（分页 + 状态/分类筛选） */
+    /** 考试列表（分页 + 关键字/状态/分类筛选） */
     @GetMapping
     public ApiResponse<PageResult<ExamSummary>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String categoryId) {
-        return ApiResponse.ok(examService.list(page, size, status, categoryId));
+            @RequestParam(required = false) String categoryId,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(examService.list(page, size, status, categoryId, keyword));
     }
 
     /** 考试详情（含组卷题目，供编辑回显） */

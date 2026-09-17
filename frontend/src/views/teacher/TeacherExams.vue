@@ -10,6 +10,12 @@
     </header>
 
     <section class="toolbar">
+      <input
+        v-model.trim="keyword"
+        type="text"
+        placeholder="搜索标题"
+        @keyup.enter="applyFilters"
+      />
       <select v-model="status" @change="applyFilters">
         <option value="">全部状态</option>
         <option v-for="s in statusOptions" :key="s" :value="s">{{ statusText[s] }}</option>
@@ -118,7 +124,13 @@
             </label>
             <label class="field">
               <span>目标班级</span>
-              <input v-model.trim="form.targetClass" type="text" placeholder="如 软件工程2101班" />
+              <select v-model="form.targetClass">
+                <option value="">不限定（全部班级）</option>
+                <option v-for="c in classes" :key="c" :value="c">{{ c }}</option>
+                <option v-if="form.targetClass && !classes.includes(form.targetClass)" :value="form.targetClass">
+                  {{ form.targetClass }}（历史）
+                </option>
+              </select>
             </label>
           </div>
           <div class="field-row">
@@ -288,6 +300,7 @@ import {
   deleteExam,
   getExam,
   listCategories,
+  listClasses,
   listExams,
   listQuestions,
   publishExam,
@@ -308,10 +321,12 @@ const size = ref(10)
 const pageInput = ref('1')
 const status = ref('')
 const categoryId = ref('')
+const keyword = ref('')
 const loading = ref(false)
 const error = ref('')
 
 const categories = ref([])
+const classes = ref([])
 const candidates = ref([])
 const candidateLoading = ref(false)
 // 组卷左栏的搜索 / 筛选 / 分页状态（走服务端筛选 + 分页，避免一次拉全部题目）
@@ -378,6 +393,15 @@ async function loadCategories() {
   }
 }
 
+async function loadClasses() {
+  try {
+    const res = await listClasses()
+    classes.value = res.data || []
+  } catch (e) {
+    // 忽略
+  }
+}
+
 async function loadExams() {
   loading.value = true
   error.value = ''
@@ -386,7 +410,8 @@ async function loadExams() {
       page: page.value,
       size: size.value,
       status: status.value,
-      categoryId: categoryId.value
+      categoryId: categoryId.value,
+      keyword: keyword.value
     })
     exams.value = res.data.list || []
     total.value = res.data.total || 0
@@ -707,6 +732,7 @@ async function confirmDelete() {
 
 onMounted(() => {
   loadCategories()
+  loadClasses()
   loadExams()
 })
 </script>
@@ -805,6 +831,17 @@ button:disabled {
 
 .toolbar select {
   padding: 0 10px;
+}
+
+.toolbar input[type='text'] {
+  min-height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  padding: 0 10px;
+  min-width: 180px;
+  font: inherit;
 }
 
 .error-banner,
