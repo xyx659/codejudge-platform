@@ -343,7 +343,13 @@ public class DockerJudgeEngine implements JudgeEngine {
                     detail.getSourceCode(), passRate, results);
             if (aiReview != null) {
                 detail.setAiReview(aiReview);
+                // 综合分回写：更新 MongoDB 明细 + MySQL 摘要
+                detail.setScore(aiReview.getScore());
                 saveDetail(detail);
+                submissionRepository.findById(submissionId).ifPresent(sub -> {
+                    sub.setScore(aiReview.getScore());
+                    saveSubmission(sub);
+                });
             }
         } catch (Exception e) {
             // 兜底：AI 评审异常绝不影响黑盒判题结果

@@ -126,15 +126,12 @@ const error = ref('')
 
 // 维度ID → 中文名映射
 const dimensionNames = {
-  correctness: '正确性',
-  time_complexity: '时间复杂度',
-  space_complexity: '空间复杂度',
-  edge_cases: '边界与异常处理',
-  readability: '可读性与代码风格',
-  maintainability: '可维护性与模块化',
-  robustness: '鲁棒性与容错',
-  test_coverage: '测试覆盖',
-  algorithm_design: '算法思想与优化'
+  algorithm_efficiency: '算法效率',
+  boundary_handling: '边界处理',
+  readability: '可读性',
+  code_structure: '代码结构',
+  robustness: '鲁棒性',
+  best_practices: '最佳实践'
 }
 
 // 根据分数返回进度条颜色

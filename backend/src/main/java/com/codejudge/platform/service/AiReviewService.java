@@ -166,39 +166,47 @@ public class AiReviewService {
         sb.append("\n【学生提交的代码】\n```java\n").append(sourceCode).append("\n```\n");
         sb.append("\n【黑盒测试结果】\n用例通过率：").append(passRate).append(" / 100\n").append(cases);
 
-        sb.append("\n【评分维度与权重】\n");
-        sb.append("请对以下9个维度分别打分（0-100整数）：\n");
-        sb.append("1. correctness（正确性，权重30%）：代码能否正确解决目标问题\n");
-        sb.append("2. time_complexity（时间复杂度，权重15%）：算法效率是否高效\n");
-        sb.append("3. space_complexity（空间复杂度，权重10%）：内存使用是否合理\n");
-        sb.append("4. edge_cases（边界与异常处理，权重10%）：边界条件处理是否完善\n");
-        sb.append("5. readability（可读性与代码风格，权重10%）：命名、结构、注释是否清晰\n");
-        sb.append("6. maintainability（可维护性与模块化，权重8%）：模块划分是否合理\n");
-        sb.append("7. robustness（鲁棒性与容错，权重5%）：异常环境下的稳定性\n");
-        sb.append("8. test_coverage（测试覆盖，权重5%）：测试用例是否充分\n");
-        sb.append("9. algorithm_design（算法思想与优化，权重7%）：算法选择是否恰当\n");
+        sb.append("\n【评分维度与标准】\n");
+        sb.append("请对以下 6 个维度分别打分（0-100 整数）。每个维度附有评分参考：\n\n");
 
-        sb.append("\n请只输出一个 JSON 对象，不要包含任何额外文字或 Markdown 代码块标记。\n\n");
+        sb.append("1. algorithm_efficiency（算法效率，权重30%）：时间/空间复杂度与算法选择\n");
+        sb.append("   100=最优解（如 O(n)/O(1)） 75=次优但合理（如 O(n log n)） 50=可用但低效（如 O(n^2)） 25=很差（如 O(n^3)） 0=极差或死循环（O(n^4)及以上）\n\n");
+
+        sb.append("2. boundary_handling（边界处理，权重20%）：空值、空集合、溢出、特殊输入\n");
+        sb.append("   100=全面覆盖边界 75=覆盖主要边界 50=部分覆盖 25=忽略多数边界 0=完全没考虑\n\n");
+
+        sb.append("3. readability（可读性，权重20%）：命名规范、代码结构、注释、格式\n");
+        sb.append("   100=命名清晰、结构优雅、有关键注释 75=整体可读 50=一般 25=较难读 0=混乱\n\n");
+
+        sb.append("4. code_structure（代码结构，权重15%）：模块化、职责分离、类设计\n");
+        sb.append("   100=高内聚低耦合、方法职责单一 75=结构合理 50=一般 25=臃肿 0=全部堆在一起\n\n");
+
+        sb.append("5. robustness（鲁棒性，权重10%）：异常处理、防御性编程\n");
+        sb.append("   100=完善的异常处理和输入校验 75=基本处理 50=部分处理 25=很少处理 0=无任何防御\n\n");
+
+        sb.append("6. best_practices（最佳实践，权重5%）：Java 规范、数据结构选择、设计模式\n");
+        sb.append("   100=完全遵循 Java 规范 75=基本遵循 50=一般 25=较多不规范 0=严重违反\n\n");
+
+        sb.append("请只输出一个 JSON 对象，不要包含任何额外文字或 Markdown 代码块标记。\n\n");
         sb.append("=== 输出格式（严格按此结构，不得省略任何字段） ===\n\n");
         sb.append("{\n");
         sb.append("  \"timeComplexity\": \"分析代码中的主要算法，给出时间复杂度，如 O(n)、O(log n)、O(n^2)\",\n");
         sb.append("  \"spaceComplexity\": \"分析代码中的主要算法，给出空间复杂度，如 O(1)、O(n)\",\n");
         sb.append("  \"dimensionScores\": {\n");
-        sb.append("    \"correctness\": 0到100的整数,\n");
-        sb.append("    \"time_complexity\": 0到100的整数,\n");
-        sb.append("    \"space_complexity\": 0到100的整数,\n");
-        sb.append("    \"edge_cases\": 0到100的整数,\n");
+        sb.append("    \"algorithm_efficiency\": 0到100的整数,\n");
+        sb.append("    \"boundary_handling\": 0到100的整数,\n");
         sb.append("    \"readability\": 0到100的整数,\n");
-        sb.append("    \"maintainability\": 0到100的整数,\n");
+        sb.append("    \"code_structure\": 0到100的整数,\n");
         sb.append("    \"robustness\": 0到100的整数,\n");
-        sb.append("    \"test_coverage\": 0到100的整数,\n");
-        sb.append("    \"algorithm_design\": 0到100的整数\n");
+        sb.append("    \"best_practices\": 0到100的整数\n");
         sb.append("  },\n");
-        sb.append("  \"feedback\": [\"建议1\", \"建议2\", \"...\"],\n");
+        sb.append("  \"feedback\": [\"具体可操作的改进建议1\", \"建议2\", \"建议3\"],\n");
         sb.append("  \"summary\": \"一段总评语，概括代码整体质量、主要优点和改进方向\"\n");
         sb.append("}\n\n");
-        sb.append("注意：timeComplexity 和 spaceComplexity 是最优先必填字段，必须是类似 O(n) 的格式字符串。");
-        sb.append("qualityScore 由各维度加权计算得出，无需单独输出。");
+        sb.append("注意：\n");
+        sb.append("- timeComplexity 和 spaceComplexity 是最优先必填字段，必须是类似 O(n) 的格式字符串\n");
+        sb.append("- feedback 必须给出 3~5 条具体可操作的改进建议，不能泛泛而谈\n");
+        sb.append("- 低效算法（如 O(n^2) 可用 O(n) 解决时）必须在 feedback 中指出优化方向");
         return sb.toString();
     }
 
@@ -332,17 +340,14 @@ public class AiReviewService {
         return fullContent.toString();
     }
 
-    // 各维度权重（与 prompt 中一致）
+    // 各维度权重（与 prompt 中一致，6 维度）
     private static final Map<String, Double> DIMENSION_WEIGHTS = Map.ofEntries(
-            Map.entry("correctness", 0.30),
-            Map.entry("time_complexity", 0.15),
-            Map.entry("space_complexity", 0.10),
-            Map.entry("edge_cases", 0.10),
-            Map.entry("readability", 0.10),
-            Map.entry("maintainability", 0.08),
-            Map.entry("robustness", 0.05),
-            Map.entry("test_coverage", 0.05),
-            Map.entry("algorithm_design", 0.07)
+            Map.entry("algorithm_efficiency", 0.30),
+            Map.entry("boundary_handling", 0.20),
+            Map.entry("readability", 0.20),
+            Map.entry("code_structure", 0.15),
+            Map.entry("robustness", 0.10),
+            Map.entry("best_practices", 0.05)
     );
 
     /** 解析 AI 输出 JSON，由维度加权计算质量分，组装 AiReview。 */

@@ -83,7 +83,7 @@ class DockerJudgeEngineTest {
 
     @Test
     void 编译成功用例通过时正确回写且不动aiReview() {
-        AiReview preset = new AiReview(90, 100, 80, List.of("ok"));
+        AiReview preset = new AiReview(90, 100, 80, List.of("ok"), "O(1)", "O(1)", Map.of(), "ok");
         detail.setAiReview(preset);
         stubCommon();
         when(containerClient.compile(any()))
@@ -115,7 +115,7 @@ class DockerJudgeEngineTest {
                 .thenReturn(new JudgeContainerClient.CompileResult(
                         0, "", packer.pack(Map.of("Solution.class", new byte[0])), false));
         when(containerClient.run(any())).thenReturn(new ContainerRunResult(0, "3\n", "", false));
-        AiReview review = new AiReview(93, 100, 90, List.of("建议补充边界处理"));
+        AiReview review = new AiReview(93, 100, 90, List.of("建议补充边界处理"), "O(n)", "O(1)", Map.of(), "良好");
         when(aiReviewService.review(any(), any(), any(), any(), anyInt(), anyList()))
                 .thenReturn(review);
 

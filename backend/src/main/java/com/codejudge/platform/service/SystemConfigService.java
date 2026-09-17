@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -38,6 +39,8 @@ import java.util.Objects;
  */
 @Service
 public class SystemConfigService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemConfigService.class);
 
     private static final int GCM_IV_LENGTH = 12;
     private static final int GCM_TAG_BITS = 128;
@@ -269,6 +272,7 @@ public class SystemConfigService {
             result.put(config.getConfigKey(), config);
         }
 
+        // 补齐缺失的配置项
         List<SystemConfig> missing = DEFAULT_VALUES.entrySet().stream()
                 .filter(entry -> !result.containsKey(entry.getKey().key()))
                 .map(entry -> new SystemConfig(
@@ -282,6 +286,21 @@ public class SystemConfigService {
             configRepository.saveAll(missing);
             missing.forEach(config -> result.put(config.getConfigKey(), config));
         }
+
+        // 校正 encrypted 标志：数据库中的值与枚举定义不一致时修复
+        List<SystemConfig> toFix = new ArrayList<>();
+        for (SystemConfigKey key : SystemConfigKey.values()) {
+            SystemConfig config = result.get(key.key());
+            if (config != null && config.isEncrypted() != key.encrypted()) {
+                config.setEncrypted(key.encrypted());
+                toFix.add(config);
+            }
+        }
+        if (!toFix.isEmpty()) {
+            configRepository.saveAll(toFix);
+            log.info("已校正 {} 条配置的 encrypted 标志", toFix.size());
+        }
+
         return Map.copyOf(result);
     }
 
