@@ -88,13 +88,16 @@
             </div>
             <div ref="editorEl" class="editor"></div>
             <p v-if="testError" class="test-error">{{ testError }}</p>
-            <div v-if="testResults" class="test-results">
-              <div v-for="(r, ri) in testResults" :key="ri" class="test-row" :class="{ pass: r.passed, fail: !r.passed }">
-                <span class="test-status">{{ r.passed ? '✓' : '✗' }}</span>
-                <span class="test-name">{{ r.name }}</span>
-                <span class="test-msg">{{ r.message }}</span>
-                <span v-if="!r.passed" class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
-              </div>
+            <div v-if="testResults && testResults.length" class="test-results">
+              <p v-if="failedResults.length === 0" class="all-pass">✓ 全部通过（{{ testResults.length }} 个用例）</p>
+              <template v-else>
+                <div v-for="(r, ri) in failedResults" :key="ri" class="test-row fail">
+                  <span class="test-status">✗</span>
+                  <span class="test-name">{{ r.name }}</span>
+                  <span class="test-msg">{{ r.message }}</span>
+                  <span class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -146,6 +149,9 @@ let timer = null
 const testing = ref(false)
 const testResults = ref(null)
 const testError = ref('')
+
+// 只显示未通过的用例；全部通过时展示「全部通过」
+const failedResults = computed(() => (testResults.value || []).filter((r) => !r.passed))
 
 // 每次看题随机抽取的样例测试用例（最多 3 条）
 const randomTestCases = ref([])
@@ -819,6 +825,13 @@ function formatTime(s) {
 
 .test-results {
   padding: 0;
+}
+
+.all-pass {
+  color: #16a34a;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 0;
 }
 
 .test-row {

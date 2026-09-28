@@ -76,18 +76,16 @@
           </div>
 
           <p v-if="testError" class="test-error">{{ testError }}</p>
-          <div v-if="testResults" class="test-results">
-            <div
-              v-for="(r, ri) in testResults"
-              :key="ri"
-              class="test-row"
-              :class="{ pass: r.passed, fail: !r.passed }"
-            >
-              <span class="test-status">{{ r.passed ? '✓' : '✗' }}</span>
-              <span class="test-name">{{ r.name }}</span>
-              <span class="test-msg">{{ r.message }}</span>
-              <span v-if="!r.passed" class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
-            </div>
+          <div v-if="testResults && testResults.length" class="test-results">
+            <p v-if="failedResults.length === 0" class="all-pass">✓ 全部通过（{{ testResults.length }} 个用例）</p>
+            <template v-else>
+              <div v-for="(r, ri) in failedResults" :key="ri" class="test-row fail">
+                <span class="test-status">✗</span>
+                <span class="test-name">{{ r.name }}</span>
+                <span class="test-msg">{{ r.message }}</span>
+                <span class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+              </div>
+            </template>
           </div>
 
           <div v-if="submitMsg" class="card submit-msg">
@@ -101,7 +99,7 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getQuestion, getQuestionSubmission, submit } from '../../api/student'
 import { createEditor } from '../../utils/monaco'
@@ -121,6 +119,9 @@ const submitMsg = ref('')
 const testing = ref(false)
 const testResults = ref(null)
 const testError = ref('')
+
+// 只显示未通过的用例；全部通过时展示「全部通过」
+const failedResults = computed(() => (testResults.value || []).filter((r) => !r.passed))
 
 let editor = null
 
@@ -177,6 +178,20 @@ function defaultTemplate(q) {
   }
   if (mode === 'STDIO') {
     return `// 标准输入输出模式\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // 在这里编写你的代码\n    }\n}\n`
+  }
+  // METHOD 模式：优先用 methodSignature 生成准确的方法签名
+  const sig = q.methodSignature
+  if (sig) {
+    const m = sig.match(/^(\S+)\s+(\w+)\((.*)\)$/)
+    if (m) {
+      const ret = m[1], mn = m[2], params = m[3]
+      const paramDecl = params ? params.split(',').map(p => {
+        const parts = p.trim().split(/\s+/)
+        return `        ${parts[0]} ${parts[1] || 'arg'}`
+      }).join(',\n') : ''
+      const returnStmt = ret === 'void' ? '' : `\n        return ${ret === 'int' || ret === 'long' || ret === 'float' || ret === 'double' ? '0' : ret === 'boolean' ? 'false' : 'null'};`
+      return `// 实现方法 ${mn}（评测由后端执行）\npublic class Solution {\n    public ${ret} ${mn}(\n${paramDecl}\n    ) {\n        // 在这里编写你的代码${returnStmt}\n    }\n}\n`
+    }
   }
   return `// 实现方法 ${name}（评测由后端执行）\npublic class Solution {\n    public Object ${name}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
 }
@@ -474,6 +489,13 @@ async function submitCode() {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.all-pass {
+  color: #16a34a;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px;
 }
 
 .test-row {

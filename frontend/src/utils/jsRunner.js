@@ -266,19 +266,26 @@ export function runLocalTests(sourceCode, methodName, testCases, timeoutMs = 300
     let settled = false
     let worker
     let timer
-    const url = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'application/javascript' }))
+    let url
     const finish = (payload) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
       if (worker) worker.terminate()
-      URL.revokeObjectURL(url)
+      if (url) URL.revokeObjectURL(url)
       resolve(payload)
     }
-    worker = new Worker(url)
-    timer = setTimeout(() => finish({ compileError: '运行超时（可能存在死循环）' }), timeoutMs)
-    worker.onmessage = (e) => finish(e.data)
-    worker.onerror = (e) => finish({ compileError: e.message || '运行出错' })
-    worker.postMessage({ sourceCode, methodName, testCases })
+    try {
+      // 深拷贝成纯对象：Vue 响应式 Proxy 无法被 postMessage 结构化克隆（报 "Proxy object could not be cloned"）
+      const payload = JSON.parse(JSON.stringify({ sourceCode, methodName, testCases }))
+      url = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'application/javascript' }))
+      worker = new Worker(url)
+      timer = setTimeout(() => finish({ compileError: '运行超时（可能存在死循环）' }), timeoutMs)
+      worker.onmessage = (e) => finish(e.data)
+      worker.onerror = (e) => finish({ compileError: e.message || '运行出错' })
+      worker.postMessage(payload)
+    } catch (err) {
+      finish({ compileError: '本地自测启动失败：' + (err && err.message ? err.message : String(err)) })
+    }
   })
 }
