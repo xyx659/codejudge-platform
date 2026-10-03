@@ -22,3 +22,4 @@ frontend/.vite/
 *.log
 backend/logs/
 out/
+.run/
