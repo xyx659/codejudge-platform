@@ -22,6 +22,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -32,25 +34,26 @@ import java.util.concurrent.TimeUnit;
  * 超时后按「进优雅停止 → 强杀 → 强制删除」三级兜底，确保容器不残留。</p>
  *
  * <p>安全参数（详见设计文档 §五）：禁网、限内存/CPU/进程数、去除全部 Linux capability、
- * 以 {@code nobody} 运行。镜像与工作目录可配置。</p>
+ * 以 {@code nobody} 运行。镜像按请求传入（各语言 {@code LanguageHandler.image()}），
+ * 未指定时回退到 {@code judge.docker.image}（默认 {@code eclipse-temurin:17}）。</p>
  */
 @Component
 public class JudgeContainerClient {
 
     private static final Logger log = LoggerFactory.getLogger(JudgeContainerClient.class);
 
-    /** 镜像名，默认 eclipse-temurin:17（官方 OpenJDK 发行版，含 javac/java） */
-    private final String image;
+    /** 默认镜像名（未在请求中指定 image 时使用），如 eclipse-temurin:17。 */
+    private final String defaultImage;
 
     private final DockerClient dockerClient;
 
-    /** 镜像是否已确认存在，避免每次运行都触发 inspect/pull 竞态 */
-    private volatile boolean imageReady = false;
+    /** 已确认存在的镜像集合，避免每次运行都对同一镜像触发 inspect/pull 竞态。 */
+    private final Set<String> readyImages = ConcurrentHashMap.newKeySet();
 
     public JudgeContainerClient(DockerClient dockerClient,
-                                @Value("${judge.docker.image:eclipse-temurin:17}") String image) {
+                                @Value("${judge.docker.image:eclipse-temurin:17}") String defaultImage) {
         this.dockerClient = dockerClient;
-        this.image = image;
+        this.defaultImage = defaultImage;
     }
 
     /** 编译类操作结果：退出码 + stderr + 回拷的工作目录 tar（编译失败/超时为 null）+ 是否超时。 */
@@ -66,7 +69,7 @@ public class JudgeContainerClient {
     public ContainerRunResult run(ContainerRunRequest request) {
         String containerId = null;
         try {
-            ensureImage();
+            ensureImage(imageOf(request));
             containerId = createContainer(request);
             copyWorkDir(containerId, request.workDir(), request.workDirTar());
             dockerClient.startContainerCmd(containerId).exec();
@@ -107,13 +110,13 @@ public class JudgeContainerClient {
     }
 
     /**
-     * 执行一次编译类操作：编译成功后额外把容器工作目录回拷为 tar（含 .class 产物），
+     * 执行一次编译类操作：编译成功后额外把容器工作目录回拷为 tar（含编译产物），
      * 供逐用例运行容器复用。编译失败 / 超时 / 异常时 {@code outputTar} 为 {@code null}。
      */
     public CompileResult compile(ContainerRunRequest request) {
         String containerId = null;
         try {
-            ensureImage();
+            ensureImage(imageOf(request));
             containerId = createContainer(request);
             copyWorkDir(containerId, request.workDir(), request.workDirTar());
             dockerClient.startContainerCmd(containerId).exec();
@@ -155,6 +158,11 @@ public class JudgeContainerClient {
         }
     }
 
+    /** 解析请求镜像：请求未指定时回退默认镜像。 */
+    private String imageOf(ContainerRunRequest request) {
+        return (request.image() == null || request.image().isBlank()) ? defaultImage : request.image();
+    }
+
     /** 从容器回拷工作目录（{@code docker cp} 反向），返回 tar 字节。 */
     private byte[] fetchWorkDir(String containerId, String workDir) {
         try (InputStream in = dockerClient.copyArchiveFromContainerCmd(containerId, workDir).exec()) {
@@ -164,13 +172,13 @@ public class JudgeContainerClient {
         }
     }
 
-    /** 首次运行时检查并自动拉取评测镜像（双重检查锁，避免并发重复拉取）。 */
-    private void ensureImage() {
-        if (imageReady) {
+    /** 按镜像名首次运行时检查并自动拉取（双重检查锁，避免并发重复拉取同一镜像）。 */
+    private void ensureImage(String image) {
+        if (readyImages.contains(image)) {
             return;
         }
         synchronized (this) {
-            if (imageReady) {
+            if (readyImages.contains(image)) {
                 return;
             }
             try {
@@ -187,7 +195,7 @@ public class JudgeContainerClient {
                     throw new IllegalStateException("拉取评测镜像被中断：image=" + image, ie);
                 }
             }
-            imageReady = true;
+            readyImages.add(image);
         }
     }
 
@@ -202,7 +210,7 @@ public class JudgeContainerClient {
                 .withCapDrop(Capability.ALL)
                 .withNetworkMode("none");
 
-        CreateContainerResponse response = dockerClient.createContainerCmd(image)
+        CreateContainerResponse response = dockerClient.createContainerCmd(imageOf(request))
                 .withCmd(request.command())
                 .withWorkingDir(request.workDir())
                 .withUser("nobody")

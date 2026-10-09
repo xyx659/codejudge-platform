@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -20,8 +21,17 @@ import java.util.TreeMap;
 @Component
 public class WorkspacePacker {
 
-    /** 把「文件名 → 内容」集合打成 tar 字节。 */
+    /** 把「文件名 → 内容」集合打成 tar 字节（全部 0644）。 */
     public byte[] pack(Map<String, byte[]> files) {
+        return pack(files, Set.of());
+    }
+
+    /**
+     * 把「文件名 → 内容」集合打成 tar 字节；{@code executables} 中的文件名带可执行位（0755），
+     * 其余为 0644。用于运行容器：编译产物（如 C/C++ 的 {@code main} 二进制）需可执行，
+     * 否则容器内 {@code ./main} 会报 {@code Permission denied}。
+     */
+    public byte[] pack(Map<String, byte[]> files, Set<String> executables) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try (TarArchiveOutputStream tar = new TarArchiveOutputStream(bos)) {
             tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
@@ -29,7 +39,7 @@ public class WorkspacePacker {
                 byte[] content = e.getValue();
                 TarArchiveEntry entry = new TarArchiveEntry(e.getKey());
                 entry.setSize(content.length);
-                entry.setMode(0644);
+                entry.setMode(executables.contains(e.getKey()) ? 0755 : 0644);
                 tar.putArchiveEntry(entry);
                 tar.write(content);
                 tar.closeArchiveEntry();
