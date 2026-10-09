@@ -58,8 +58,11 @@ class DockerJudgeEngineTest {
     @BeforeEach
     void setUp() {
         packer = new WorkspacePacker();
+        CodeRunner codeRunner = new CodeRunner();
+        LanguageHandlerRegistry registry =
+                new LanguageHandlerRegistry(List.of(new JavaLanguageHandler(codeRunner)));
         engine = new DockerJudgeEngine(submissionRepository, submissionDetailRepository,
-                questionRepository, systemConfigService, new CodeRunner(), packer, containerClient,
+                questionRepository, systemConfigService, codeRunner, registry, packer, containerClient,
                 aiReviewService);
 
         submission = new Submission("q1", 100L);

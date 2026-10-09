@@ -70,8 +70,11 @@ class DockerJudgeEngineIntegrationTest {
 
         JudgeContainerClient containerClient =
                 new JudgeContainerClient(dockerClient, "eclipse-temurin:17");
+        CodeRunner codeRunner = new CodeRunner();
+        LanguageHandlerRegistry registry =
+                new LanguageHandlerRegistry(List.of(new JavaLanguageHandler(codeRunner)));
         engine = new DockerJudgeEngine(submissionRepository, submissionDetailRepository,
-                questionRepository, systemConfigService, new CodeRunner(), new WorkspacePacker(),
+                questionRepository, systemConfigService, codeRunner, registry, new WorkspacePacker(),
                 containerClient, aiReviewService);
 
         submission = new Submission("q1", 100L);
