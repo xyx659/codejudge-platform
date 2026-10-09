@@ -163,6 +163,7 @@ public class ExamService {
         exam.setDurationMinutes(request.durationMinutes());
         exam.setPassScore(request.passScore());
         exam.setTargetClass(request.targetClass());
+        exam.setLanguage(request.language());
         exam.setQuestions(buildQuestions(request.questions()));
         exam.setUpdatedAt(LocalDateTime.now());
     }

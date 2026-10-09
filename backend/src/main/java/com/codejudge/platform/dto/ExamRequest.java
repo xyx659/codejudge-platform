@@ -14,6 +14,7 @@ import java.util.List;
  * @param durationMinutes 考试时长（分钟）
  * @param passScore       及格分
  * @param targetClass     目标班级（文本标签）
+ * @param language        考试语言（Java / C / C++ / Python / Go）
  * @param questions       组卷题目列表（题目 ID + 分值）
  */
 public record ExamRequest(
@@ -25,5 +26,6 @@ public record ExamRequest(
         Integer durationMinutes,
         Integer passScore,
         String targetClass,
+        String language,
         List<ExamQuestionItem> questions) {
 }

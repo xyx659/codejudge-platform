@@ -42,7 +42,7 @@ public class TeacherQuestionService {
     }
 
     /**
-     * 分页查询题目，支持关键字 / 难度 / 分类 / 标签筛选。
+     * 分页查询题目，支持关键字 / 难度 / 分类 / 标签 / 语言筛选。
      *
      * <p>教师端能看到所有题目（含未发布草稿），与学生端只能看已发布不同。</p>
      */
@@ -53,6 +53,7 @@ public class TeacherQuestionService {
             String difficulty,
             String categoryId,
             String tag,
+            String language,
             Boolean published) {
         List<Criteria> conditions = new ArrayList<Criteria>();
 
@@ -72,6 +73,9 @@ public class TeacherQuestionService {
         }
         if (tag != null && !tag.isBlank()) {
             conditions.add(Criteria.where("tags").in(tag));
+        }
+        if (language != null && !language.isBlank()) {
+            conditions.add(Criteria.where("language").is(language));
         }
         // 发布状态筛选（组卷时传 published=true，只让老师挑学生可见的已发布题目）
         if (published != null) {

@@ -48,6 +48,9 @@ public class Exam {
     /** 目标班级（文本标签，如「软件工程2101班」） */
     private String targetClass;
 
+    /** 考试语言（Java / C / C++ / Python / Go），组卷时确定，约束只能添加该语言的题目 */
+    private String language;
+
     /** 状态：DRAFT / PUBLISHED / CLOSED */
     private String status = "DRAFT";
 
@@ -129,6 +132,14 @@ public class Exam {
 
     public void setTargetClass(String targetClass) {
         this.targetClass = targetClass;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
     }
 
     public String getStatus() {
