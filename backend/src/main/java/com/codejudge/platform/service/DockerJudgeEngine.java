@@ -17,17 +17,20 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 自研容器判题引擎（Step 5）：拉数据 → 生成 {@code Main} → 容器内 {@code javac} 编译
- * → 逐用例独立容器运行 → 比对 → 按通过率算分。
+ * 自研容器判题引擎（Step 5）：拉数据 → 按题目语言路由 {@link LanguageHandler} → 生成包装 →
+ * 容器内编译 → 逐用例独立容器运行 → 比对 → 按通过率算分。
  *
- * <p>执行模型：一题只编译一次，编译产物（{@code .class}）通过 {@code docker cp} 回拷给宿主，
- * 逐用例时再打包 {@code .class} + 输入文件、每个用例用一个独立容器运行，保证用例间隔离与精确超时。</p>
+ * <p>语言相关行为全部委托给 {@link LanguageHandler}（Java / Python / Go），本类只做编排，
+ * 不感知任何具体语言的编译命令、包装源码与数据结构定义。</p>
+ *
+ * <p>执行模型：一题只编译一次，编译产物（Java 的 {@code .class}、Go 的可执行文件）通过
+ * {@code docker cp} 回拷给宿主，逐用例时再打包产物 + 输入文件、每个用例用一个独立容器运行，
+ * 保证用例间隔离与精确超时；解释型语言（Python）无编译步骤，直接用源码逐用例运行。</p>
  *
  * <p>状态映射：编译失败 → {@code COMPILE_ERROR}，编译超时 → {@code TIMEOUT}（score=0）；
  * 其余 → {@code RUN_COMPLETED}，用例级失败（超时 / 运行时错误 / 输出不符）记在单个 {@link TestCaseResult} 中。</p>
@@ -50,7 +53,7 @@ public class DockerJudgeEngine implements JudgeEngine {
     private final SubmissionDetailRepository submissionDetailRepository;
     private final QuestionRepository questionRepository;
     private final SystemConfigService systemConfigService;
-    private final CodeRunner codeRunner;
+    private final LanguageHandlerRegistry languageHandlers;
     private final WorkspacePacker packer;
     private final JudgeContainerClient containerClient;
     private final AiReviewService aiReviewService;
@@ -59,7 +62,7 @@ public class DockerJudgeEngine implements JudgeEngine {
                              SubmissionDetailRepository submissionDetailRepository,
                              QuestionRepository questionRepository,
                              SystemConfigService systemConfigService,
-                             CodeRunner codeRunner,
+                             LanguageHandlerRegistry languageHandlers,
                              WorkspacePacker packer,
                              JudgeContainerClient containerClient,
                              AiReviewService aiReviewService) {
@@ -67,7 +70,7 @@ public class DockerJudgeEngine implements JudgeEngine {
         this.submissionDetailRepository = submissionDetailRepository;
         this.questionRepository = questionRepository;
         this.systemConfigService = systemConfigService;
-        this.codeRunner = codeRunner;
+        this.languageHandlers = languageHandlers;
         this.packer = packer;
         this.containerClient = containerClient;
         this.aiReviewService = aiReviewService;
@@ -106,20 +109,23 @@ public class DockerJudgeEngine implements JudgeEngine {
             return;
         }
 
+        // 按题目语言路由到对应处理器（null/历史数据回退 Java）
+        LanguageHandler handler = languageHandlers.get(question.getLanguage());
+
         String judgeMode = question.getJudgeMode() == null ? "METHOD" : question.getJudgeMode();
         boolean isDesign = "DESIGN".equals(judgeMode);
         boolean isStdio = "STDIO".equals(judgeMode);
 
         JudgeRuntimeConfig config = systemConfigService.getJudgeRuntimeConfig();
 
-        // ② 编译：Solution.java（学生源码） + Main.java（判题侧包装） + 数据结构定义文件
+        // ② 组装源码：学生源码 + 判题侧包装 + 数据结构定义文件
         Map<String, String> helperSources;
-        String mainSource;
+        String wrapperSource;
 
         if (isStdio) {
-            // STDIO 模式：学生写完整程序，Main 只是调用 Solution.main
+            // STDIO 模式：学生写完整程序，包装只负责转发
             helperSources = new HashMap<>();
-            mainSource = codeRunner.generateStdioMain();
+            wrapperSource = handler.generateStdioWrapper();
         } else if (isDesign) {
             // 设计题：解析多个方法签名
             List<String> methodDefs = question.getDesignMethods();
@@ -128,10 +134,10 @@ public class DockerJudgeEngine implements JudgeEngine {
                         List.of(new TestCaseResult("评测", false, "", "设计题缺少方法定义", 0)));
                 return;
             }
-            List<CodeRunner.MethodSignature> signatures = new ArrayList<>();
+            List<MethodSignature> signatures = new ArrayList<>();
             for (String def : methodDefs) {
                 try {
-                    signatures.add(codeRunner.parseSignature(def));
+                    signatures.add(handler.parseSignature(def));
                 } catch (Exception e) {
                     finish(submission, detail, "COMPILE_ERROR", 0,
                             List.of(new TestCaseResult("评测", false, "", "方法签名解析失败：" + def, 0)));
@@ -140,58 +146,68 @@ public class DockerJudgeEngine implements JudgeEngine {
             }
             // 收集所有方法涉及的辅助类
             helperSources = new HashMap<>();
-            for (CodeRunner.MethodSignature sig : signatures) {
-                helperSources.putAll(codeRunner.requiredHelperSources(sig));
+            for (MethodSignature sig : signatures) {
+                helperSources.putAll(handler.helperSources(sig));
             }
             // 从学生源码中提取实际类名（如 MinStack），支持任意类名
-            String className = codeRunner.extractClassName(detail.getSourceCode());
-            mainSource = codeRunner.generateDesignMain(signatures, className);
+            String className = handler.extractClassName(detail.getSourceCode());
+            wrapperSource = handler.generateDesignWrapper(signatures, className);
         } else {
             // 普通方法题
-            CodeRunner.MethodSignature signature;
+            MethodSignature signature;
             try {
-                signature = codeRunner.parseSignature(question.getMethodSignature());
+                signature = handler.parseSignature(question.getMethodSignature());
             } catch (Exception e) {
                 finish(submission, detail, "COMPILE_ERROR", 0,
                         List.of(new TestCaseResult("评测", false, "", "题目缺少合法方法签名", 0)));
                 return;
             }
-            helperSources = codeRunner.requiredHelperSources(signature);
+            helperSources = handler.helperSources(signature);
             List<String> helperClasses = new ArrayList<>(helperSources.values());
-            mainSource = codeRunner.generateMain(signature, helperClasses);
+            wrapperSource = handler.generateMethodWrapper(signature, helperClasses);
         }
         Map<String, byte[]> sources = new HashMap<>();
-        sources.put("Solution.java", detail.getSourceCode().getBytes(StandardCharsets.UTF_8));
-        sources.put("Main.java", mainSource.getBytes(StandardCharsets.UTF_8));
-        // 注入 ListNode/TreeNode/Node 独立源码，使 Solution.java 能引用这些类
+        sources.put(handler.sourceFileName(), detail.getSourceCode().getBytes(StandardCharsets.UTF_8));
+        sources.put(handler.wrapperFileName(), wrapperSource.getBytes(StandardCharsets.UTF_8));
+        // 注入 ListNode/TreeNode/Node 等独立源码，使 Solution 能引用这些类型
         for (Map.Entry<String, String> e : helperSources.entrySet()) {
             sources.put(e.getKey(), e.getValue().getBytes(StandardCharsets.UTF_8));
         }
 
-        JudgeContainerClient.CompileResult cr = containerClient.compile(
-                new ContainerRunRequest(codeRunner.compileCommand(), WORK_DIR,
-                        packer.pack(sources), COMPILE_TIMEOUT_MS, config.memoryMb(), CPUS));
+        // ③ 编译（编译型语言）或直接运行（解释型语言）
+        Map<String, byte[]> runBase;
+        if (handler.requiresCompile()) {
+            JudgeContainerClient.CompileResult cr = containerClient.compile(
+                    new ContainerRunRequest(handler.compileCommand(), WORK_DIR,
+                            packer.pack(sources), COMPILE_TIMEOUT_MS, config.memoryMb(), CPUS,
+                            JudgeContainerClient.PIDS_LIMIT_COMPILE),
+                    handler.image());
 
-        if (cr.timedOut()) {
-            finish(submission, detail, "TIMEOUT", 0,
-                    List.of(new TestCaseResult("编译", false, "", "编译超时", COMPILE_TIMEOUT_MS)));
-            return;
-        }
-        if (cr.exitCode() != 0) {
-            finish(submission, detail, "COMPILE_ERROR", 0,
-                    List.of(new TestCaseResult("编译", false, "", truncate(cr.stderr()), 0)));
-            return;
+            if (cr.timedOut()) {
+                finish(submission, detail, "TIMEOUT", 0,
+                        List.of(new TestCaseResult("编译", false, "", "编译超时", COMPILE_TIMEOUT_MS)));
+                return;
+            }
+            if (cr.exitCode() != 0) {
+                finish(submission, detail, "COMPILE_ERROR", 0,
+                        List.of(new TestCaseResult("编译", false, "", truncate(cr.stderr()), 0)));
+                return;
+            }
+            // 复用编译产物：Java 取 .class，Go 取可执行文件
+            runBase = handler.selectRunFiles(packer.unpack(cr.outputTar()));
+        } else {
+            // 解释型语言：无编译产物，直接用源码逐用例运行
+            runBase = sources;
         }
 
-        // ③ 逐用例运行：复用编译产物 .class，每个用例一个独立容器
-        Map<String, byte[]> classFiles = packer.unpack(cr.outputTar());
+        // ④ 逐用例运行：复用编译产物，每个用例一个独立容器
         List<QuestionTestCase> testCases = question.getTestCases();
         List<TestCaseResult> results = new ArrayList<>();
         for (int i = 0; i < testCases.size(); i++) {
-            results.add(runCase(classFiles, testCases.get(i), i, config));
+            results.add(runCase(runBase, handler, testCases.get(i), i, config));
         }
 
-        // ④ 算分：通过用例占比 × 100，四舍五入
+        // ⑤ 算分：通过用例占比 × 100，四舍五入
         int passCount = 0;
         for (TestCaseResult r : results) {
             if (r.isPassed()) {
@@ -209,22 +225,19 @@ public class DockerJudgeEngine implements JudgeEngine {
         triggerAiReview(submissionId, question, detail, score, results);
     }
 
-    /** 运行单个用例：{@code .class} + {@code inputN.txt} 打包，独立容器执行 {@code java Main}。 */
-    private TestCaseResult runCase(Map<String, byte[]> classFiles,
+    /** 运行单个用例：编译产物 + {@code inputN.txt} 打包，独立容器执行。 */
+    private TestCaseResult runCase(Map<String, byte[]> runBase, LanguageHandler handler,
                                    QuestionTestCase tc, int index, JudgeRuntimeConfig config) {
         String inputFile = "input" + index + ".txt";
-        Map<String, byte[]> runFiles = new HashMap<>();
-        for (Map.Entry<String, byte[]> e : classFiles.entrySet()) {
-            if (e.getKey().endsWith(".class")) {
-                runFiles.put(e.getKey(), e.getValue());
-            }
-        }
-        runFiles.put(inputFile, tc.getInput().getBytes(StandardCharsets.UTF_8));
+        Map<String, byte[]> runFiles = new HashMap<>(runBase);
+        runFiles.put(inputFile, tc.getInput() == null ? new byte[0] : tc.getInput().getBytes(StandardCharsets.UTF_8));
 
         long start = System.currentTimeMillis();
         ContainerRunResult run = containerClient.run(new ContainerRunRequest(
-                codeRunner.runCommand(inputFile), WORK_DIR,
-                packer.pack(runFiles), config.timeoutMs(), config.memoryMb(), CPUS));
+                handler.runCommand(inputFile), WORK_DIR,
+                packer.pack(runFiles, handler.executableNames()), config.timeoutMs(), config.memoryMb(), CPUS,
+                JudgeContainerClient.PIDS_LIMIT_RUN),
+                handler.image());
         long durationMs = System.currentTimeMillis() - start;
 
         String actual = run.stdout() == null ? "" : run.stdout().trim();
@@ -238,7 +251,7 @@ public class DockerJudgeEngine implements JudgeEngine {
         } else if (run.exitCode() != 0) {
             passed = false;
             message = "运行时错误：" + truncate(run.stderr());
-        } else if (!outputMatches(actual, expected)) {
+        } else if (!JudgeOutputMatcher.outputMatches(actual, expected)) {
             passed = false;
             message = "输出不符：期望=" + expected + "，实际=" + actual;
         } else {
@@ -248,99 +261,13 @@ public class DockerJudgeEngine implements JudgeEngine {
         return new TestCaseResult(tc.getName(), passed, actual, message, durationMs);
     }
 
-    /**
-     * 智能输出比对：先精确匹配，失败后尝试浮点模糊比对和集合无序比对。
-     */
-    private boolean outputMatches(String actual, String expected) {
-        // 1. 精确匹配（最快路径）
-        if (actual.equals(expected)) {
-            return true;
-        }
-        // 2. 浮点模糊比对：两端都是单个数值时，允许 1e-5 误差
-        if (isNumeric(actual) && isNumeric(expected)) {
-            try {
-                double a = Double.parseDouble(actual);
-                double e = Double.parseDouble(expected);
-                if (Math.abs(a - e) < 1e-5) {
-                    return true;
-                }
-                // 处理相对误差（数值很大时）
-                if (e != 0 && Math.abs((a - e) / e) < 1e-5) {
-                    return true;
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        // 3. 集合/数组无序比对：两端都是 [...] 格式时，排序后比较
-        if (actual.startsWith("[") && expected.startsWith("[")) {
-            return arrayMatches(actual, expected);
-        }
-        return false;
-    }
-
-    private boolean isNumeric(String s) {
-        if (s == null || s.isEmpty()) return false;
-        try {
-            Double.parseDouble(s);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
-    /**
-     * 数组/集合无序比对：按逗号分割、排序后逐元素比较。
-     * 处理嵌套数组时保持子数组原样，只对顶层排序。
-     */
-    private boolean arrayMatches(String actual, String expected) {
-        try {
-            String[] aTokens = splitTopLevel(actual.substring(1, actual.length() - 1));
-            String[] eTokens = splitTopLevel(expected.substring(1, expected.length() - 1));
-            if (aTokens.length != eTokens.length) return false;
-            // 先尝试有序比较（多数情况有序即可）
-            if (Arrays.equals(aTokens, eTokens)) return true;
-            // 无序比较：排序后比较
-            String[] aSorted = aTokens.clone();
-            String[] eSorted = eTokens.clone();
-            Arrays.sort(aSorted);
-            Arrays.sort(eSorted);
-            return Arrays.equals(aSorted, eSorted);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /** 按顶层逗号拆分，忽略嵌套括号内的逗号。 */
-    private String[] splitTopLevel(String s) {
-        java.util.List<String> out = new ArrayList<>();
-        int depth = 0;
-        boolean inStr = false;
-        StringBuilder cur = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '"') inStr = !inStr;
-            if (!inStr) {
-                if (c == '[' || c == '(' || c == '{') depth++;
-                else if (c == ']' || c == ')' || c == '}') depth--;
-            }
-            if (!inStr && depth == 0 && c == ',') {
-                out.add(cur.toString().trim());
-                cur.setLength(0);
-                continue;
-            }
-            cur.append(c);
-        }
-        if (cur.length() > 0) out.add(cur.toString().trim());
-        return out.toArray(new String[0]);
-    }
-
     /** Step 7：白盒 AI 评审。仅编译通过后触发；未配置 Key、调用或解析失败时 aiReview 保持为 null。 */
     private void triggerAiReview(Long submissionId, Question question, SubmissionDetail detail,
                                  int passRate, List<TestCaseResult> results) {
         try {
             AiReview aiReview = aiReviewService.review(
                     question.getTitle(), question.getDescription(), question.getMethodSignature(),
-                    detail.getSourceCode(), passRate, results);
+                    question.getLanguage(), detail.getSourceCode(), passRate, results);
             if (aiReview != null) {
                 detail.setAiReview(aiReview);
                 // 综合分回写：更新 MongoDB 明细 + MySQL 摘要

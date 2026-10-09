@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -66,7 +67,7 @@ public class AiReviewService {
      * @return 评审结果；未配置 Key、调用失败或解析失败时返回 {@code null}（跳过）
      */
     public AiReview review(String questionTitle, String questionDescription, String methodSignature,
-                           String sourceCode, int passRate, List<TestCaseResult> testResults) {
+                           String language, String sourceCode, int passRate, List<TestCaseResult> testResults) {
         AiRuntimeConfig config = currentConfig();
         if (config.apiKey() == null || config.apiKey().isBlank()) {
             log.info("未配置 AI API Key，跳过白盒评审：passRate={}", passRate);
@@ -78,7 +79,7 @@ public class AiReviewService {
         }
         try {
             String prompt = buildPrompt(questionTitle, questionDescription, methodSignature,
-                    sourceCode, passRate, testResults);
+                    language, sourceCode, passRate, testResults);
             String content = callChatCompletions(config, prompt);
             return parseReview(content, passRate);
         } catch (Exception e) {
@@ -94,12 +95,12 @@ public class AiReviewService {
      * @param description 题目描述
      * @return 生成结果 JSON 字符串（含 testCases / tags / difficulty / methodName / methodSignature）
      */
-    public String generateQuestion(String title, String description) {
+    public String generateQuestion(String title, String description, String language) {
         AiRuntimeConfig config = currentConfig();
         if (config.apiKey() == null || config.apiKey().isBlank()) {
             throw new IllegalStateException("未配置 AI API Key，无法生成题目");
         }
-        String prompt = buildGeneratePrompt(title, description);
+        String prompt = buildGeneratePrompt(title, description, language);
         try {
             // forGeneration=true：跳过 thinking 模式，加速生成
             return callChatCompletions(config, prompt, true);
@@ -109,10 +110,16 @@ public class AiReviewService {
         }
     }
 
-    public String buildGeneratePrompt(String title, String description) {
+    public String buildGeneratePrompt(String title, String description, String language) {
+        String lang = languageName(language);
         return "根据题目生成判题数据，只输出JSON，无额外文字。\n\n"
              + "标题：" + title + "\n"
              + "描述：" + description + "\n\n"
+             + "=== 编程语言（methodSignature / designMethods 必须按该语言原生签名填写）===\n"
+             + "当前语言：" + lang + "\n"
+             + "- Java：methodSignature 如 \"int[] twoSum(int[], int)\"，designMethods 如 \"int get(int)\"\n"
+             + "- Python：methodSignature 如 \"def twoSum(self, nums: List[int], target: int) -> List[int]\"，designMethods 如 \"def get(self, key: int) -> int\"\n"
+             + "- Go：methodSignature 如 \"twoSum(nums []int, target int) []int\"，designMethods 如 \"get(key int) int\"\n\n"
              + "=== 判题模式 ===\n"
              + "根据题目类型选择 judgeMode：\n"
              + "- METHOD（默认）：单方法题，需填 methodName + methodSignature\n"
@@ -147,7 +154,8 @@ public class AiReviewService {
 
     /** 组装 Prompt：题目信息 + 学生源码 + 黑盒结果 + 评分维度，要求 AI 只回 JSON。 */
     private String buildPrompt(String title, String description, String signature,
-                               String sourceCode, int passRate, List<TestCaseResult> results) {
+                               String language, String sourceCode, int passRate, List<TestCaseResult> results) {
+        String lang = languageName(language);
         StringBuilder cases = new StringBuilder();
         for (TestCaseResult r : results) {
             String name = r.getTestCaseName() == null || r.getTestCaseName().isBlank()
@@ -158,12 +166,12 @@ public class AiReviewService {
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("你是一位严谨的 Java 编程评审老师，请对下面的学生代码做白盒代码质量评审。\n\n");
+        sb.append("你是一位严谨的 ").append(lang).append(" 编程评审老师，请对下面的学生代码做白盒代码质量评审。\n\n");
         sb.append("【题目】\n");
         sb.append("标题：").append(nullToEmpty(title)).append('\n');
         sb.append("描述：").append(nullToEmpty(description)).append('\n');
         sb.append("方法签名：").append(nullToEmpty(signature)).append('\n');
-        sb.append("\n【学生提交的代码】\n```java\n").append(sourceCode).append("\n```\n");
+        sb.append("\n【学生提交的代码】\n```").append(lang.toLowerCase(Locale.ROOT)).append("\n").append(sourceCode).append("\n```\n");
         sb.append("\n【黑盒测试结果】\n用例通过率：").append(passRate).append(" / 100\n").append(cases);
 
         sb.append("\n【评分维度与标准】\n");
@@ -184,8 +192,8 @@ public class AiReviewService {
         sb.append("5. robustness（鲁棒性，权重10%）：异常处理、防御性编程\n");
         sb.append("   100=完善的异常处理和输入校验 75=基本处理 50=部分处理 25=很少处理 0=无任何防御\n\n");
 
-        sb.append("6. best_practices（最佳实践，权重5%）：Java 规范、数据结构选择、设计模式\n");
-        sb.append("   100=完全遵循 Java 规范 75=基本遵循 50=一般 25=较多不规范 0=严重违反\n\n");
+        sb.append("6. best_practices（最佳实践，权重5%）：").append(lang).append(" 规范、数据结构选择、设计模式\n");
+        sb.append("   100=完全遵循 ").append(lang).append(" 规范 75=基本遵循 50=一般 25=较多不规范 0=严重违反\n\n");
 
         sb.append("请只输出一个 JSON 对象，不要包含任何额外文字或 Markdown 代码块标记。\n\n");
         sb.append("=== 输出格式（严格按此结构，不得省略任何字段） ===\n\n");
@@ -226,7 +234,7 @@ public class AiReviewService {
         body.put("temperature", 0.2);
         body.put("stream", false);
         body.put("messages", List.of(
-                Map.of("role", "system", "content", "你是一位严谨的 Java 编程评审老师。"),
+                Map.of("role", "system", "content", "你是一位严谨的编程评审老师。"),
                 Map.of("role", "user", "content", prompt)));
         // deepseek-v4-pro 需要 thinking 和 reasoning_effort 参数
         // 生成题目时跳过 thinking 以加速（评审时保留）
@@ -293,7 +301,7 @@ public class AiReviewService {
         body.put("temperature", 0.2);
         body.put("stream", true);
         body.put("messages", List.of(
-                Map.of("role", "system", "content", "你是一位严谨的 Java 编程评审老师。"),
+                Map.of("role", "system", "content", "你是一位严谨的编程评审老师。"),
                 Map.of("role", "user", "content", prompt)));
 
         String url = config.baseUrl().replaceAll("/+$", "") + "/chat/completions";
@@ -468,6 +476,18 @@ public class AiReviewService {
 
     private String nullToEmpty(String s) {
         return s == null ? "" : s;
+    }
+
+    /** 归一化语言名（供 AI 提示词引用），空值/未知回退 Java。 */
+    private String languageName(String language) {
+        if (language == null || language.isBlank()) {
+            return "Java";
+        }
+        return switch (language.toLowerCase(Locale.ROOT)) {
+            case "python", "python3", "py" -> "Python";
+            case "go", "golang" -> "Go";
+            default -> "Java";
+        };
     }
 
     private String safeMessage(TestCaseResult r) {

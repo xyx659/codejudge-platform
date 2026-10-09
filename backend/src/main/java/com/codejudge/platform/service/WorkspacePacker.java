@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -20,8 +21,18 @@ import java.util.TreeMap;
 @Component
 public class WorkspacePacker {
 
-    /** 把「文件名 → 内容」集合打成 tar 字节。 */
+    /** 把「文件名 → 内容」集合打成 tar 字节（全部 0644）。 */
     public byte[] pack(Map<String, byte[]> files) {
+        return pack(files, Set.of());
+    }
+
+    /**
+     * 把「文件名 → 内容」集合打成 tar 字节；{@code executables} 中的文件设 0755（含 other 执行位）。
+     *
+     * <p>编译产物（如 Go 的可执行文件 {@code solution}）需保留执行位，否则容器内 {@code nobody}
+     * 无权限执行（{@code docker cp} 写入后文件属主为宿主机 uid，{@code nobody} 无法 {@code chmod}）。</p>
+     */
+    public byte[] pack(Map<String, byte[]> files, Set<String> executables) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try (TarArchiveOutputStream tar = new TarArchiveOutputStream(bos)) {
             tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
@@ -29,7 +40,7 @@ public class WorkspacePacker {
                 byte[] content = e.getValue();
                 TarArchiveEntry entry = new TarArchiveEntry(e.getKey());
                 entry.setSize(content.length);
-                entry.setMode(0644);
+                entry.setMode(executables.contains(e.getKey()) ? 0755 : 0644);
                 tar.putArchiveEntry(entry);
                 tar.write(content);
                 tar.closeArchiveEntry();

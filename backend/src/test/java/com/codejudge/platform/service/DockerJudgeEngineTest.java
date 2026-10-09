@@ -59,7 +59,8 @@ class DockerJudgeEngineTest {
     void setUp() {
         packer = new WorkspacePacker();
         engine = new DockerJudgeEngine(submissionRepository, submissionDetailRepository,
-                questionRepository, systemConfigService, new CodeRunner(), packer, containerClient,
+                questionRepository, systemConfigService,
+                new LanguageHandlerRegistry(List.of(new JavaLanguageHandler())), packer, containerClient,
                 aiReviewService);
 
         submission = new Submission("q1", 100L);
@@ -86,10 +87,10 @@ class DockerJudgeEngineTest {
         AiReview preset = new AiReview(90, 100, 80, List.of("ok"), "O(1)", "O(1)", Map.of(), "ok");
         detail.setAiReview(preset);
         stubCommon();
-        when(containerClient.compile(any()))
+        when(containerClient.compile(any(), any()))
                 .thenReturn(new JudgeContainerClient.CompileResult(
                         0, "", packer.pack(Map.of("Solution.class", new byte[0])), false));
-        when(containerClient.run(any()))
+        when(containerClient.run(any(), any()))
                 .thenReturn(new ContainerRunResult(0, "3\n", "", false));
 
         engine.judge(1L);
@@ -102,7 +103,7 @@ class DockerJudgeEngineTest {
         assertTrue(detail.getTestResults().get(0).isPassed());
         assertSame(preset, detail.getAiReview(), "回写不应改动 aiReview");
 
-        verify(aiReviewService).review(any(), any(), any(), any(), anyInt(), anyList());
+        verify(aiReviewService).review(any(), any(), any(), any(), any(), anyInt(), anyList());
 
         verify(submissionRepository).save(submission);
         verify(submissionDetailRepository).save(detail);
@@ -111,12 +112,12 @@ class DockerJudgeEngineTest {
     @Test
     void 编译成功且AI评审返回时回写aiReview() {
         stubCommon();
-        when(containerClient.compile(any()))
+        when(containerClient.compile(any(), any()))
                 .thenReturn(new JudgeContainerClient.CompileResult(
                         0, "", packer.pack(Map.of("Solution.class", new byte[0])), false));
-        when(containerClient.run(any())).thenReturn(new ContainerRunResult(0, "3\n", "", false));
+        when(containerClient.run(any(), any())).thenReturn(new ContainerRunResult(0, "3\n", "", false));
         AiReview review = new AiReview(93, 100, 90, List.of("建议补充边界处理"), "O(n)", "O(1)", Map.of(), "良好");
-        when(aiReviewService.review(any(), any(), any(), any(), anyInt(), anyList()))
+        when(aiReviewService.review(any(), any(), any(), any(), any(), anyInt(), anyList()))
                 .thenReturn(review);
 
         engine.judge(1L);
@@ -127,7 +128,7 @@ class DockerJudgeEngineTest {
     @Test
     void 编译失败时回写COMPILE_ERROR且得分0() {
         stubCommon();
-        when(containerClient.compile(any()))
+        when(containerClient.compile(any(), any()))
                 .thenReturn(new JudgeContainerClient.CompileResult(
                         1, "error: cannot find symbol", null, false));
 
@@ -145,7 +146,7 @@ class DockerJudgeEngineTest {
     @Test
     void 编译超时回写TIMEOUT且得分0() {
         stubCommon();
-        when(containerClient.compile(any()))
+        when(containerClient.compile(any(), any()))
                 .thenReturn(new JudgeContainerClient.CompileResult(-1, "", null, true));
 
         engine.judge(1L);
@@ -159,7 +160,7 @@ class DockerJudgeEngineTest {
     @Test
     void 评测异常时把两库都标为COMPILE_ERROR() {
         stubCommon();
-        when(containerClient.compile(any())).thenThrow(new RuntimeException("boom"));
+        when(containerClient.compile(any(), any())).thenThrow(new RuntimeException("boom"));
 
         engine.judge(1L);
 

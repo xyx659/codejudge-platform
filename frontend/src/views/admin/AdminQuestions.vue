@@ -226,6 +226,8 @@
               <span>语言</span>
               <select v-model="form.language">
                 <option value="Java">Java</option>
+                <option value="Python">Python</option>
+                <option value="Go">Go</option>
               </select>
             </label>
             <label class="field">
@@ -405,7 +407,7 @@ async function aiGenerate() {
     // 优先用流式接口，实时显示进度
     let finalData = null
     await aiGenerateQuestionStream(
-      { title: form.title, description: form.description },
+      { title: form.title, description: form.description, language: form.language },
       (chunk) => {
         aiProgress.value = chunk.length > 100 ? '...' + chunk.slice(-100) : chunk
         // 尝试解析最新内容看是否已有完整 JSON
@@ -422,7 +424,7 @@ async function aiGenerate() {
   } catch (e) {
     // 流式失败时回退到普通接口
     try {
-      const res = await aiGenerateQuestion({ title: form.title, description: form.description })
+      const res = await aiGenerateQuestion({ title: form.title, description: form.description, language: form.language })
       const data = extractJson(res.data)
       if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
       applyAiResult(data)

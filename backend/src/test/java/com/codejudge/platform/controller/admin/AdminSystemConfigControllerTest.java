@@ -85,7 +85,10 @@ class AdminSystemConfigControllerTest {
                                     "aiPerIp": 100,
                                     "submitGlobal": 600,
                                     "submitPerUser": 60,
-                                    "submitPerIp": 120
+                                    "submitPerIp": 120,
+                                    "runGlobal": 600,
+                                    "runPerUser": 120,
+                                    "runPerIp": 300
                                   }
                                 }
                                 """))
@@ -123,7 +126,10 @@ class AdminSystemConfigControllerTest {
                                     "aiPerIp": 120,
                                     "submitGlobal": 720,
                                     "submitPerUser": 72,
-                                    "submitPerIp": 144
+                                    "submitPerIp": 144,
+                                    "runGlobal": 720,
+                                    "runPerUser": 144,
+                                    "runPerIp": 360
                                   }
                                 }
                                 """))
@@ -144,7 +150,7 @@ class AdminSystemConfigControllerTest {
                         false,
                         null),
                 new SystemConfigResponse.LimitConfigResponse(
-                        100, 10, 20, 300, 30, 100, 600, 60, 120),
+                        100, 10, 20, 300, 30, 100, 600, 60, 120, 600, 120, 300),
                 "admin",
                 null);
     }
@@ -159,7 +165,7 @@ class AdminSystemConfigControllerTest {
                         false,
                         null),
                 new SystemConfigResponse.LimitConfigResponse(
-                        120, 12, 24, 360, 36, 120, 720, 72, 144),
+                        120, 12, 24, 360, 36, 120, 720, 72, 144, 720, 144, 360),
                 "admin",
                 null);
     }

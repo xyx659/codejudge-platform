@@ -37,6 +37,9 @@ public record SystemConfigResponse(
             int aiPerIp,
             int submitGlobal,
             int submitPerUser,
-            int submitPerIp) {
+            int submitPerIp,
+            int runGlobal,
+            int runPerUser,
+            int runPerIp) {
     }
 }

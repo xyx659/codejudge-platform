@@ -87,6 +87,18 @@ public record SystemConfigUpdateRequest(
             @NotNull(message = "提交单 IP 限流不能为空")
             @Min(value = 1, message = "提交单 IP 限流不能小于 1")
             @Max(value = 2000, message = "提交单 IP 限流不能大于 2000")
-            Integer submitPerIp) {
+            Integer submitPerIp,
+            @NotNull(message = "自测全局限流不能为空")
+            @Min(value = 1, message = "自测全局限流不能小于 1")
+            @Max(value = 10000, message = "自测全局限流不能大于 10000")
+            Integer runGlobal,
+            @NotNull(message = "自测单用户限流不能为空")
+            @Min(value = 1, message = "自测单用户限流不能小于 1")
+            @Max(value = 1000, message = "自测单用户限流不能大于 1000")
+            Integer runPerUser,
+            @NotNull(message = "自测单 IP 限流不能为空")
+            @Min(value = 1, message = "自测单 IP 限流不能小于 1")
+            @Max(value = 2000, message = "自测单 IP 限流不能大于 2000")
+            Integer runPerIp) {
     }
 }

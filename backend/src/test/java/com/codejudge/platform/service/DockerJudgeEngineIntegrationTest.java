@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
  * 覆盖「编译错误 / 正常通过 / 运行时超时 / 运行时错误」四类场景。
  *
  * <p>仓库与配置均为 mock（聚焦真实 Docker 判题链路），
- * 仅 Docker 客户端、{@link JudgeContainerClient}、{@link CodeRunner}、{@link WorkspacePacker}
+ * 仅 Docker 客户端、{@link JudgeContainerClient}、{@link LanguageHandlerRegistry}、{@link WorkspacePacker}
  * 与 {@link DockerJudgeEngine} 为真实实现。</p>
  *
  * <p>前置条件：宿主机已安装 Docker 且本地存在 {@code eclipse-temurin:17} 镜像。</p>
@@ -69,9 +69,10 @@ class DockerJudgeEngineIntegrationTest {
         dockerClient = DockerClientImpl.getInstance(config, httpClient);
 
         JudgeContainerClient containerClient =
-                new JudgeContainerClient(dockerClient, "eclipse-temurin:17");
+                new JudgeContainerClient(dockerClient);
         engine = new DockerJudgeEngine(submissionRepository, submissionDetailRepository,
-                questionRepository, systemConfigService, new CodeRunner(), new WorkspacePacker(),
+                questionRepository, systemConfigService,
+                new LanguageHandlerRegistry(List.of(new JavaLanguageHandler())), new WorkspacePacker(),
                 containerClient, aiReviewService);
 
         submission = new Submission("q1", 100L);

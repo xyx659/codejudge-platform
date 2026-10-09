@@ -1,5 +1,6 @@
 package com.codejudge.platform.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -28,7 +29,31 @@ import java.util.regex.Pattern;
  * 反序列化 / 序列化辅助方法。{@code Node} 的四种形态按其字段集合自动识别。</p>
  */
 @Component
-public class CodeRunner {
+public class JavaLanguageHandler implements LanguageHandler {
+
+    /** 该语言判题用的镜像（Spring 注入；测试直接 new 时保留默认值）。 */
+    @Value("${judge.docker.image:eclipse-temurin:17}")
+    private String image = "eclipse-temurin:17";
+
+    @Override
+    public String language() {
+        return "Java";
+    }
+
+    @Override
+    public String image() {
+        return image;
+    }
+
+    @Override
+    public String sourceFileName() {
+        return "Solution.java";
+    }
+
+    @Override
+    public String wrapperFileName() {
+        return "Main.java";
+    }
 
     /** Node 四种形态，由辅助类定义的字段组合唯一确定。 */
     private enum NodeKind {
@@ -44,20 +69,11 @@ public class CodeRunner {
     }
 
     /**
-     * 解析后的方法签名。
-     *
-     * @param returnType 返回类型，如 {@code int[]}、{@code List<List<Integer>>}、{@code void}
-     * @param methodName 方法名，如 {@code twoSum}
-     * @param paramTypes 参数类型列表（有序），如 {@code [int[], int]}
-     */
-    public record MethodSignature(String returnType, String methodName, List<String> paramTypes) {
-    }
-
-    /**
      * 编译命令：在容器工作目录下，把学生源码、生成的 {@code Main} 以及辅助类定义一起编译。
      * 辅助类定义以独立的 {@code <ClassName>.java} 文件存在工作目录中，故这里只需编译
      * {@code *.java}。
      */
+    @Override
     public List<String> compileCommand() {
         return List.of("sh", "-c", "javac -encoding UTF-8 *.java");
     }
@@ -66,6 +82,7 @@ public class CodeRunner {
      * 运行命令：执行单个测试用例。{@code inputFile} 为工作目录内已写入该用例输入的文件名，
      * 通过 shell 重定向喂给标准输入。
      */
+    @Override
     public List<String> runCommand(String inputFile) {
         return List.of("sh", "-c", "java -cp . Main < " + inputFile);
     }
@@ -73,6 +90,7 @@ public class CodeRunner {
     /**
      * 解析自包含方法签名，形如 {@code int[] twoSum(int[], int)}、{@code void foo()}。
      */
+    @Override
     public MethodSignature parseSignature(String signature) {
         String s = signature == null ? "" : signature.trim();
         int open = s.indexOf('(');
@@ -138,20 +156,14 @@ public class CodeRunner {
     }
 
     /**
-     * 生成 {@code Main.java} 源码（无外部辅助类）。
-     */
-    public String generateMain(MethodSignature signature) {
-        return generateMain(signature, List.of());
-    }
-
-    /**
      * 生成 {@code Main.java} 源码：读 stdin → 按签名解析入参 → 调 {@code Solution.method} → 打印结果。
      *
      * @param helperClasses 辅助类定义源码列表（每个元素是一个完整的 {@code class}/{@code interface} 定义，
      *                      如 {@code ListNode}、{@code TreeNode}、{@code Node}）。仅用于识别 {@code Node} 形态，
      *                      类定义本身由调用方作为独立 {@code .java} 文件编译。
      */
-    public String generateMain(MethodSignature signature, List<String> helperClasses) {
+    @Override
+    public String generateMethodWrapper(MethodSignature signature, List<String> helperClasses) {
         Map<String, Set<String>> classFields = parseClassFields(helperClasses);
         NodeKind nodeKind = nodeKind(classFields.get("Node"));
         // 如果 Node 包含所有字段（无法区分形态），从方法名推断
@@ -213,6 +225,7 @@ public class CodeRunner {
      * 从学生源码中提取类名（匹配 {@code class ClassName} 或 {@code public class ClassName}）。
      * 提取不到时回退到 "Solution"。
      */
+    @Override
     public String extractClassName(String sourceCode) {
         if (sourceCode == null || sourceCode.isBlank()) {
             return "Solution";
@@ -235,7 +248,8 @@ public class CodeRunner {
      * @param methods   方法签名列表，第一个为构造器（如 "void LRUCache(int)"），后续为普通方法
      * @param className 学生代码中的实际类名（如 "MinStack"），用于生成正确的类型转换
      */
-    public String generateDesignMain(List<MethodSignature> methods, String className) {
+    @Override
+    public String generateDesignWrapper(List<MethodSignature> methods, String className) {
         StringBuilder sb = new StringBuilder();
         sb.append("import java.util.*;\n\n");
         sb.append("public class Main {\n");
@@ -301,7 +315,8 @@ public class CodeRunner {
      * 为 STDIO 模式生成 Main.java：直接调用 Solution.main(args)。
      * 学生源码需包含完整的 {@code public class Solution { public static void main(String[] args) {...}}}。
      */
-    public String generateStdioMain() {
+    @Override
+    public String generateStdioWrapper() {
         return "public class Main {\n"
              + "    public static void main(String[] args) throws Exception {\n"
              + "        Solution.main(args);\n"
@@ -357,7 +372,8 @@ public class CodeRunner {
      *
      * @return 文件名 → 源码的映射（如 {@code ListNode.java → "..."}）
      */
-    public Map<String, String> requiredHelperSources(MethodSignature signature) {
+    @Override
+    public Map<String, String> helperSources(MethodSignature signature) {
         Map<String, String> files = new HashMap<>();
         String all = signature.returnType() + " " + String.join(" ", signature.paramTypes());
         if (all.contains("ListNode")) {
@@ -370,6 +386,18 @@ public class CodeRunner {
             files.put("Node.java", nodeSource());
         }
         return files;
+    }
+
+    /** 编译产物中只保留 {@code *.class}，供逐用例运行复用（源码不再回传）。 */
+    @Override
+    public Map<String, byte[]> selectRunFiles(Map<String, byte[]> compiledFiles) {
+        Map<String, byte[]> out = new HashMap<>();
+        for (Map.Entry<String, byte[]> e : compiledFiles.entrySet()) {
+            if (e.getKey().endsWith(".class")) {
+                out.put(e.getKey(), e.getValue());
+            }
+        }
+        return out;
     }
 
     /** 类型 → 从 {@code value(p[i])} 解析出对应 Java 值的表达式。 */
