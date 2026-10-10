@@ -35,6 +35,7 @@
           <tr>
             <th>标题</th>
             <th>状态</th>
+            <th>语言</th>
             <th>目标班级</th>
             <th>开始时间</th>
             <th>题目数</th>
@@ -44,10 +45,10 @@
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="7" class="empty-cell">加载中...</td>
+            <td colspan="8" class="empty-cell">加载中...</td>
           </tr>
           <tr v-else-if="exams.length === 0">
-            <td colspan="7" class="empty-cell">暂无考试</td>
+            <td colspan="8" class="empty-cell">暂无考试</td>
           </tr>
           <template v-else>
             <tr v-for="exam in exams" :key="exam.id">
@@ -57,6 +58,7 @@
                   {{ statusText[exam.status] || exam.status }}
                 </span>
               </td>
+              <td>{{ exam.language || '-' }}</td>
               <td>{{ exam.targetClass || '-' }}</td>
               <td>{{ formatDate(exam.startTime) }}</td>
               <td>{{ exam.questionCount }}</td>
@@ -113,6 +115,12 @@
           <label class="field">
             <span>考试说明</span>
             <textarea v-model="form.description" rows="2"></textarea>
+          </label>
+          <label class="field">
+            <span>考试语言</span>
+            <select v-model="form.language">
+              <option v-for="l in languageOptions" :key="l" :value="l">{{ l }}</option>
+            </select>
           </label>
           <div class="field-row">
             <label class="field">
@@ -313,6 +321,8 @@ const statusText = {
   PUBLISHED: '已发布',
   CLOSED: '已结束'
 }
+// 可选考试语言（与后端 LanguageHandlerRegistry 的语言标识一致）
+const languageOptions = ['Java', 'C', 'C++', 'Python', 'Go']
 
 const exams = ref([])
 const total = ref(0)
@@ -349,6 +359,7 @@ const form = reactive({
   description: '',
   categoryId: '',
   targetClass: '',
+  language: 'Java',
   startTime: '',
   endTime: '',
   durationMinutes: 60,
@@ -463,7 +474,8 @@ async function loadCandidates() {
       published: true,
       keyword: candidateKeyword.value,
       difficulty: candidateDifficulty.value,
-      categoryId: candidateCategoryId.value
+      categoryId: candidateCategoryId.value,
+      language: form.language
     })
     const list = res.data.list || []
     candidates.value = list
@@ -589,6 +601,7 @@ function resetForm() {
   form.description = ''
   form.categoryId = ''
   form.targetClass = ''
+  form.language = 'Java'
   form.startTime = ''
   form.endTime = ''
   form.durationMinutes = 60
@@ -618,6 +631,7 @@ async function openEdit(exam) {
     form.description = d.description || ''
     form.categoryId = d.categoryId || ''
     form.targetClass = d.targetClass || ''
+    form.language = d.language || 'Java'
     form.startTime = toLocalInput(d.startTime)
     form.endTime = toLocalInput(d.endTime)
     form.durationMinutes = d.durationMinutes || 60
@@ -663,6 +677,7 @@ async function submitForm() {
       description: form.description,
       categoryId: form.categoryId || null,
       targetClass: form.targetClass,
+      language: form.language,
       startTime: normalizeDateTime(form.startTime),
       endTime: normalizeDateTime(form.endTime),
       durationMinutes: Number(form.durationMinutes) || null,

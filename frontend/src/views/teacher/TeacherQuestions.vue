@@ -146,7 +146,13 @@
           <div class="field-row">
             <label class="field">
               <span>编程语言</span>
-              <input v-model.trim="form.language" type="text" maxlength="20" />
+              <select v-model="form.language">
+                <option value="Java">Java</option>
+                <option value="C">C</option>
+                <option value="C++">C++</option>
+                <option value="Python">Python</option>
+                <option value="Go">Go</option>
+              </select>
             </label>
             <label class="field">
               <span>难度</span>
@@ -303,7 +309,7 @@ async function aiGenerate() {
   try {
     let finalData = null
     await aiGenerateQuestionStream(
-      { title: form.title, description: form.description },
+      { title: form.title, description: form.description, language: form.language },
       (chunk) => {
         aiProgress.value = chunk.length > 100 ? '...' + chunk.slice(-100) : chunk
         const parsed = extractJson(chunk)
@@ -317,7 +323,7 @@ async function aiGenerate() {
     applyAiResult(finalData)
   } catch (e) {
     try {
-      const res = await aiGenerateQuestion({ title: form.title, description: form.description })
+      const res = await aiGenerateQuestion({ title: form.title, description: form.description, language: form.language })
       const data = extractJson(res.data)
       if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
       applyAiResult(data)

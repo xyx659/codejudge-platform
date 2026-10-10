@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -42,7 +43,7 @@ public class TeacherQuestionService {
     }
 
     /**
-     * 分页查询题目，支持关键字 / 难度 / 分类 / 标签筛选。
+     * 分页查询题目，支持关键字 / 难度 / 分类 / 标签 / 语言筛选。
      *
      * <p>教师端能看到所有题目（含未发布草稿），与学生端只能看已发布不同。</p>
      */
@@ -53,6 +54,7 @@ public class TeacherQuestionService {
             String difficulty,
             String categoryId,
             String tag,
+            String language,
             Boolean published) {
         List<Criteria> conditions = new ArrayList<Criteria>();
 
@@ -72,6 +74,9 @@ public class TeacherQuestionService {
         }
         if (tag != null && !tag.isBlank()) {
             conditions.add(Criteria.where("tags").in(tag));
+        }
+        if (language != null && !language.isBlank()) {
+            conditions.add(Criteria.where("language").is(language));
         }
         // 发布状态筛选（组卷时传 published=true，只让老师挑学生可见的已发布题目）
         if (published != null) {
@@ -207,7 +212,7 @@ public class TeacherQuestionService {
 
         question.setTitle(request.title().trim());
         question.setDescription(request.description());
-        question.setLanguage(request.language());
+        question.setLanguage(normalizeLanguage(request.language()));
         question.setDifficulty(request.difficulty());
         question.setCategoryId(categoryId);
         question.setTags(request.tags() == null
@@ -222,5 +227,20 @@ public class TeacherQuestionService {
     /** 空白字符串转 null，方便存库时统一表示「未分类」 */
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** 归一化编程语言名，接受 Java / C / C++ / Python / Go 五种判题语言。 */
+    private String normalizeLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            throw new BadRequestException("编程语言不能为空");
+        }
+        return switch (language.toLowerCase(Locale.ROOT)) {
+            case "java" -> "Java";
+            case "c" -> "C";
+            case "c++", "cpp" -> "C++";
+            case "python", "python3", "py" -> "Python";
+            case "go", "golang" -> "Go";
+            default -> throw new BadRequestException("暂不支持的编程语言：" + language);
+        };
     }
 }

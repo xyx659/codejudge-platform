@@ -28,7 +28,11 @@ public enum SystemConfigKey {
 
     LIMIT_SUBMIT_GLOBAL("limit.submit.per_minute.global", "INT", false),
     LIMIT_SUBMIT_PER_USER("limit.submit.per_minute.per_user", "INT", false),
-    LIMIT_SUBMIT_PER_IP("limit.submit.per_minute.per_ip", "INT", false);
+    LIMIT_SUBMIT_PER_IP("limit.submit.per_minute.per_ip", "INT", false),
+
+    LIMIT_RUN_GLOBAL("limit.run.per_minute.global", "INT", false),
+    LIMIT_RUN_PER_USER("limit.run.per_minute.per_user", "INT", false),
+    LIMIT_RUN_PER_IP("limit.run.per_minute.per_ip", "INT", false);
 
     private final String key;
     private final String valueType;

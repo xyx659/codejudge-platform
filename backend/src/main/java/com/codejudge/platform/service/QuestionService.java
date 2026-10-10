@@ -411,10 +411,14 @@ public class QuestionService {
     private String normalizeLanguage(String language) {
         String value = required(language, "编程语言不能为空")
                 .toLowerCase(Locale.ROOT);
-        if (!"java".equals(value)) {
-            throw new BadRequestException("第一版仅支持 Java 题目");
-        }
-        return "Java";
+        return switch (value) {
+            case "java" -> "Java";
+            case "c" -> "C";
+            case "c++", "cpp" -> "C++";
+            case "python", "python3", "py" -> "Python";
+            case "go", "golang" -> "Go";
+            default -> throw new BadRequestException("暂不支持的编程语言：" + language);
+        };
     }
 
     private String requireDifficulty(String difficulty) {

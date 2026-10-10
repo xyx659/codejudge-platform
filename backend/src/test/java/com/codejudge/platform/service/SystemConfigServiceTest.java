@@ -255,7 +255,7 @@ class SystemConfigServiceTest {
 
     private SystemConfigUpdateRequest.LimitConfigUpdateRequest limitRequest() {
         return new SystemConfigUpdateRequest.LimitConfigUpdateRequest(
-                100, 10, 20, 300, 30, 100, 600, 60, 120);
+                100, 10, 20, 300, 30, 100, 600, 60, 120, 600, 120, 300);
     }
 
     private void setCurrentAdmin() {

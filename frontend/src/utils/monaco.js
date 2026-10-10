@@ -7,6 +7,7 @@
 import * as monaco from 'monaco-editor'
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import { registerJavaAutocomplete } from './javaAutocomplete'
+import { monacoLanguage } from './templates'
 
 // Monaco 在创建 worker 时会回调 getWorker；Java 走基础 worker 即可。
 self.MonacoEnvironment = {
@@ -19,17 +20,17 @@ self.MonacoEnvironment = {
 registerJavaAutocomplete()
 
 /**
- * 在指定 DOM 元素上创建一个 Java 代码编辑器。
+ * 在指定 DOM 元素上创建一个代码编辑器（默认 Java，可按题目语言切换）。
  *
  * @param {HTMLElement} el 挂载容器
- * @param {{ value?: string, readOnly?: boolean, onChange?: (code:string)=>void }} opts
- *        初始代码、是否只读与变更回调
+ * @param {{ value?: string, readOnly?: boolean, language?: string, onChange?: (code:string)=>void }} opts
+ *        初始代码、是否只读、编程语言（Java/Python/Go）与变更回调
  * @returns {monaco.editor.IStandaloneCodeEditor} 编辑器实例（记得在组件卸载时 dispose）
  */
-export function createEditor(el, { value = '', readOnly = false, onChange } = {}) {
+export function createEditor(el, { value = '', readOnly = false, language = 'Java', onChange } = {}) {
   const editor = monaco.editor.create(el, {
     value,
-    language: 'java',
+    language: monacoLanguage(language),
     theme: 'vs',
     automaticLayout: true,
     readOnly,

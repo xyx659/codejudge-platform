@@ -39,6 +39,7 @@ class AiReviewServiceIntegrationTest {
                 "两数之和",
                 "给定两个整数 a、b，返回 a + b",
                 "int sum(int, int)",
+                "Java",
                 "public class Solution { public int sum(int a, int b) { return a + b; } }",
                 100,
                 List.of(new TestCaseResult("基本用例", true, "3", "通过", 5L)));

@@ -60,7 +60,10 @@ public class SystemConfigService {
             Map.entry(SystemConfigKey.LIMIT_AI_PER_IP, "100"),
             Map.entry(SystemConfigKey.LIMIT_SUBMIT_GLOBAL, "600"),
             Map.entry(SystemConfigKey.LIMIT_SUBMIT_PER_USER, "60"),
-            Map.entry(SystemConfigKey.LIMIT_SUBMIT_PER_IP, "120"));
+            Map.entry(SystemConfigKey.LIMIT_SUBMIT_PER_IP, "120"),
+            Map.entry(SystemConfigKey.LIMIT_RUN_GLOBAL, "600"),
+            Map.entry(SystemConfigKey.LIMIT_RUN_PER_USER, "120"),
+            Map.entry(SystemConfigKey.LIMIT_RUN_PER_IP, "300"));
 
     private final SystemConfigRepository configRepository;
     private final SystemConfigAuditLogRepository auditLogRepository;
@@ -124,7 +127,10 @@ public class SystemConfigService {
                 intValue(configs, SystemConfigKey.LIMIT_AI_PER_IP),
                 intValue(configs, SystemConfigKey.LIMIT_SUBMIT_GLOBAL),
                 intValue(configs, SystemConfigKey.LIMIT_SUBMIT_PER_USER),
-                intValue(configs, SystemConfigKey.LIMIT_SUBMIT_PER_IP));
+                intValue(configs, SystemConfigKey.LIMIT_SUBMIT_PER_IP),
+                intValue(configs, SystemConfigKey.LIMIT_RUN_GLOBAL),
+                intValue(configs, SystemConfigKey.LIMIT_RUN_PER_USER),
+                intValue(configs, SystemConfigKey.LIMIT_RUN_PER_IP));
     }
 
     /** 更新评测、AI 和限流配置，并在同一事务中写入审计日志 */
@@ -166,6 +172,12 @@ public class SystemConfigService {
                 String.valueOf(request.limits().submitPerUser()), updatedBy);
         applyChange(configs, SystemConfigKey.LIMIT_SUBMIT_PER_IP,
                 String.valueOf(request.limits().submitPerIp()), updatedBy);
+        applyChange(configs, SystemConfigKey.LIMIT_RUN_GLOBAL,
+                String.valueOf(request.limits().runGlobal()), updatedBy);
+        applyChange(configs, SystemConfigKey.LIMIT_RUN_PER_USER,
+                String.valueOf(request.limits().runPerUser()), updatedBy);
+        applyChange(configs, SystemConfigKey.LIMIT_RUN_PER_IP,
+                String.valueOf(request.limits().runPerIp()), updatedBy);
 
         cache = loadConfigMap();
         return buildResponse(cache);
@@ -251,7 +263,10 @@ public class SystemConfigService {
                         intValue(configs, SystemConfigKey.LIMIT_AI_PER_IP),
                         intValue(configs, SystemConfigKey.LIMIT_SUBMIT_GLOBAL),
                         intValue(configs, SystemConfigKey.LIMIT_SUBMIT_PER_USER),
-                        intValue(configs, SystemConfigKey.LIMIT_SUBMIT_PER_IP)),
+                        intValue(configs, SystemConfigKey.LIMIT_SUBMIT_PER_IP),
+                        intValue(configs, SystemConfigKey.LIMIT_RUN_GLOBAL),
+                        intValue(configs, SystemConfigKey.LIMIT_RUN_PER_USER),
+                        intValue(configs, SystemConfigKey.LIMIT_RUN_PER_IP)),
                 latest == null ? null : latest.getUpdatedBy(),
                 latest == null ? null : latest.getUpdatedAt());
     }

@@ -66,6 +66,18 @@ public class RateLimitService {
                 clientIp);
     }
 
+    /** 样例自测限流（自测会真实起容器，需单独限流防止容器 DoS） */
+    public void checkRun(String username, String clientIp) {
+        RateLimitRuntimeConfig config =
+                systemConfigService.getRateLimitRuntimeConfig();
+        acquire("run", "样例自测",
+                config.runGlobal(),
+                config.runPerUser(),
+                config.runPerIp(),
+                username,
+                clientIp);
+    }
+
     private void acquire(String dimension,
                          String displayName,
                          int globalLimit,

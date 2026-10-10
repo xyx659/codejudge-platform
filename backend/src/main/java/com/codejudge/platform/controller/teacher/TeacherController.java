@@ -77,10 +77,11 @@ public class TeacherController {
     public ApiResponse<String> aiGenerate(@RequestBody Map<String, String> body) {
         String title = body.getOrDefault("title", "");
         String description = body.getOrDefault("description", "");
+        String language = body.getOrDefault("language", "Java");
         if (description.isBlank()) {
             throw new BadRequestException("题目描述不能为空");
         }
-        return ApiResponse.ok(aiReviewService.generateQuestion(title, description));
+        return ApiResponse.ok(aiReviewService.generateQuestion(title, description, language));
     }
 
     /**
@@ -91,6 +92,7 @@ public class TeacherController {
             @RequestBody Map<String, String> body) {
         String title = body.getOrDefault("title", "");
         String description = body.getOrDefault("description", "");
+        String language = body.getOrDefault("language", "Java");
         if (description.isBlank()) {
             throw new BadRequestException("题目描述不能为空");
         }
@@ -100,7 +102,7 @@ public class TeacherController {
         executor.submit(() -> {
             try {
                 var config = aiReviewService.currentConfig();
-                var prompt = aiReviewService.buildGeneratePrompt(title, description);
+                var prompt = aiReviewService.buildGeneratePrompt(title, description, language);
                 String result = aiReviewService.streamGenerate(config, prompt, chunk -> {
                     try {
                         emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()

@@ -89,6 +89,9 @@ class RateLimitServiceTest {
                 20,
                 loginGlobal,
                 loginUser,
-                loginIp);
+                loginIp,
+                100,
+                10,
+                20);
     }
 }

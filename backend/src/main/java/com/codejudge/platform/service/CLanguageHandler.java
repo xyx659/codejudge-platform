@@ -1,14 +1,15 @@
 package com.codejudge.platform.service;
 
-import com.codejudge.platform.dto.MethodSignature;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * C 判题处理器。
@@ -32,7 +33,7 @@ import java.util.Map;
 @Service
 public class CLanguageHandler implements LanguageHandler {
 
-    /** Node 四种形态（与 CodeRunner / CppLanguageHandler 的 NodeKind 对应）。 */
+    /** Node 四种形态（与 JavaLanguageHandler / CppLanguageHandler 的 NodeKind 对应）。 */
     private enum NodeKind { RANDOM_LIST, NARY_TREE, GRAPH, NEXT_TREE }
 
     @Override
@@ -266,7 +267,7 @@ public class CLanguageHandler implements LanguageHandler {
 
     // —— Node 形态 ——
 
-    /** 从方法名 / 返回类型推断 Node 形态（与 CodeRunner / CppLanguageHandler 一致）。 */
+    /** 从方法名 / 返回类型推断 Node 形态（与 JavaLanguageHandler / CppLanguageHandler 一致）。 */
     private static NodeKind detectNodeKind(MethodSignature sig) {
         String name = sig.methodName() == null ? "" : sig.methodName().toLowerCase();
         String ret = sig.returnType() == null ? "" : sig.returnType().toLowerCase();
@@ -478,5 +479,107 @@ public class CLanguageHandler implements LanguageHandler {
         } catch (IOException e) {
             throw new IllegalStateException("读取资源失败：" + path, e);
         }
+    }
+
+    // —— LanguageHandler 接口新增方法（xf 版接口）——
+
+    /**
+     * 解析方法签名（题库统一用 Java 类型记号存储，如 {@code int[] twoSum(int[] nums, int target)}），
+     * 解析逻辑与 {@link JavaLanguageHandler} 一致，返回 Java 记号的方法签名供类型映射使用。
+     */
+    @Override
+    public MethodSignature parseSignature(String signature) {
+        String s = signature == null ? "" : signature.trim();
+        int open = s.indexOf('(');
+        if (open < 0 || !s.endsWith(")")) {
+            throw new IllegalArgumentException("非法的方法签名：" + signature);
+        }
+        String head = s.substring(0, open).trim();
+        String paramsBody = s.substring(open + 1, s.length() - 1).trim();
+
+        int split = -1;
+        for (int i = head.length() - 1; i >= 0; i--) {
+            char c = head.charAt(i);
+            if (c == ' ' || c == '\t') {
+                split = i;
+                break;
+            }
+        }
+
+        String returnType;
+        String methodName;
+        if (split < 0) {
+            returnType = "void";
+            methodName = head;
+        } else {
+            returnType = head.substring(0, split).trim();
+            methodName = head.substring(split + 1).trim();
+        }
+
+        List<String> paramTypes = new ArrayList<>();
+        if (!paramsBody.isEmpty()) {
+            for (String p : splitTopLevel(paramsBody)) {
+                if (!p.isBlank()) {
+                    paramTypes.add(stripParamName(p.trim()));
+                }
+            }
+        }
+        return new MethodSignature(returnType, methodName, paramTypes);
+    }
+
+    /** 去掉参数名只留类型：{@code int[][] matrix} → {@code int[][]}，{@code int[]}（无名）原样返回。 */
+    private String stripParamName(String param) {
+        int lastSpace = param.lastIndexOf(' ');
+        if (lastSpace < 0) {
+            return param;
+        }
+        String after = param.substring(lastSpace + 1);
+        String before = param.substring(0, lastSpace);
+        if (after.matches("[A-Za-z_]\\w*")) {
+            return before;
+        }
+        return param;
+    }
+
+    /** 按顶层逗号拆分参数，忽略泛型 {@code <>} 与数组 {@code []} 内的逗号。 */
+    private List<String> splitTopLevel(String s) {
+        List<String> out = new ArrayList<>();
+        int generic = 0;
+        int array = 0;
+        StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '<') {
+                generic++;
+            } else if (c == '>') {
+                generic--;
+            } else if (c == '[') {
+                array++;
+            } else if (c == ']') {
+                array--;
+            }
+            if (c == ',' && generic == 0 && array == 0) {
+                out.add(cur.toString());
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        if (cur.length() > 0) {
+            out.add(cur.toString());
+        }
+        return out;
+    }
+
+    /** C/C++ 编译产物是可执行文件 {@code main}，运行容器内需带可执行位。 */
+    @Override
+    public Set<String> executableNames() {
+        return Set.of("main");
+    }
+
+    /** C 无 class 概念：设计题类名由构造器方法名决定（generateDesignWrapper 里 null 时回退）。 */
+    @Override
+    public String extractClassName(String sourceCode) {
+        return null;
     }
 }

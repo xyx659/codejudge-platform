@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
  * @param title         考试标题
  * @param status        状态：DRAFT / PUBLISHED / CLOSED
  * @param targetClass   目标班级
+ * @param language      考试语言
  * @param startTime     开始时间
  * @param endTime       结束时间
  * @param questionCount 题目数量
@@ -24,6 +25,7 @@ public record ExamSummary(
         String title,
         String status,
         String targetClass,
+        String language,
         LocalDateTime startTime,
         LocalDateTime endTime,
         int questionCount,
@@ -39,6 +41,7 @@ public record ExamSummary(
                 e.getTitle(),
                 e.getStatus(),
                 e.getTargetClass(),
+                e.getLanguage(),
                 e.getStartTime(),
                 e.getEndTime(),
                 e.getQuestions().size(),

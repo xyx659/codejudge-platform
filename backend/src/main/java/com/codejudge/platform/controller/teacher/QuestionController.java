@@ -32,7 +32,7 @@ public class QuestionController {
     }
 
     /**
-     * 题目列表（分页 + 关键字/难度/分类/标签筛选）。
+     * 题目列表（分页 + 关键字/难度/分类/标签/语言筛选）。
      *
      * <p>请求示例：</p>
      * <pre>GET /api/teacher/questions?page=0&amp;size=10&amp;keyword=求和&amp;difficulty=简单</pre>
@@ -45,8 +45,9 @@ public class QuestionController {
             @RequestParam(required = false) String difficulty,
             @RequestParam(required = false) String categoryId,
             @RequestParam(required = false) String tag,
+            @RequestParam(required = false) String language,
             @RequestParam(required = false) Boolean published) {
-        return ApiResponse.ok(questionService.list(page, size, keyword, difficulty, categoryId, tag, published));
+        return ApiResponse.ok(questionService.list(page, size, keyword, difficulty, categoryId, tag, language, published));
     }
 
     /** 题目详情（含测试用例，供编辑回显） */

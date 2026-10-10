@@ -100,6 +100,7 @@
                 <th>登录</th>
                 <th>AI 调用</th>
                 <th>代码提交</th>
+                <th>自测</th>
               </tr>
             </thead>
             <tbody>
@@ -108,18 +109,21 @@
                 <td><input v-model.number="form.limits.loginGlobal" type="number" min="1" /></td>
                 <td><input v-model.number="form.limits.aiGlobal" type="number" min="1" /></td>
                 <td><input v-model.number="form.limits.submitGlobal" type="number" min="1" /></td>
+                <td><input v-model.number="form.limits.runGlobal" type="number" min="1" /></td>
               </tr>
               <tr>
                 <td>单用户</td>
                 <td><input v-model.number="form.limits.loginPerUser" type="number" min="1" /></td>
                 <td><input v-model.number="form.limits.aiPerUser" type="number" min="1" /></td>
                 <td><input v-model.number="form.limits.submitPerUser" type="number" min="1" /></td>
+                <td><input v-model.number="form.limits.runPerUser" type="number" min="1" /></td>
               </tr>
               <tr>
                 <td>单 IP</td>
                 <td><input v-model.number="form.limits.loginPerIp" type="number" min="1" /></td>
                 <td><input v-model.number="form.limits.aiPerIp" type="number" min="1" /></td>
                 <td><input v-model.number="form.limits.submitPerIp" type="number" min="1" /></td>
+                <td><input v-model.number="form.limits.runPerIp" type="number" min="1" /></td>
               </tr>
             </tbody>
           </table>
@@ -191,7 +195,10 @@ const form = reactive({
     aiPerIp: 100,
     submitGlobal: 600,
     submitPerUser: 60,
-    submitPerIp: 120
+    submitPerIp: 120,
+    runGlobal: 600,
+    runPerUser: 120,
+    runPerIp: 300
   }
 })
 
@@ -220,6 +227,9 @@ async function loadConfig() {
     form.limits.submitGlobal = data.limits.submitGlobal
     form.limits.submitPerUser = data.limits.submitPerUser
     form.limits.submitPerIp = data.limits.submitPerIp
+    form.limits.runGlobal = data.limits.runGlobal
+    form.limits.runPerUser = data.limits.runPerUser
+    form.limits.runPerIp = data.limits.runPerIp
     updatedBy.value = data.updatedBy
     updatedAt.value = data.updatedAt
   } catch (e) {
@@ -246,7 +256,10 @@ function validateForm() {
     form.limits.aiPerIp,
     form.limits.submitGlobal,
     form.limits.submitPerUser,
-    form.limits.submitPerIp
+    form.limits.submitPerIp,
+    form.limits.runGlobal,
+    form.limits.runPerUser,
+    form.limits.runPerIp
   ]
   if (numericValues.some((value) => !Number.isInteger(value))) {
     error.value = '数字配置项必须为整数'
@@ -288,7 +301,10 @@ async function saveConfig() {
         aiPerIp: form.limits.aiPerIp,
         submitGlobal: form.limits.submitGlobal,
         submitPerUser: form.limits.submitPerUser,
-        submitPerIp: form.limits.submitPerIp
+        submitPerIp: form.limits.submitPerIp,
+        runGlobal: form.limits.runGlobal,
+        runPerUser: form.limits.runPerUser,
+        runPerIp: form.limits.runPerIp
       }
     })
     success.value = '配置已保存'
@@ -484,7 +500,7 @@ input:disabled {
 
 .limit-table {
   width: 100%;
-  min-width: 620px;
+  min-width: 760px;
   border-collapse: collapse;
 }
 
