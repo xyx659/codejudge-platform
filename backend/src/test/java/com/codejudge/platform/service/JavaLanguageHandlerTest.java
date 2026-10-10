@@ -12,13 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-class CodeRunnerTest {
+class JavaLanguageHandlerTest {
 
-    private final CodeRunner codeRunner = new CodeRunner();
+    private final JavaLanguageHandler handler = new JavaLanguageHandler();
 
     @Test
     void 解析标量签名() {
-        CodeRunner.MethodSignature sig = codeRunner.parseSignature("int sum(int, int)");
+        MethodSignature sig = handler.parseSignature("int sum(int, int)");
         assertEquals("int", sig.returnType());
         assertEquals("sum", sig.methodName());
         assertEquals(List.of("int", "int"), sig.paramTypes());
@@ -26,12 +26,12 @@ class CodeRunnerTest {
 
     @Test
     void 解析数组与泛型签名() {
-        CodeRunner.MethodSignature sig = codeRunner.parseSignature("int[] twoSum(int[], int)");
+        MethodSignature sig = handler.parseSignature("int[] twoSum(int[], int)");
         assertEquals("int[]", sig.returnType());
         assertEquals("twoSum", sig.methodName());
         assertEquals(List.of("int[]", "int"), sig.paramTypes());
 
-        CodeRunner.MethodSignature sig2 = codeRunner.parseSignature(
+        MethodSignature sig2 = handler.parseSignature(
                 "List<List<Integer>> levelOrder(List<List<Integer>>)");
         assertEquals("List<List<Integer>>", sig2.returnType());
         assertEquals("levelOrder", sig2.methodName());
@@ -40,7 +40,7 @@ class CodeRunnerTest {
 
     @Test
     void 解析无参签名() {
-        CodeRunner.MethodSignature sig = codeRunner.parseSignature("void run()");
+        MethodSignature sig = handler.parseSignature("void run()");
         assertEquals("void", sig.returnType());
         assertEquals("run", sig.methodName());
         assertTrue(sig.paramTypes().isEmpty());
@@ -48,7 +48,7 @@ class CodeRunnerTest {
 
     @Test
     void 生成Main包含方法调用与入参解析() {
-        String main = codeRunner.generateMain(codeRunner.parseSignature("int sum(int, int)"));
+        String main = handler.generateMethodWrapper(handler.parseSignature("int sum(int, int)"), List.of());
         assertTrue(main.contains("public class Main"));
         assertTrue(main.contains("new Solution().sum(a0, a1)"));
         assertTrue(main.contains("Json.parse(value(p[0])"));
@@ -81,7 +81,7 @@ class CodeRunnerTest {
         Path tmp = Files.createTempDirectory("code-runner-test-");
         Files.writeString(tmp.resolve("Solution.java"), solution);
         Files.writeString(tmp.resolve("Main.java"),
-                codeRunner.generateMain(codeRunner.parseSignature(signature)));
+                handler.generateMethodWrapper(handler.parseSignature(signature), List.of()));
 
         Process compile = new ProcessBuilder("javac", "-encoding", "UTF-8", "Solution.java", "Main.java")
                 .directory(tmp.toFile())

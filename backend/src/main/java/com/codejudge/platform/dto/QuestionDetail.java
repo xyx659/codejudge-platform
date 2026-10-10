@@ -15,6 +15,7 @@ import java.util.List;
  * @param title          题目标题
  * @param description    题目描述（完整题目要求）
  * @param methodName     需要实现的方法名（如 sum）
+ * @param methodSignature 方法签名（如 int sum(int, int)），用于生成代码模板
  * @param judgeMode      判题模式：METHOD / DESIGN / STDIO
  * @param designMethods  设计题方法定义列表（仅 DESIGN 模式）
  * @param language       编程语言（如 Java）
@@ -27,6 +28,7 @@ public record QuestionDetail(
         String title,
         String description,
         String methodName,
+        String methodSignature,
         String judgeMode,
         List<String> designMethods,
         String language,
@@ -46,6 +48,7 @@ public record QuestionDetail(
                 q.getTitle(),
                 q.getDescription(),
                 q.getMethodName(),
+                q.getMethodSignature(),
                 q.getJudgeMode(),
                 q.getDesignMethods(),
                 q.getLanguage(),

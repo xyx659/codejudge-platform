@@ -27,9 +27,10 @@ public class WorkspacePacker {
     }
 
     /**
-     * 把「文件名 → 内容」集合打成 tar 字节；{@code executables} 中的文件名带可执行位（0755），
-     * 其余为 0644。用于运行容器：编译产物（如 C/C++ 的 {@code main} 二进制）需可执行，
-     * 否则容器内 {@code ./main} 会报 {@code Permission denied}。
+     * 把「文件名 → 内容」集合打成 tar 字节；{@code executables} 中的文件设 0755（含 other 执行位）。
+     *
+     * <p>编译产物（如 Go 的可执行文件 {@code solution}）需保留执行位，否则容器内 {@code nobody}
+     * 无权限执行（{@code docker cp} 写入后文件属主为宿主机 uid，{@code nobody} 无法 {@code chmod}）。</p>
      */
     public byte[] pack(Map<String, byte[]> files, Set<String> executables) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();

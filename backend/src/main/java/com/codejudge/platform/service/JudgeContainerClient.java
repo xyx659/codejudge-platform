@@ -15,7 +15,6 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.StreamType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
@@ -34,26 +33,26 @@ import java.util.concurrent.TimeUnit;
  * 超时后按「进优雅停止 → 强杀 → 强制删除」三级兜底，确保容器不残留。</p>
  *
  * <p>安全参数（详见设计文档 §五）：禁网、限内存/CPU/进程数、去除全部 Linux capability、
- * 以 {@code nobody} 运行。镜像按请求传入（各语言 {@code LanguageHandler.image()}），
- * 未指定时回退到 {@code judge.docker.image}（默认 {@code eclipse-temurin:17}）。</p>
+ * 以 {@code nobody} 运行。工作目录可配置，镜像由调用方按语言传入（本类不再绑定单一镜像）。</p>
  */
 @Component
 public class JudgeContainerClient {
 
     private static final Logger log = LoggerFactory.getLogger(JudgeContainerClient.class);
 
-    /** 默认镜像名（未在请求中指定 image 时使用），如 eclipse-temurin:17。 */
-    private final String defaultImage;
+    /** 编译阶段进程数上限：Go 标准库并发编译会 fork 大量工具链进程，64 会触发 EAGAIN。 */
+    public static final long PIDS_LIMIT_COMPILE = 256L;
+
+    /** 运行阶段进程数上限：用户代码阶段保持严格，防 fork bomb。 */
+    public static final long PIDS_LIMIT_RUN = 64L;
 
     private final DockerClient dockerClient;
 
-    /** 已确认存在的镜像集合，避免每次运行都对同一镜像触发 inspect/pull 竞态。 */
+    /** 已确认存在的镜像集合，避免每次运行都触发 inspect/pull 竞态（按镜像名缓存）。 */
     private final Set<String> readyImages = ConcurrentHashMap.newKeySet();
 
-    public JudgeContainerClient(DockerClient dockerClient,
-                                @Value("${judge.docker.image:eclipse-temurin:17}") String defaultImage) {
+    public JudgeContainerClient(DockerClient dockerClient) {
         this.dockerClient = dockerClient;
-        this.defaultImage = defaultImage;
     }
 
     /** 编译类操作结果：退出码 + stderr + 回拷的工作目录 tar（编译失败/超时为 null）+ 是否超时。 */
@@ -64,13 +63,14 @@ public class JudgeContainerClient {
      * 执行一次容器运行。
      *
      * @param request 运行入参
+     * @param image   使用的评测镜像
      * @return 退出码 + 标准输出/错误 + 是否超时
      */
-    public ContainerRunResult run(ContainerRunRequest request) {
+    public ContainerRunResult run(ContainerRunRequest request, String image) {
         String containerId = null;
         try {
-            ensureImage(imageOf(request));
-            containerId = createContainer(request);
+            ensureImage(image);
+            containerId = createContainer(request, image);
             copyWorkDir(containerId, request.workDir(), request.workDirTar());
             dockerClient.startContainerCmd(containerId).exec();
 
@@ -113,11 +113,11 @@ public class JudgeContainerClient {
      * 执行一次编译类操作：编译成功后额外把容器工作目录回拷为 tar（含编译产物），
      * 供逐用例运行容器复用。编译失败 / 超时 / 异常时 {@code outputTar} 为 {@code null}。
      */
-    public CompileResult compile(ContainerRunRequest request) {
+    public CompileResult compile(ContainerRunRequest request, String image) {
         String containerId = null;
         try {
-            ensureImage(imageOf(request));
-            containerId = createContainer(request);
+            ensureImage(image);
+            containerId = createContainer(request, image);
             copyWorkDir(containerId, request.workDir(), request.workDirTar());
             dockerClient.startContainerCmd(containerId).exec();
 
@@ -158,11 +158,6 @@ public class JudgeContainerClient {
         }
     }
 
-    /** 解析请求镜像：请求未指定时回退默认镜像。 */
-    private String imageOf(ContainerRunRequest request) {
-        return (request.image() == null || request.image().isBlank()) ? defaultImage : request.image();
-    }
-
     /** 从容器回拷工作目录（{@code docker cp} 反向），返回 tar 字节。 */
     private byte[] fetchWorkDir(String containerId, String workDir) {
         try (InputStream in = dockerClient.copyArchiveFromContainerCmd(containerId, workDir).exec()) {
@@ -172,7 +167,7 @@ public class JudgeContainerClient {
         }
     }
 
-    /** 按镜像名首次运行时检查并自动拉取（双重检查锁，避免并发重复拉取同一镜像）。 */
+    /** 首次使用某镜像时检查并自动拉取（按镜像双重检查锁，避免并发重复拉取）。 */
     private void ensureImage(String image) {
         if (readyImages.contains(image)) {
             return;
@@ -200,17 +195,17 @@ public class JudgeContainerClient {
     }
 
     /** 创建容器并设置资源/安全限制。 */
-    private String createContainer(ContainerRunRequest request) {
+    private String createContainer(ContainerRunRequest request, String image) {
         long memoryBytes = (long) request.memoryMb() * 1024 * 1024;
         HostConfig hostConfig = HostConfig.newHostConfig()
                 .withMemory(memoryBytes)
                 .withMemorySwap(memoryBytes)     // 禁 swap，避免内存超限被换出
                 .withNanoCPUs((long) (request.cpus() * 1_000_000_000L))
-                .withPidsLimit(64L)              // 防 fork bomb
+                .withPidsLimit(request.pidsLimit())  // 防 fork bomb：编译放宽、运行严格，由调用方传入
                 .withCapDrop(Capability.ALL)
                 .withNetworkMode("none");
 
-        CreateContainerResponse response = dockerClient.createContainerCmd(imageOf(request))
+        CreateContainerResponse response = dockerClient.createContainerCmd(image)
                 .withCmd(request.command())
                 .withWorkingDir(request.workDir())
                 .withUser("nobody")

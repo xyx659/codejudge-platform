@@ -76,18 +76,16 @@
           </div>
 
           <p v-if="testError" class="test-error">{{ testError }}</p>
-          <div v-if="testResults" class="test-results">
-            <div
-              v-for="(r, ri) in testResults"
-              :key="ri"
-              class="test-row"
-              :class="{ pass: r.passed, fail: !r.passed }"
-            >
-              <span class="test-status">{{ r.passed ? '✓' : '✗' }}</span>
-              <span class="test-name">{{ r.name }}</span>
-              <span class="test-msg">{{ r.message }}</span>
-              <span v-if="!r.passed" class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
-            </div>
+          <div v-if="testResults && testResults.length" class="test-results">
+            <p v-if="failedResults.length === 0" class="all-pass">✓ 全部通过（{{ testResults.length }} 个用例）</p>
+            <template v-else>
+              <div v-for="(r, ri) in failedResults" :key="ri" class="test-row fail">
+                <span class="test-status">✗</span>
+                <span class="test-name">{{ r.name }}</span>
+                <span class="test-msg">{{ r.message }}</span>
+                <span class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+              </div>
+            </template>
           </div>
 
           <div v-if="submitMsg" class="card submit-msg">
@@ -101,12 +99,12 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getQuestion, getQuestionSubmission, submit } from '../../api/student'
+import { getQuestion, getQuestionSubmission, submit, runCode } from '../../api/student'
 import { createEditor } from '../../utils/monaco'
-import { runLocalTests } from '../../utils/jsRunner'
 import { difficultyClass, judgeStatusText } from '../../utils/format'
+import { defaultTemplate } from '../../utils/templates'
 
 const route = useRoute()
 const router = useRouter()
@@ -121,6 +119,9 @@ const submitMsg = ref('')
 const testing = ref(false)
 const testResults = ref(null)
 const testError = ref('')
+
+// 只显示未通过的用例；全部通过时展示「全部通过」
+const failedResults = computed(() => (testResults.value || []).filter((r) => !r.passed))
 
 let editor = null
 
@@ -154,33 +155,6 @@ onBeforeUnmount(() => {
   }
 })
 
-function defaultTemplate(q) {
-  const mode = q.judgeMode || 'METHOD'
-  const name = q.methodName || 'Solution'
-  if (mode === 'DESIGN') {
-    const methods = (q.designMethods || []).map(s => {
-      const m = s.match(/^(\S+)\s+(\w+)\((.*)\)$/)
-      if (!m) return `    // ${s}`
-      const ret = m[1], mn = m[2], params = m[3]
-      if (mn === name) {
-        // 构造器
-        const paramDecl = params ? params.split(',').map((_, i) => `        // 参数${i + 1}`).join('\n') : ''
-        return `    public ${name}(${params}) {\n${paramDecl}        // TODO\n    }`
-      }
-      const paramDecl = params ? params.split(',').map(p => {
-        const parts = p.trim().split(/\s+/)
-        return `        ${parts[0]} ${parts[1] || 'arg'}`
-      }).join(',\n') : ''
-      return `    public ${ret} ${mn}(\n${paramDecl}\n    ) {\n        // TODO\n    }`
-    }).join('\n\n')
-    return `// 实现 ${name} 类（评测由后端执行）\nclass ${name} {\n${methods}\n}\n`
-  }
-  if (mode === 'STDIO') {
-    return `// 标准输入输出模式\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // 在这里编写你的代码\n    }\n}\n`
-  }
-  return `// 实现方法 ${name}（评测由后端执行）\npublic class Solution {\n    public Object ${name}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
-}
-
 // 根据当前状态创建编辑器：未提交用初始模板可编辑；已提交用源码只读回看
 function initEditor() {
   if (!editorRef.value) return
@@ -193,7 +167,8 @@ function initEditor() {
     : defaultTemplate(question.value)
   editor = createEditor(editorRef.value, {
     value,
-    readOnly: !!submission.value
+    readOnly: !!submission.value,
+    language: question.value.language
   })
 }
 
@@ -213,13 +188,16 @@ async function runTest() {
   }
   testing.value = true
   try {
-    const res = await runLocalTests(code, q.methodName, q.testCases)
-    if (res.compileError) {
-      testError.value = res.compileError
+    const res = await runCode({ questionId: q.id, sourceCode: code, testCases: q.testCases })
+    const data = res.data
+    if (data.compileError) {
+      testError.value = data.compileError
       testResults.value = null
     } else {
-      testResults.value = res.results
+      testResults.value = data.results
     }
+  } catch (e) {
+    testError.value = e.message || '测试失败'
   } finally {
     testing.value = false
   }
@@ -474,6 +452,13 @@ async function submitCode() {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.all-pass {
+  color: #16a34a;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px;
 }
 
 .test-row {

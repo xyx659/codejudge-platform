@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -207,7 +208,7 @@ public class TeacherQuestionService {
 
         question.setTitle(request.title().trim());
         question.setDescription(request.description());
-        question.setLanguage(request.language());
+        question.setLanguage(normalizeLanguage(request.language()));
         question.setDifficulty(request.difficulty());
         question.setCategoryId(categoryId);
         question.setTags(request.tags() == null
@@ -222,5 +223,18 @@ public class TeacherQuestionService {
     /** 空白字符串转 null，方便存库时统一表示「未分类」 */
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** 归一化编程语言名，仅接受 Java / Python / Go。 */
+    private String normalizeLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            throw new BadRequestException("编程语言不能为空");
+        }
+        return switch (language.toLowerCase(Locale.ROOT)) {
+            case "java" -> "Java";
+            case "python", "python3", "py" -> "Python";
+            case "go", "golang" -> "Go";
+            default -> throw new BadRequestException("暂不支持的编程语言：" + language);
+        };
     }
 }

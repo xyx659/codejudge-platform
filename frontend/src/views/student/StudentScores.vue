@@ -9,6 +9,17 @@
     <p v-else-if="exams.length === 0" class="hint">暂无成绩，去考试首页参加一场考试吧</p>
 
     <template v-else>
+      <div class="search-bar">
+        <input
+          v-model="keyword"
+          class="search-input"
+          type="text"
+          placeholder="搜索考试名称或题目..."
+        />
+      </div>
+
+      <p v-if="!filteredExams.length" class="hint">没有匹配的考试</p>
+
       <div v-for="g in pagedExams" :key="g.examId || 'legacy'" class="card exam-group">
         <div class="exam-head" @click="toggle(g)">
           <div class="head-left">
@@ -113,13 +124,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { getSubmissionResult, listExamScores } from '../../api/student'
 import { judgeStatusText } from '../../utils/format'
 
 const exams = ref([])
 const page = ref(0)
 const size = ref(5)
+const keyword = ref('')
 const expanded = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -147,10 +159,24 @@ const detail = ref(null)
 const detailLoading = ref(false)
 const detailError = ref('')
 
-const totalPages = computed(() => Math.max(1, Math.ceil(exams.value.length / size.value)))
+// 按考试名称 / 题目名称过滤
+const filteredExams = computed(() => {
+  const kw = keyword.value.trim().toLowerCase()
+  if (!kw) return exams.value
+  return exams.value.filter((g) => {
+    if ((g.examTitle || '').toLowerCase().includes(kw)) return true
+    return (g.questions || []).some((q) => (q.questionTitle || '').toLowerCase().includes(kw))
+  })
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredExams.value.length / size.value)))
 const pagedExams = computed(() => {
   const start = page.value * size.value
-  return exams.value.slice(start, start + size.value)
+  return filteredExams.value.slice(start, start + size.value)
+})
+
+watch(keyword, () => {
+  page.value = 0
 })
 
 async function load() {
@@ -225,6 +251,26 @@ onMounted(load)
 .page .desc {
   color: #6b7280;
   margin-bottom: 20px;
+}
+
+.search-bar {
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 360px;
+  padding: 8px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .hint {
