@@ -50,7 +50,6 @@
             <tr>
               <th>标题</th>
               <th>难度</th>
-              <th>语言</th>
               <th>方法名</th>
               <th>状态</th>
               <th>来源</th>
@@ -60,16 +59,15 @@
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="8" class="empty-cell">加载中...</td>
+              <td colspan="7" class="empty-cell">加载中...</td>
             </tr>
             <tr v-else-if="questions.length === 0">
-              <td colspan="8" class="empty-cell">暂无题目</td>
+              <td colspan="7" class="empty-cell">暂无题目</td>
             </tr>
             <template v-else>
               <tr v-for="question in questions" :key="question.id">
                 <td>{{ question.title }}</td>
                 <td><span class="badge" :class="difficultyClass(question.difficulty)">{{ question.difficulty }}</span></td>
-                <td>{{ question.language }}</td>
                 <td>{{ question.methodName || '-' }}</td>
                 <td>
                   <span class="badge" :class="question.published ? 'published' : 'draft'">
@@ -223,14 +221,6 @@
           </div>
           <div class="field-row">
             <label class="field">
-              <span>语言</span>
-              <select v-model="form.language">
-                <option value="Java">Java</option>
-                <option value="Python">Python</option>
-                <option value="Go">Go</option>
-              </select>
-            </label>
-            <label class="field">
               <span>难度</span>
               <select v-model="form.difficulty">
                 <option value="简单">简单</option>
@@ -357,7 +347,6 @@ const form = reactive({
   methodSignature: '',
   judgeMode: 'METHOD',
   designMethodsText: '',
-  language: 'Java',
   difficulty: '简单',
   tagsText: '',
   published: false,
@@ -407,7 +396,7 @@ async function aiGenerate() {
     // 优先用流式接口，实时显示进度
     let finalData = null
     await aiGenerateQuestionStream(
-      { title: form.title, description: form.description, language: form.language },
+      { title: form.title, description: form.description },
       (chunk) => {
         aiProgress.value = chunk.length > 100 ? '...' + chunk.slice(-100) : chunk
         // 尝试解析最新内容看是否已有完整 JSON
@@ -424,7 +413,7 @@ async function aiGenerate() {
   } catch (e) {
     // 流式失败时回退到普通接口
     try {
-      const res = await aiGenerateQuestion({ title: form.title, description: form.description, language: form.language })
+      const res = await aiGenerateQuestion({ title: form.title, description: form.description })
       const data = extractJson(res.data)
       if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
       applyAiResult(data)
@@ -507,7 +496,6 @@ function openCreate() {
     methodSignature: '',
     judgeMode: 'METHOD',
     designMethodsText: '',
-    language: 'Java',
     difficulty: '简单',
     tagsText: '',
     published: false,
@@ -529,7 +517,6 @@ async function openEdit(question) {
       methodSignature: detail.methodSignature || '',
       judgeMode: detail.judgeMode || 'METHOD',
       designMethodsText: (detail.designMethods || []).join('\n'),
-      language: detail.language || 'Java',
       difficulty: detail.difficulty || '简单',
       tagsText: (detail.tags || []).join(','),
       published: detail.published,
@@ -571,7 +558,6 @@ async function submitForm() {
     methodSignature: form.methodSignature || null,
     judgeMode,
     designMethods,
-    language: form.language,
     difficulty: form.difficulty,
     tags: form.tagsText.split(',').map((item) => item.trim()).filter(Boolean),
     published: form.published,

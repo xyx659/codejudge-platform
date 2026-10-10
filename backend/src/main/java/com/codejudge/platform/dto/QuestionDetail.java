@@ -18,7 +18,6 @@ import java.util.List;
  * @param methodSignature 方法签名（如 int sum(int, int)），用于生成代码模板
  * @param judgeMode      判题模式：METHOD / DESIGN / STDIO
  * @param designMethods  设计题方法定义列表（仅 DESIGN 模式）
- * @param language       编程语言（如 Java）
  * @param difficulty     难度：简单 / 中等 / 困难
  * @param tags           标签列表
  * @param testCases      测试用例列表（每个含名称、输入、期望输出）
@@ -31,7 +30,6 @@ public record QuestionDetail(
         String methodSignature,
         String judgeMode,
         List<String> designMethods,
-        String language,
         String difficulty,
         List<String> tags,
         List<QuestionTestCase> testCases) {
@@ -51,7 +49,6 @@ public record QuestionDetail(
                 q.getMethodSignature(),
                 q.getJudgeMode(),
                 q.getDesignMethods(),
-                q.getLanguage(),
                 q.getDifficulty(),
                 q.getTags(),
                 q.getTestCases());

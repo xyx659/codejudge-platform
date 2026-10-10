@@ -357,7 +357,7 @@ async function runTest() {
   }
   testing.value = true
   try {
-    const res = await runCode({ questionId: q.questionId, sourceCode: code, testCases: randomTestCases.value })
+    const res = await runCode({ questionId: q.questionId, sourceCode: code, language: q.language, testCases: randomTestCases.value })
     const data = res.data
     if (data.compileError) {
       testError.value = data.compileError

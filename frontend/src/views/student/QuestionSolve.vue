@@ -16,7 +16,6 @@
         </span>
       </div>
       <div class="meta">
-        <span>语言：{{ question.language }}</span>
         <span>方法名：{{ question.methodName }}</span>
         <span v-if="question.tags && question.tags.length">
           标签：{{ question.tags.join('、') }}

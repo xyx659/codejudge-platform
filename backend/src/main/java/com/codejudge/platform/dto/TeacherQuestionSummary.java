@@ -14,7 +14,6 @@ import java.util.List;
  * @param id         题目 ID
  * @param title      题目标题
  * @param difficulty 难度
- * @param language   编程语言
  * @param methodName 方法名
  * @param tags       标签列表
  * @param categoryId 所属分类 ID
@@ -25,7 +24,6 @@ public record TeacherQuestionSummary(
         String id,
         String title,
         String difficulty,
-        String language,
         String methodName,
         List<String> tags,
         String categoryId,
@@ -38,7 +36,6 @@ public record TeacherQuestionSummary(
                 q.getId(),
                 q.getTitle(),
                 q.getDifficulty(),
-                q.getLanguage(),
                 q.getMethodName(),
                 q.getTags(),
                 q.getCategoryId(),

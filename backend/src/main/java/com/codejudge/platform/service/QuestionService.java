@@ -190,7 +190,6 @@ public class QuestionService {
                 required(candidate.title(), "题目标题不能为空"),
                 cleanText(candidate.description()),
                 cleanText(candidate.methodName()));
-        question.setLanguage(normalizeLanguage(candidate.language()));
         question.setDifficulty(requireDifficulty(candidate.difficulty()));
         question.setTags(cleanTags(candidate.tags()));
         List<QuestionTestCase> testCases = new ArrayList<>();
@@ -276,7 +275,6 @@ public class QuestionService {
                 text(node, "methodSignature"),
                 judgeMode,
                 stringList(node.get("designMethods")),
-                required(text(node, "language"), "编程语言不能为空"),
                 required(text(node, "difficulty"), "难度不能为空"),
                 stringList(node.get("tags")),
                 node.hasNonNull("published")
@@ -331,7 +329,6 @@ public class QuestionService {
             question.setDesignMethods(new ArrayList<>());
         }
 
-        question.setLanguage(normalizeLanguage(request.language()));
         question.setDifficulty(requireDifficulty(request.difficulty()));
         question.setTags(cleanTags(request.tags()));
         question.setPublished(request.published() == null
@@ -406,19 +403,6 @@ public class QuestionService {
             throw new BadRequestException("标签数量不能超过 20 个");
         }
         return List.copyOf(tags);
-    }
-
-    private String normalizeLanguage(String language) {
-        String value = required(language, "编程语言不能为空")
-                .toLowerCase(Locale.ROOT);
-        return switch (value) {
-            case "java" -> "Java";
-            case "c" -> "C";
-            case "c++", "cpp" -> "C++";
-            case "python", "python3", "py" -> "Python";
-            case "go", "golang" -> "Go";
-            default -> throw new BadRequestException("暂不支持的编程语言：" + language);
-        };
     }
 
     private String requireDifficulty(String difficulty) {

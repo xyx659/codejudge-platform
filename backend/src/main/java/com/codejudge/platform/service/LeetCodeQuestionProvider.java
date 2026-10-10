@@ -149,7 +149,6 @@ public class LeetCodeQuestionProvider implements ExternalQuestionProvider {
                     description,
                     methodName,
                     methodSignature,
-                    "Java",
                     difficulty,
                     tags,
                     testCases,

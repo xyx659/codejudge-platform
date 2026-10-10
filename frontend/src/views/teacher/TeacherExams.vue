@@ -474,8 +474,7 @@ async function loadCandidates() {
       published: true,
       keyword: candidateKeyword.value,
       difficulty: candidateDifficulty.value,
-      categoryId: candidateCategoryId.value,
-      language: form.language
+      categoryId: candidateCategoryId.value
     })
     const list = res.data.list || []
     candidates.value = list

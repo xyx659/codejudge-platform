@@ -70,9 +70,8 @@ class MultiLanguageRunIntegrationTest {
                 .thenReturn(new JudgeRuntimeConfig(2000, 256, 10));
     }
 
-    private void stubQuestion(String language, String signature, String input, String expected) {
+    private void stubQuestion(String signature, String input, String expected) {
         Question question = new Question();
-        question.setLanguage(language);
         question.setJudgeMode("METHOD");
         question.setMethodSignature(signature);
         question.setTestCases(List.of(new QuestionTestCase("样例", input, expected)));
@@ -81,7 +80,7 @@ class MultiLanguageRunIntegrationTest {
 
     @Test
     void python两数之和返回列表() {
-        stubQuestion("Python",
+        stubQuestion(
                 "def twoSum(self, nums: List[int], target: int) -> List[int]",
                 "nums = [2,7,11,15], target = 9",
                 "[0,1]");
@@ -94,7 +93,7 @@ class MultiLanguageRunIntegrationTest {
                 + "            d[n] = i\n"
                 + "        return []\n";
 
-        RunResult result = runService.run(new RunRequest("q1", source, null));
+        RunResult result = runService.run(new RunRequest("q1", source, "Python", null));
 
         assertNull(result.compileError(), "Python 解释型无编译步骤，compileError 应为 null");
         assertEquals(1, result.results().size());
@@ -104,7 +103,7 @@ class MultiLanguageRunIntegrationTest {
 
     @Test
     void python标量求和() {
-        stubQuestion("Python",
+        stubQuestion(
                 "def add(self, a: int, b: int) -> int",
                 "a = 3, b = 4",
                 "7");
@@ -112,7 +111,7 @@ class MultiLanguageRunIntegrationTest {
                 + "    def add(self, a, b):\n"
                 + "        return a + b\n";
 
-        RunResult result = runService.run(new RunRequest("q1", source, null));
+        RunResult result = runService.run(new RunRequest("q1", source, "Python", null));
 
         assertNull(result.compileError());
         assertTrue(result.results().get(0).passed());
@@ -121,7 +120,7 @@ class MultiLanguageRunIntegrationTest {
 
     @Test
     void go两数之和返回切片() {
-        stubQuestion("Go",
+        stubQuestion(
                 "twoSum(nums []int, target int) []int",
                 "nums = [2,7,11,15], target = 9",
                 "[0,1]");
@@ -137,7 +136,7 @@ class MultiLanguageRunIntegrationTest {
                 + "    return nil\n"
                 + "}\n";
 
-        RunResult result = runService.run(new RunRequest("q1", source, null));
+        RunResult result = runService.run(new RunRequest("q1", source, "Go", null));
 
         assertNull(result.compileError(), "Go 编译应成功，compileError 应为 null");
         assertEquals(1, result.results().size());
@@ -147,7 +146,7 @@ class MultiLanguageRunIntegrationTest {
 
     @Test
     void go标量求和() {
-        stubQuestion("Go",
+        stubQuestion(
                 "add(a int, b int) int",
                 "a = 3, b = 4",
                 "7");
@@ -156,7 +155,7 @@ class MultiLanguageRunIntegrationTest {
                 + "    return a + b\n"
                 + "}\n";
 
-        RunResult result = runService.run(new RunRequest("q1", source, null));
+        RunResult result = runService.run(new RunRequest("q1", source, "Go", null));
 
         assertNull(result.compileError());
         assertTrue(result.results().get(0).passed());
@@ -165,7 +164,7 @@ class MultiLanguageRunIntegrationTest {
 
     @Test
     void go编译错误返回compileError() {
-        stubQuestion("Go",
+        stubQuestion(
                 "add(a int, b int) int",
                 "a = 3, b = 4",
                 "7");
@@ -174,7 +173,7 @@ class MultiLanguageRunIntegrationTest {
                 + "func add(a int, b int) int {\n"
                 + "    return a + b\n";
 
-        RunResult result = runService.run(new RunRequest("q1", source, null));
+        RunResult result = runService.run(new RunRequest("q1", source, "Go", null));
 
         assertTrue(result.compileError() != null && !result.compileError().isBlank(),
                 "Go 编译错误应返回 compileError");
@@ -183,7 +182,7 @@ class MultiLanguageRunIntegrationTest {
 
     @Test
     void python输出不符标记未通过() {
-        stubQuestion("Python",
+        stubQuestion(
                 "def add(self, a: int, b: int) -> int",
                 "a = 3, b = 4",
                 "8");
@@ -191,7 +190,7 @@ class MultiLanguageRunIntegrationTest {
                 + "    def add(self, a, b):\n"
                 + "        return a + b\n";
 
-        RunResult result = runService.run(new RunRequest("q1", source, null));
+        RunResult result = runService.run(new RunRequest("q1", source, "Python", null));
 
         assertNull(result.compileError());
         assertFalse(result.results().get(0).passed(), "3+4=7 不等于期望 8，应判未通过");

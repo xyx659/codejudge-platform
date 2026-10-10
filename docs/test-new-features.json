@@ -5,14 +5,33 @@
       "description": "给定一个浮点数数组 nums，返回其平均值（保留任意精度）。\n\n示例 1：\n输入：nums = [1.5, 2.5, 3.0]\n输出：2.3333333333333335\n\n示例 2：\n输入：nums = [1.0, 2.0, 3.0, 4.0]\n输出：2.5\n\n提示：\n- 1 <= nums.length <= 10^4\n- -10^5 <= nums[i] <= 10^5",
       "methodName": "average",
       "methodSignature": "double average(float[])",
-      "language": "Java",
       "difficulty": "简单",
-      "tags": ["数组", "数学", "浮点数"],
+      "tags": [
+        "数组",
+        "数学",
+        "浮点数"
+      ],
       "testCases": [
-        {"name": "基本用例", "input": "nums = [1.5, 2.5, 3.0]", "expected": "2.3333333333333335"},
-        {"name": "整数浮点", "input": "nums = [1.0, 2.0, 3.0, 4.0]", "expected": "2.5"},
-        {"name": "单个元素", "input": "nums = [42.0]", "expected": "42.0"},
-        {"name": "含负数", "input": "nums = [-1.5, 2.5]", "expected": "0.5"}
+        {
+          "name": "基本用例",
+          "input": "nums = [1.5, 2.5, 3.0]",
+          "expected": "2.3333333333333335"
+        },
+        {
+          "name": "整数浮点",
+          "input": "nums = [1.0, 2.0, 3.0, 4.0]",
+          "expected": "2.5"
+        },
+        {
+          "name": "单个元素",
+          "input": "nums = [42.0]",
+          "expected": "42.0"
+        },
+        {
+          "name": "含负数",
+          "input": "nums = [-1.5, 2.5]",
+          "expected": "0.5"
+        }
       ]
     },
     {
@@ -20,14 +39,33 @@
       "description": "给定两个整数数组 nums1 和 nums2，返回它们的交集（元素唯一，任意顺序返回）。\n\n示例 1：\n输入：nums1 = [1,2,2,1], nums2 = [2,2]\n输出：[2]\n\n示例 2：\n输入：nums1 = [4,9,5], nums2 = [9,4,9,8,4]\n输出：[9,4]\n\n提示：\n- 1 <= nums1.length, nums2.length <= 1000\n- 0 <= nums1[i], nums2[i] <= 1000",
       "methodName": "intersection",
       "methodSignature": "int[] intersection(int[], int[])",
-      "language": "Java",
       "difficulty": "简单",
-      "tags": ["数组", "哈希表", "集合"],
+      "tags": [
+        "数组",
+        "哈希表",
+        "集合"
+      ],
       "testCases": [
-        {"name": "基本用例", "input": "nums1 = [1,2,2,1], nums2 = [2,2]", "expected": "[2]"},
-        {"name": "多个交集", "input": "nums1 = [4,9,5], nums2 = [9,4,9,8,4]", "expected": "[4,9]"},
-        {"name": "无交集", "input": "nums1 = [1,2,3], nums2 = [4,5,6]", "expected": "[]"},
-        {"name": "完全相同", "input": "nums1 = [1,2,3], nums2 = [1,2,3]", "expected": "[1,2,3]"}
+        {
+          "name": "基本用例",
+          "input": "nums1 = [1,2,2,1], nums2 = [2,2]",
+          "expected": "[2]"
+        },
+        {
+          "name": "多个交集",
+          "input": "nums1 = [4,9,5], nums2 = [9,4,9,8,4]",
+          "expected": "[4,9]"
+        },
+        {
+          "name": "无交集",
+          "input": "nums1 = [1,2,3], nums2 = [4,5,6]",
+          "expected": "[]"
+        },
+        {
+          "name": "完全相同",
+          "input": "nums1 = [1,2,3], nums2 = [1,2,3]",
+          "expected": "[1,2,3]"
+        }
       ]
     },
     {
@@ -41,9 +79,13 @@
         "int get(int)",
         "void put(int,int)"
       ],
-      "language": "Java",
       "difficulty": "中等",
-      "tags": ["设计", "哈希表", "链表", "LRU"],
+      "tags": [
+        "设计",
+        "哈希表",
+        "链表",
+        "LRU"
+      ],
       "testCases": [
         {
           "name": "官方示例",
@@ -70,9 +112,12 @@
         "int top()",
         "int getMin()"
       ],
-      "language": "Java",
       "difficulty": "简单",
-      "tags": ["设计", "栈", "最小栈"],
+      "tags": [
+        "设计",
+        "栈",
+        "最小栈"
+      ],
       "testCases": [
         {
           "name": "官方示例",
@@ -87,13 +132,27 @@
       "methodName": "main",
       "methodSignature": "",
       "judgeMode": "STDIO",
-      "language": "Java",
       "difficulty": "简单",
-      "tags": ["入门", "STDIO"],
+      "tags": [
+        "入门",
+        "STDIO"
+      ],
       "testCases": [
-        {"name": "基本文本", "input": "Hello World", "expected": "Hello World"},
-        {"name": "数字", "input": "123", "expected": "123"},
-        {"name": "中文", "input": "你好世界", "expected": "你好世界"}
+        {
+          "name": "基本文本",
+          "input": "Hello World",
+          "expected": "Hello World"
+        },
+        {
+          "name": "数字",
+          "input": "123",
+          "expected": "123"
+        },
+        {
+          "name": "中文",
+          "input": "你好世界",
+          "expected": "你好世界"
+        }
       ]
     }
   ]

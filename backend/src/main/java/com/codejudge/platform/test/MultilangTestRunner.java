@@ -118,11 +118,12 @@ public class MultilangTestRunner {
 
     /** 导入一道题、提交参考解、触发判题并轮询，返回结果行。 */
     private Row runOne(int no, JsonNode qn, String lang, String code, Long studentId) throws Exception {
-        Question q = buildQuestion(qn, lang);
+        Question q = buildQuestion(qn);
         q = questionRepository.save(q);
 
         Submission sub = new Submission(q.getId(), studentId);
         sub.setJudgeStatus("PENDING");
+        sub.setLanguage(lang);
         sub = submissionRepository.save(sub);
 
         SubmissionDetail detail = new SubmissionDetail();
@@ -184,8 +185,8 @@ public class MultilangTestRunner {
                 });
     }
 
-    /** JSON 题目节点 → Question 实体（language 由入参决定）。 */
-    private Question buildQuestion(JsonNode n, String language) {
+    /** JSON 题目节点 → Question 实体。 */
+    private Question buildQuestion(JsonNode n) {
         Question q = new Question();
         q.setTitle(n.path("title").asText(""));
         q.setDescription(n.path("description").asText(""));
@@ -193,7 +194,6 @@ public class MultilangTestRunner {
         q.setJudgeMode(n.path("judgeMode").asText("METHOD"));
         q.setMethodSignature(n.hasNonNull("methodSignature") ? n.get("methodSignature").asText() : null);
         q.setDesignMethods(parseStringList(n.get("designMethods")));
-        q.setLanguage(language);
         q.setDifficulty(n.path("difficulty").asText(""));
         q.setTags(parseStringList(n.get("tags")));
         q.setPublished(n.path("published").asBoolean(false));

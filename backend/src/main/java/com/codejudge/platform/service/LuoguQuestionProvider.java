@@ -118,7 +118,6 @@ public class LuoguQuestionProvider implements ExternalQuestionProvider {
                     description,
                     null,
                     null,
-                    "Java",
                     difficulty,
                     List.of(),
                     testCases,

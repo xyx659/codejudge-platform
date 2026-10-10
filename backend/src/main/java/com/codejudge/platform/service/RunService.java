@@ -64,8 +64,8 @@ public class RunService {
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> new NotFoundException("题目不存在"));
 
-        // 按题目语言路由到对应处理器（null/历史数据回退 Java）
-        LanguageHandler handler = languageHandlers.get(question.getLanguage());
+        // 按提交时指定的语言路由（null/历史数据回退 Java）
+        LanguageHandler handler = languageHandlers.get(request.language());
 
         String judgeMode = question.getJudgeMode() == null ? "METHOD" : question.getJudgeMode();
         boolean isDesign = "DESIGN".equals(judgeMode);
@@ -87,7 +87,8 @@ public class RunService {
             List<MethodSignature> signatures = new ArrayList<>();
             for (String def : methodDefs) {
                 try {
-                    signatures.add(handler.parseSignature(def));
+                    signatures.add(handler.parseSignature(
+                            SignatureConverter.toNative(def, handler.language())));
                 } catch (Exception e) {
                     return new RunResult("方法签名解析失败：" + def, List.of());
                 }
@@ -101,7 +102,8 @@ public class RunService {
         } else {
             MethodSignature signature;
             try {
-                signature = handler.parseSignature(question.getMethodSignature());
+                signature = handler.parseSignature(
+                        SignatureConverter.toNative(question.getMethodSignature(), handler.language()));
             } catch (Exception e) {
                 return new RunResult("题目缺少合法方法签名", List.of());
             }

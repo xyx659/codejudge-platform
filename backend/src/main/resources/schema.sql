@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     student_id   BIGINT      NOT NULL COMMENT '学生 ID（对应 students.id）',
     judge_status VARCHAR(30) NULL COMMENT '判卷状态：PENDING / RUN_COMPLETED / COMPILE_ERROR / TIMEOUT / UNANSWERED',
     score        INT         NULL COMMENT '最终得分',
+    language     VARCHAR(20) NULL COMMENT '判题语言（Java / C / C++ / Python / Go）',
     created_at   DATETIME    NOT NULL COMMENT '提交时间',
     PRIMARY KEY (id),
     KEY idx_submissions_student_id (student_id),

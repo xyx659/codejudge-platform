@@ -55,10 +55,12 @@
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | `id` | BIGINT | 主键，自增 | 提交 ID |
+| `exam_id` | VARCHAR(50) | 可空 | 考试 ID（对应 MongoDB `exams._id`），单题直刷为 NULL |
 | `question_id` | VARCHAR(50) | 非空 | 题目 ID（对应 MongoDB `questions._id`） |
 | `student_id` | BIGINT | 非空 | 学生 ID（对应 `students.id`） |
-| `judge_status` | VARCHAR(30) | 可空 | 判卷状态：`PENDING` / `RUN_COMPLETED` / `COMPILE_ERROR` / `TIMEOUT` |
-| `score` | INT | 可空 | 最终得分 |
+| `judge_status` | VARCHAR(30) | 可空 | 判卷状态：`PENDING` / `RUN_COMPLETED` / `COMPILE_ERROR` / `TIMEOUT` / `UNANSWERED` |
+| `score` | INT | 可空 | 最终得分（0~100 百分比，考试汇总时按题目分值折算） |
+| `language` | VARCHAR(20) | 可空 | 判题语言（Java / C / C++ / Python / Go），考试提交取考试语言 |
 | `created_at` | DATETIME | 非空 | 提交时间 |
 
 ## MongoDB（非关系型数据库）
@@ -67,7 +69,7 @@
 
 ### questions（题目集合）
 
-存储题目信息、难度、标签与测试用例，字段结构灵活，便于后续扩展题型。
+存储题目信息、难度、标签与测试用例，字段结构灵活，便于后续扩展题型。题目与语言解耦（不存 `language`），判题语言由提交/考试决定。
 
 ```json
 {
@@ -75,7 +77,8 @@
   "title": "两数之和",
   "description": "实现 sum(int a, int b)，返回两数之和",
   "methodName": "sum",
-  "language": "Java",
+  "methodSignature": "int sum(int, int)",
+  "judgeMode": "METHOD",
   "difficulty": "简单",
   "tags": ["数学", "基础"],
   "testCases": [

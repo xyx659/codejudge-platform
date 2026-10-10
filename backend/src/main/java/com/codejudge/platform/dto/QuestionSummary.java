@@ -13,7 +13,6 @@ import java.util.List;
  * @param id         题目 ID（对应 MongoDB 的 _id）
  * @param title      题目标题
  * @param difficulty 难度：简单 / 中等 / 困难
- * @param language   编程语言（如 Java），学生写代码时要按这个语言来
  * @param methodName 需要实现的方法名（如 sum），学生写代码时方法名要对上
  * @param tags       标签列表（如 数学、基础）
  * @param submitted  当前学生是否已提交过此题（用于「每题限一次」标记）
@@ -22,7 +21,6 @@ public record QuestionSummary(
         String id,
         String title,
         String difficulty,
-        String language,
         String methodName,
         List<String> tags,
         boolean submitted) {
@@ -49,7 +47,6 @@ public record QuestionSummary(
                 q.getId(),
                 q.getTitle(),
                 q.getDifficulty(),
-                q.getLanguage(),
                 q.getMethodName(),
                 q.getTags(),
                 submitted);

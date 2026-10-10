@@ -374,13 +374,18 @@ public class AiReviewService {
             }
         }
 
-        // 由维度加权计算 qualityScore
-        double weighted = 0;
-        for (Map.Entry<String, Integer> e : dimensionScores.entrySet()) {
-            double w = DIMENSION_WEIGHTS.getOrDefault(e.getKey(), 0.0);
-            weighted += e.getValue() * w;
+        // 由维度加权计算 qualityScore；AI 未返回维度分时不因缺失数据扣分（视为满分）
+        int qualityScore;
+        if (dimensionScores.isEmpty()) {
+            qualityScore = 100;
+        } else {
+            double weighted = 0;
+            for (Map.Entry<String, Integer> e : dimensionScores.entrySet()) {
+                double w = DIMENSION_WEIGHTS.getOrDefault(e.getKey(), 0.0);
+                weighted += e.getValue() * w;
+            }
+            qualityScore = clamp((int) Math.round(weighted), 0, 100);
         }
-        int qualityScore = clamp((int) Math.round(weighted), 0, 100);
 
         List<String> feedback = new ArrayList<>();
         JsonNode feedbackNode = node.get("feedback");
@@ -408,7 +413,15 @@ public class AiReviewService {
             log.info("AI 评审复杂度兜底提取：timeComplexity={}, spaceComplexity={}", timeComplexity, spaceComplexity);
         }
 
-        int score = (int) Math.round(passRate * 0.7 + qualityScore * 0.3);
+        // 全对给满分、全错给 0 分；仅部分通过时才掺入代码质量分（正确性 70% + 质量 30%）
+        int score;
+        if (passRate <= 0) {
+            score = 0;
+        } else if (passRate >= 100) {
+            score = 100;
+        } else {
+            score = (int) Math.round(passRate * 0.7 + qualityScore * 0.3);
+        }
         return new AiReview(score, passRate, qualityScore, feedback,
                 timeComplexity, spaceComplexity, dimensionScores, summary);
     }

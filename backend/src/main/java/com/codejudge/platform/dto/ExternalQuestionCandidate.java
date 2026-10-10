@@ -13,7 +13,6 @@ public record ExternalQuestionCandidate(
         String description,
         String methodName,
         String methodSignature,
-        String language,
         String difficulty,
         List<String> tags,
         List<QuestionTestCaseRequest> testCases,

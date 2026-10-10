@@ -7,8 +7,8 @@ set -uo pipefail
 
 # ===== 基础路径与常量（按本机环境配置） =====
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
-MVN="/home/xiao/.local/apache-maven-3.9.9/bin/mvn"
+JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+MVN="/opt/apache-maven-3.9.9/bin/mvn"
 
 RUN_DIR="$PROJECT_DIR/.run"
 BACKEND_LOG="$RUN_DIR/backend.log"

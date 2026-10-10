@@ -40,9 +40,6 @@ public class Question {
     /** 设计题方法定义列表（仅 DESIGN 模式使用），每项格式如 "void put(int,int)" 或 "int get(int)" */
     private List<String> designMethods = new ArrayList<String>();
 
-    /** 编程语言（如 Java） */
-    private String language;
-
     /** 难度：简单 / 中等 / 困难 */
     private String difficulty;
 
@@ -129,14 +126,6 @@ public class Question {
 
     public void setDesignMethods(List<String> designMethods) {
         this.designMethods = designMethods;
-    }
-
-    public String getLanguage() {
-        return language;
-    }
-
-    public void setLanguage(String language) {
-        this.language = language;
     }
 
     public String getDifficulty() {

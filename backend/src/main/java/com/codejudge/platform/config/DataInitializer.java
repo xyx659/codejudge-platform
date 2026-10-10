@@ -76,7 +76,6 @@ public class DataInitializer implements CommandLineRunner {
         if (questionRepository.count() == 0) {
             question = new Question("两数之和", "实现 sum(int a, int b)，返回两数之和", "sum");
             question.setMethodSignature("int sum(int, int)");
-            question.setLanguage("Java");
             question.setDifficulty("简单");
             question.setTags(List.of("数学", "基础"));
             question.setTestCases(List.of(

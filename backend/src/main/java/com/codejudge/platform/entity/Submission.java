@@ -49,6 +49,10 @@ public class Submission {
     /** 最终得分 */
     private Integer score;
 
+    /** 判题语言（Java / C / C++ / Python / Go），提交时确定，评测据此路由 LanguageHandler */
+    @Column(length = 20)
+    private String language;
+
     /** 提交时间，创建后不可更新 */
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -101,6 +105,14 @@ public class Submission {
 
     public void setScore(Integer score) {
         this.score = score;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
     }
 
     public LocalDateTime getCreatedAt() {

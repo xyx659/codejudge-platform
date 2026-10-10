@@ -145,16 +145,6 @@
           </div>
           <div class="field-row">
             <label class="field">
-              <span>编程语言</span>
-              <select v-model="form.language">
-                <option value="Java">Java</option>
-                <option value="C">C</option>
-                <option value="C++">C++</option>
-                <option value="Python">Python</option>
-                <option value="Go">Go</option>
-              </select>
-            </label>
-            <label class="field">
               <span>难度</span>
               <select v-model="form.difficulty">
                 <option v-for="d in difficultyOptions" :key="d" :value="d">{{ d }}</option>
@@ -262,7 +252,6 @@ const form = reactive({
   methodSignature: '',
   judgeMode: 'METHOD',
   designMethodsText: '',
-  language: 'Java',
   difficulty: '简单',
   categoryId: '',
   tagsStr: '',
@@ -309,7 +298,7 @@ async function aiGenerate() {
   try {
     let finalData = null
     await aiGenerateQuestionStream(
-      { title: form.title, description: form.description, language: form.language },
+      { title: form.title, description: form.description },
       (chunk) => {
         aiProgress.value = chunk.length > 100 ? '...' + chunk.slice(-100) : chunk
         const parsed = extractJson(chunk)
@@ -323,7 +312,7 @@ async function aiGenerate() {
     applyAiResult(finalData)
   } catch (e) {
     try {
-      const res = await aiGenerateQuestion({ title: form.title, description: form.description, language: form.language })
+      const res = await aiGenerateQuestion({ title: form.title, description: form.description })
       const data = extractJson(res.data)
       if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
       applyAiResult(data)
@@ -423,7 +412,6 @@ function resetForm() {
   form.methodSignature = ''
   form.judgeMode = 'METHOD'
   form.designMethodsText = ''
-  form.language = 'Java'
   form.difficulty = '简单'
   form.categoryId = ''
   form.tagsStr = ''
@@ -451,7 +439,6 @@ async function openEdit(q) {
     form.methodSignature = d.methodSignature || ''
     form.judgeMode = d.judgeMode || 'METHOD'
     form.designMethodsText = (d.designMethods || []).join('\n')
-    form.language = d.language || 'Java'
     form.difficulty = d.difficulty || '简单'
     form.categoryId = d.categoryId || ''
     form.tagsStr = (d.tags || []).join(',')
@@ -515,7 +502,6 @@ async function submitForm() {
       methodSignature: form.methodSignature,
       judgeMode,
       designMethods,
-      language: form.language,
       difficulty: form.difficulty,
       categoryId: form.categoryId || null,
       tags: form.tagsStr

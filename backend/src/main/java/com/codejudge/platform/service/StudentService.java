@@ -284,7 +284,7 @@ public class StudentService {
                         q != null ? q.getMethodSignature() : null,
                         q != null ? q.getJudgeMode() : null,
                         q != null ? q.getDesignMethods() : List.of(),
-                        q != null ? q.getLanguage() : null,
+                        exam.getLanguage(),
                         q != null ? q.getTestCases() : List.of(),
                         sourceCode, judgeStatus, myScore));
             }
@@ -350,6 +350,7 @@ public class StudentService {
 
             Submission submission = new Submission(eq.getQuestionId(), student.getId(), examId);
             submission.setJudgeStatus(answeredQ ? "PENDING" : "UNANSWERED");
+            submission.setLanguage(exam.getLanguage());
             submission.setScore(answeredQ ? null : 0);
             submission = submissionRepository.save(submission);
 
@@ -479,6 +480,8 @@ public class StudentService {
         //    注意：save 之后才会生成自增 id，所以要把返回值接住。
         Submission submission = new Submission(question.getId(), student.getId());
         submission.setJudgeStatus("PENDING");
+        // 单题提交（非考试）暂无语言选择，固定按 Java 判题
+        submission.setLanguage("Java");
         submission = submissionRepository.save(submission);
 
         // 5. 再写 MongoDB 的「提交明细」：完整源码，状态同样 PENDING。
@@ -667,7 +670,8 @@ public class StudentService {
                 Integer sc = s.getScore();
                 if (sc != null) {
                     Integer c = cap.get(s.getQuestionId());
-                    achieved += c == null ? sc : Math.min(sc, c);
+                    // 提交得分是 0~100 的百分比，按题目分值折算；分值为空的历史数据按 0~100 直接计
+                    achieved += c == null ? sc : (int) Math.round(sc * c / 100.0);
                 }
                 questions.add(new StudentExamQuestionScore(
                         s.getId(), s.getQuestionId(), titleMap.get(s.getQuestionId()),

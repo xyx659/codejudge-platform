@@ -15,7 +15,6 @@ public record QuestionSaveRequest(
         String methodSignature,
         String judgeMode,
         List<String> designMethods,
-        @NotBlank(message = "编程语言不能为空") String language,
         @NotBlank(message = "难度不能为空") String difficulty,
         List<String> tags,
         Boolean published,

@@ -109,8 +109,8 @@ public class DockerJudgeEngine implements JudgeEngine {
             return;
         }
 
-        // 按题目语言路由到对应处理器（null/历史数据回退 Java）
-        LanguageHandler handler = languageHandlers.get(question.getLanguage());
+        // 按提交时确定的语言路由到对应处理器（null/历史数据回退 Java）
+        LanguageHandler handler = languageHandlers.get(submission.getLanguage());
 
         String judgeMode = question.getJudgeMode() == null ? "METHOD" : question.getJudgeMode();
         boolean isDesign = "DESIGN".equals(judgeMode);
@@ -137,7 +137,8 @@ public class DockerJudgeEngine implements JudgeEngine {
             List<MethodSignature> signatures = new ArrayList<>();
             for (String def : methodDefs) {
                 try {
-                    signatures.add(handler.parseSignature(def));
+                    signatures.add(handler.parseSignature(
+                            SignatureConverter.toNative(def, handler.language())));
                 } catch (Exception e) {
                     finish(submission, detail, "COMPILE_ERROR", 0,
                             List.of(new TestCaseResult("评测", false, "", "方法签名解析失败：" + def, 0)));
@@ -156,7 +157,8 @@ public class DockerJudgeEngine implements JudgeEngine {
             // 普通方法题
             MethodSignature signature;
             try {
-                signature = handler.parseSignature(question.getMethodSignature());
+                signature = handler.parseSignature(
+                        SignatureConverter.toNative(question.getMethodSignature(), handler.language()));
             } catch (Exception e) {
                 finish(submission, detail, "COMPILE_ERROR", 0,
                         List.of(new TestCaseResult("评测", false, "", "题目缺少合法方法签名", 0)));
@@ -222,7 +224,7 @@ public class DockerJudgeEngine implements JudgeEngine {
         finish(submission, detail, "RUN_COMPLETED", score, results);
 
         // Step 7：白盒 AI 评审（仅编译通过后触发）
-        triggerAiReview(submissionId, question, detail, score, results);
+        triggerAiReview(submission, question, detail, score, results);
     }
 
     /** 运行单个用例：编译产物 + {@code inputN.txt} 打包，独立容器执行。 */
@@ -262,25 +264,25 @@ public class DockerJudgeEngine implements JudgeEngine {
     }
 
     /** Step 7：白盒 AI 评审。仅编译通过后触发；未配置 Key、调用或解析失败时 aiReview 保持为 null。 */
-    private void triggerAiReview(Long submissionId, Question question, SubmissionDetail detail,
+    private void triggerAiReview(Submission submission, Question question, SubmissionDetail detail,
                                  int passRate, List<TestCaseResult> results) {
         try {
             AiReview aiReview = aiReviewService.review(
                     question.getTitle(), question.getDescription(), question.getMethodSignature(),
-                    question.getLanguage(), detail.getSourceCode(), passRate, results);
+                    submission.getLanguage(), detail.getSourceCode(), passRate, results);
             if (aiReview != null) {
                 detail.setAiReview(aiReview);
                 // 综合分回写：更新 MongoDB 明细 + MySQL 摘要
                 detail.setScore(aiReview.getScore());
                 saveDetail(detail);
-                submissionRepository.findById(submissionId).ifPresent(sub -> {
+                submissionRepository.findById(submission.getId()).ifPresent(sub -> {
                     sub.setScore(aiReview.getScore());
                     saveSubmission(sub);
                 });
             }
         } catch (Exception e) {
             // 兜底：AI 评审异常绝不影响黑盒判题结果
-            log.warn("AI 评审异常，已跳过：submissionId={}", submissionId, e);
+            log.warn("AI 评审异常，已跳过：submissionId={}", submission.getId(), e);
         }
     }
 
