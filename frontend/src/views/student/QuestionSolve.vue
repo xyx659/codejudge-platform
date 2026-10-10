@@ -1,4 +1,4 @@
-<!-- 学生端：在线答题页，含题目描述、Monaco Java 代码编辑器与提交 -->
+<!-- 学生端：在线答题页，LeetCode 式左右两栏（左：题目描述/样例；右：编辑器 + 测试/提交） -->
 <template>
   <div class="page">
     <button class="back" @click="router.push('/student/home')">← 返回题目列表</button>
@@ -23,88 +23,88 @@
         </span>
       </div>
 
-      <div class="card desc">
-        <div class="label">题目描述</div>
-        <p class="desc-text">{{ question.description }}</p>
-      </div>
+      <div class="workspace">
+        <!-- 左栏：题目描述 + 样例 + 已提交提示 -->
+        <div class="pane pane-left">
+          <div class="card">
+            <div class="label">题目描述</div>
+            <p class="desc-text">{{ question.description }}</p>
+          </div>
 
-      <div class="card">
-        <div class="label">样例测试用例</div>
-        <table v-if="question.testCases && question.testCases.length" class="samples">
-          <thead>
-            <tr><th>名称</th><th>输入</th><th>期望输出</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="(tc, i) in question.testCases" :key="i">
-              <td>{{ tc.name }}</td>
-              <td><code>{{ tc.input }}</code></td>
-              <td><code>{{ tc.expected }}</code></td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-else class="hint">本题暂无样例用例</p>
-      </div>
+          <div class="card">
+            <div class="label">样例测试用例</div>
+            <div v-if="question.testCases && question.testCases.length" class="examples">
+              <div v-for="(tc, i) in question.testCases" :key="i" class="example">
+                <div class="example-head">
+                  <span class="example-no">示例 {{ i + 1 }}</span>
+                  <span v-if="tc.name" class="example-name">{{ tc.name }}</span>
+                </div>
+                <div class="example-io">
+                  <div class="io-row"><span class="io-k">输入</span><pre class="io-v">{{ tc.input }}</pre></div>
+                  <div class="io-row"><span class="io-k">输出</span><pre class="io-v">{{ tc.expected }}</pre></div>
+                </div>
+              </div>
+            </div>
+            <p v-else class="hint">本题暂无样例用例</p>
+          </div>
 
-      <!-- 已提交提示（每题限一次） -->
-      <div v-if="submission" class="card submitted-banner">
-        <span class="badge done">已提交</span>
-        <span>状态：{{ judgeStatusText(submission.judgeStatus) }}</span>
-        <span v-if="submission.score != null">得分：{{ submission.score }}</span>
-        <router-link to="/student/scores">查看完整成绩 →</router-link>
-      </div>
-
-      <!-- 代码编辑器（提交后转为只读回看） -->
-      <div class="card editor-card">
-        <div class="label">
-          {{ submission ? '我的答案（只读）' : `编写代码（${question.methodName}）` }}
+          <div v-if="submission" class="card submitted-banner">
+            <span class="badge done">已提交</span>
+            <span>状态：{{ judgeStatusText(submission.judgeStatus) }}</span>
+            <span v-if="submission.score != null">得分：{{ submission.score }}</span>
+            <router-link to="/student/scores">查看完整成绩 →</router-link>
+          </div>
         </div>
-        <div ref="editorRef" class="editor"></div>
-      </div>
 
-      <!-- 本地样例自测 -->
-      <div v-if="!submission" class="testbar">
-        <button class="btn" :disabled="testing" @click="runTest">
-          {{ testing ? '测试中...' : '测试' }}
-        </button>
-        <span class="test-hint">用样例用例本地跑一遍（不提交）</span>
-      </div>
-      <p v-if="testError" class="test-error">{{ testError }}</p>
-      <div v-if="testResults" class="test-results">
-        <div
-          v-for="(r, ri) in testResults"
-          :key="ri"
-          class="test-row"
-          :class="{ pass: r.passed, fail: !r.passed }"
-        >
-          <span class="test-status">{{ r.passed ? '✓' : '✗' }}</span>
-          <span class="test-name">{{ r.name }}</span>
-          <span class="test-msg">{{ r.message }}</span>
-          <span v-if="!r.passed" class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+        <!-- 右栏：编辑器 + 测试/提交按钮 + 结果 -->
+        <div class="pane pane-right">
+          <div class="card editor-card">
+            <div class="editor-toolbar">
+              <span class="editor-title">
+                {{ submission ? '我的答案（只读）' : `编写代码（${question.methodName}）` }}
+              </span>
+              <div v-if="!submission" class="editor-btns">
+                <button class="btn" :disabled="testing" @click="runTest">
+                  {{ testing ? '测试中...' : '测试' }}
+                </button>
+                <button class="btn primary" :disabled="submitting" @click="submitCode">
+                  {{ submitting ? '提交中...' : '提交' }}
+                </button>
+              </div>
+            </div>
+            <div ref="editorRef" class="editor"></div>
+          </div>
+
+          <p v-if="testError" class="test-error">{{ testError }}</p>
+          <div v-if="testResults && testResults.length" class="test-results">
+            <p v-if="failedResults.length === 0" class="all-pass">✓ 全部通过（{{ testResults.length }} 个用例）</p>
+            <template v-else>
+              <div v-for="(r, ri) in failedResults" :key="ri" class="test-row fail">
+                <span class="test-status">✗</span>
+                <span class="test-name">{{ r.name }}</span>
+                <span class="test-msg">{{ r.message }}</span>
+                <span class="test-io">实际={{ r.actual }} 期望={{ r.expected }}</span>
+              </div>
+            </template>
+          </div>
+
+          <div v-if="submitMsg" class="card submit-msg">
+            {{ submitMsg }}
+            <router-link to="/student/scores">去查看成绩 →</router-link>
+          </div>
         </div>
-      </div>
-
-      <div v-if="!submission" class="actions">
-        <button class="btn primary" :disabled="submitting" @click="submitCode">
-          {{ submitting ? '提交中...' : '提交' }}
-        </button>
-      </div>
-
-      <!-- 提交结果 -->
-      <div v-if="submitMsg" class="card submit-msg">
-        {{ submitMsg }}
-        <router-link to="/student/scores">去查看成绩 →</router-link>
       </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getQuestion, getQuestionSubmission, submit } from '../../api/student'
+import { getQuestion, getQuestionSubmission, submit, runCode } from '../../api/student'
 import { createEditor } from '../../utils/monaco'
-import { runLocalTests } from '../../utils/jsRunner'
 import { difficultyClass, judgeStatusText } from '../../utils/format'
+import { defaultTemplate } from '../../utils/templates'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,6 +119,9 @@ const submitMsg = ref('')
 const testing = ref(false)
 const testResults = ref(null)
 const testError = ref('')
+
+// 只显示未通过的用例；全部通过时展示「全部通过」
+const failedResults = computed(() => (testResults.value || []).filter((r) => !r.passed))
 
 let editor = null
 
@@ -152,10 +155,6 @@ onBeforeUnmount(() => {
   }
 })
 
-function defaultTemplate(methodName) {
-  return `// 实现方法 ${methodName}（评测由后端执行）\npublic class Solution {\n    public Object ${methodName}() {\n        // 在这里编写你的代码\n        return null;\n    }\n}\n`
-}
-
 // 根据当前状态创建编辑器：未提交用初始模板可编辑；已提交用源码只读回看
 function initEditor() {
   if (!editorRef.value) return
@@ -165,10 +164,11 @@ function initEditor() {
   }
   const value = submission.value
     ? submission.value.sourceCode || '// 无源码'
-    : defaultTemplate(question.value.methodName)
+    : defaultTemplate(question.value)
   editor = createEditor(editorRef.value, {
     value,
-    readOnly: !!submission.value
+    readOnly: !!submission.value,
+    language: question.value.language
   })
 }
 
@@ -188,13 +188,16 @@ async function runTest() {
   }
   testing.value = true
   try {
-    const res = await runLocalTests(code, q.methodName, q.testCases)
-    if (res.compileError) {
-      testError.value = res.compileError
+    const res = await runCode({ questionId: q.id, sourceCode: code, testCases: q.testCases })
+    const data = res.data
+    if (data.compileError) {
+      testError.value = data.compileError
       testResults.value = null
     } else {
-      testResults.value = res.results
+      testResults.value = data.results
     }
+  } catch (e) {
+    testError.value = e.message || '测试失败'
   } finally {
     testing.value = false
   }
@@ -306,12 +309,35 @@ async function submitCode() {
   margin-bottom: 16px;
 }
 
+/* LeetCode 式左右两栏 */
+.workspace {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pane-left {
+  flex: 0 0 42%;
+  max-width: 46%;
+}
+
+.pane-right {
+  flex: 1;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .card .label {
@@ -325,64 +351,114 @@ async function submitCode() {
   line-height: 1.6;
 }
 
-.samples {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+.examples {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.samples th,
-.samples td {
+.example {
   border: 1px solid #e5e7eb;
-  padding: 8px 10px;
-  text-align: left;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f9fafb;
 }
 
-.samples th {
-  background: #f9fafb;
-  font-weight: 600;
+.example-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.example-no {
+  font-weight: 700;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.example-name {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.example-io {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.io-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.io-k {
+  flex: 0 0 auto;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.io-v {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .editor-card {
+  display: flex;
+  flex-direction: column;
   padding: 0;
   overflow: hidden;
 }
 
-.editor-card .label {
-  padding: 16px 16px 8px;
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.editor-title {
+  font-weight: 600;
+}
+
+.editor-btns {
+  display: flex;
+  gap: 10px;
 }
 
 .editor {
-  height: 360px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.actions {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.testbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.test-hint {
-  color: #9ca3af;
-  font-size: 12px;
+  height: calc(100vh - 240px);
+  min-height: 480px;
 }
 
 .test-error {
   color: #dc2626;
   font-size: 13px;
-  margin: 0 0 12px;
+  padding: 0 4px;
 }
 
 .test-results {
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.all-pass {
+  color: #16a34a;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px;
 }
 
 .test-row {
@@ -392,7 +468,6 @@ async function submitCode() {
   padding: 6px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  margin-bottom: 6px;
   font-size: 13px;
 }
 
@@ -451,60 +526,28 @@ async function submitCode() {
   color: #fff;
 }
 
-.result-card .summary {
-  margin-bottom: 12px;
-  font-size: 15px;
-}
-
-.case {
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-}
-
-.case.ok {
-  border-left: 4px solid #16a34a;
-}
-
-.case.fail {
-  border-left: 4px solid #dc2626;
-}
-
-.case-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.case-name {
-  font-weight: 600;
-}
-
-.case-verdict {
-  color: #374151;
-}
-
-.case-time {
-  margin-left: auto;
-  color: #9ca3af;
-  font-size: 12px;
-}
-
-.case-io {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  color: #6b7280;
-  font-size: 13px;
-}
-
 .submit-msg {
   color: #16a34a;
 }
 
 .submit-msg a {
   margin-left: 12px;
+}
+
+/* 窄屏降级为上下堆叠 */
+@media (max-width: 900px) {
+  .workspace {
+    flex-direction: column;
+  }
+
+  .pane-left {
+    flex: none;
+    max-width: none;
+    width: 100%;
+  }
+
+  .editor {
+    height: 480px;
+  }
 }
 </style>

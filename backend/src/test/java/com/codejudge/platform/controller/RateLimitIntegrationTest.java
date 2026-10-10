@@ -113,7 +113,10 @@ class RateLimitIntegrationTest {
                         current.limits().aiPerIp(),
                         current.limits().submitGlobal(),
                         current.limits().submitPerUser(),
-                        current.limits().submitPerIp()));
+                        current.limits().submitPerIp(),
+                        current.limits().runGlobal(),
+                        current.limits().runPerUser(),
+                        current.limits().runPerIp()));
         systemConfigService.updateConfig(request);
         SecurityContextHolder.clearContext();
     }
@@ -140,7 +143,10 @@ class RateLimitIntegrationTest {
                         current.limits().aiPerIp(),
                         current.limits().submitGlobal(),
                         submitPerUser,
-                        current.limits().submitPerIp()));
+                        current.limits().submitPerIp(),
+                        current.limits().runGlobal(),
+                        current.limits().runPerUser(),
+                        current.limits().runPerIp()));
         systemConfigService.updateConfig(request);
         SecurityContextHolder.clearContext();
     }

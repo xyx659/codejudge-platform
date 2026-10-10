@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -182,8 +183,26 @@ public class TeacherQuestionService {
         if (request.description() == null || request.description().isBlank()) {
             throw new BadRequestException("题目描述不能为空");
         }
-        if (request.methodName() == null || request.methodName().isBlank()) {
-            throw new BadRequestException("方法名不能为空");
+
+        String judgeMode = request.judgeMode() == null ? "METHOD" : request.judgeMode();
+        question.setJudgeMode(judgeMode);
+
+        if ("DESIGN".equals(judgeMode)) {
+            // 设计题：校验 designMethods
+            if (request.designMethods() == null || request.designMethods().isEmpty()) {
+                throw new BadRequestException("设计题必须提供方法定义列表");
+            }
+            question.setDesignMethods(request.designMethods());
+            question.setMethodName(request.methodName() == null ? "" : request.methodName().trim());
+            question.setMethodSignature(null);
+        } else {
+            // 普通方法题：校验 methodName
+            if (request.methodName() == null || request.methodName().isBlank()) {
+                throw new BadRequestException("方法名不能为空");
+            }
+            question.setMethodName(request.methodName().trim());
+            question.setMethodSignature(request.methodSignature());
+            question.setDesignMethods(new ArrayList<>());
         }
 
         String categoryId = blankToNull(request.categoryId());
@@ -193,9 +212,7 @@ public class TeacherQuestionService {
 
         question.setTitle(request.title().trim());
         question.setDescription(request.description());
-        question.setMethodName(request.methodName().trim());
-        question.setMethodSignature(request.methodSignature());
-        question.setLanguage(request.language());
+        question.setLanguage(normalizeLanguage(request.language()));
         question.setDifficulty(request.difficulty());
         question.setCategoryId(categoryId);
         question.setTags(request.tags() == null
@@ -210,5 +227,18 @@ public class TeacherQuestionService {
     /** 空白字符串转 null，方便存库时统一表示「未分类」 */
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** 归一化编程语言名，仅接受 Java / Python / Go。 */
+    private String normalizeLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            throw new BadRequestException("编程语言不能为空");
+        }
+        return switch (language.toLowerCase(Locale.ROOT)) {
+            case "java" -> "Java";
+            case "python", "python3", "py" -> "Python";
+            case "go", "golang" -> "Go";
+            default -> throw new BadRequestException("暂不支持的编程语言：" + language);
+        };
     }
 }

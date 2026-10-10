@@ -281,6 +281,9 @@ public class StudentService {
                         eq.getScore(),
                         q != null ? q.getDescription() : null,
                         q != null ? q.getMethodName() : null,
+                        q != null ? q.getMethodSignature() : null,
+                        q != null ? q.getJudgeMode() : null,
+                        q != null ? q.getDesignMethods() : List.of(),
                         q != null ? q.getLanguage() : null,
                         q != null ? q.getTestCases() : List.of(),
                         sourceCode, judgeStatus, myScore));
@@ -610,14 +613,9 @@ public class StudentService {
 
         // 3. 按考试分组；examId 为空的历史单题提交归入「单题练习」
         Map<String, List<Submission>> byExam = new HashMap<>();
-        Map<String, LocalDateTime> latestByExam = new HashMap<>();
         for (Submission s : subs) {
             String key = s.getExamId() == null ? "" : s.getExamId();
             byExam.computeIfAbsent(key, k -> new ArrayList<>()).add(s);
-            LocalDateTime t = s.getCreatedAt();
-            if (t != null && (!latestByExam.containsKey(key) || t.isAfter(latestByExam.get(key)))) {
-                latestByExam.put(key, t);
-            }
         }
 
         // 4. 批量查题目标题（避免对每条提交都单独查一次题目，N+1）
@@ -632,6 +630,7 @@ public class StudentService {
 
         // 5. 逐组汇总
         List<StudentExamScore> result = new ArrayList<>();
+        Map<String, LocalDateTime> publishedAt = new HashMap<>();
         for (Map.Entry<String, List<Submission>> e : byExam.entrySet()) {
             String examId = e.getKey();
             List<Submission> group = e.getValue();
@@ -640,6 +639,9 @@ public class StudentService {
                     : examRepository.findById(examId).orElse(null);
             String examTitle = exam != null ? exam.getTitle() : "单题练习";
             Integer passScore = exam != null ? exam.getPassScore() : null;
+            if (exam != null && exam.getUpdatedAt() != null) {
+                publishedAt.put(examId, exam.getUpdatedAt());
+            }
 
             // 组卷各题分值（用于封顶计分与卷面满分）
             Map<String, Integer> cap = new HashMap<>();
@@ -676,10 +678,10 @@ public class StudentService {
                     passScore, questions));
         }
 
-        // 6. 按最近一次作答时间倒序，最新作答的考试排最前
+        // 6. 新发布的考试排最前（按考试 updatedAt 倒序）；历史单题练习无发布时间，排最后
         result.sort((a, b) -> {
-            LocalDateTime ta = latestByExam.getOrDefault(a.examId(), LocalDateTime.MIN);
-            LocalDateTime tb = latestByExam.getOrDefault(b.examId(), LocalDateTime.MIN);
+            LocalDateTime ta = publishedAt.getOrDefault(a.examId(), LocalDateTime.MIN);
+            LocalDateTime tb = publishedAt.getOrDefault(b.examId(), LocalDateTime.MIN);
             return tb.compareTo(ta);
         });
         return result;

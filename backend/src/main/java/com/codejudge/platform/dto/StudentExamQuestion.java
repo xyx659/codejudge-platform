@@ -13,17 +13,20 @@ import java.util.List;
  * <p>{@link #sourceCode}/{@link #judgeStatus}/{@link #myScore} 三个字段只在学生
  * <b>已交卷后回看</b>时才有值，未交卷或考试未结束时为 {@code null}。</p>
  *
- * @param questionId  题目 ID（questions._id）
- * @param title       题目标题
- * @param difficulty  难度
- * @param score       本题分值
- * @param description 题目描述
- * @param methodName  需实现的方法名
- * @param language    编程语言
- * @param testCases   测试用例（含期望输出）
- * @param sourceCode  学生已交的源码（未交为 null）
- * @param judgeStatus 判卷状态（未交为 null）
- * @param myScore     学生本题得分（未交为 null）
+ * @param questionId      题目 ID（questions._id）
+ * @param title           题目标题
+ * @param difficulty      难度
+ * @param score           本题分值
+ * @param description     题目描述
+ * @param methodName      需实现的方法名
+ * @param methodSignature 方法签名（如 int[] twoSum(int[], int)），用于生成代码模板
+ * @param judgeMode       判题模式：METHOD / DESIGN / STDIO
+ * @param designMethods   设计题方法定义列表（仅 DESIGN 模式）
+ * @param language        编程语言
+ * @param testCases       测试用例（含期望输出）
+ * @param sourceCode      学生已交的源码（未交为 null）
+ * @param judgeStatus     判卷状态（未交为 null）
+ * @param myScore         学生本题得分（未交为 null）
  */
 public record StudentExamQuestion(
         String questionId,
@@ -32,6 +35,9 @@ public record StudentExamQuestion(
         Integer score,
         String description,
         String methodName,
+        String methodSignature,
+        String judgeMode,
+        List<String> designMethods,
         String language,
         List<QuestionTestCase> testCases,
         String sourceCode,

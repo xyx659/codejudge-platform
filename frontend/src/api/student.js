@@ -68,6 +68,11 @@ export function submit(data) {
   return post('/student/submissions', data)
 }
 
+/** 样例自测：后端 Docker 真实编译运行样例用例（不写提交记录、不触发 AI 评审） */
+export function runCode(data) {
+  return post('/student/run', data)
+}
+
 /** 提交记录列表（分页） */
 export function listSubmissions(params = {}) {
   return get(`/student/submissions${query(params)}`)

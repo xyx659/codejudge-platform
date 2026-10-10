@@ -66,3 +66,36 @@ export function changePassword(data) {
 export function aiGenerateQuestion(data) {
   return post('/admin/questions/ai-generate', data)
 }
+
+/** AI 流式生成（SSE），返回 EventSource，通过 onProgress 回调实时获取内容 */
+export function aiGenerateQuestionStream(data, onProgress) {
+  return fetch('/api/admin/questions/ai-generate-stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(data)
+  }).then(response => {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) return
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            onProgress(line.substring(6))
+          }
+        }
+        read()
+      })
+    }
+    read()
+  })
+}
+
+function getAuthHeaders() {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}

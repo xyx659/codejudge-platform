@@ -9,7 +9,18 @@
     <p v-else-if="exams.length === 0" class="hint">暂无成绩，去考试首页参加一场考试吧</p>
 
     <template v-else>
-      <div v-for="g in exams" :key="g.examId || 'legacy'" class="card exam-group">
+      <div class="search-bar">
+        <input
+          v-model="keyword"
+          class="search-input"
+          type="text"
+          placeholder="搜索考试名称或题目..."
+        />
+      </div>
+
+      <p v-if="!filteredExams.length" class="hint">没有匹配的考试</p>
+
+      <div v-for="g in pagedExams" :key="g.examId || 'legacy'" class="card exam-group">
         <div class="exam-head" @click="toggle(g)">
           <div class="head-left">
             <h3 class="title">{{ g.examTitle }}</h3>
@@ -38,6 +49,12 @@
             <span class="link">AI 评审 →</span>
           </div>
         </div>
+      </div>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="page <= 0" @click="changePage(page - 1)">上一页</button>
+        <span>第 {{ page + 1 }} / {{ totalPages }} 页</span>
+        <button class="page-btn" :disabled="page >= totalPages - 1" @click="changePage(page + 1)">下一页</button>
       </div>
 
       <!-- 成绩详情（用例结果 + AI 评审） -->
@@ -75,10 +92,30 @@
             <div class="stat"><span>综合分</span><b>{{ detail.aiReview.score ?? '—' }}</b></div>
             <div class="stat"><span>通过率</span><b>{{ detail.aiReview.passRate ?? '—' }}%</b></div>
             <div class="stat"><span>代码质量</span><b>{{ detail.aiReview.qualityScore ?? '—' }}</b></div>
+            <div class="stat"><span>时间复杂度</span><b>{{ detail.aiReview.timeComplexity ?? '—' }}</b></div>
+            <div class="stat"><span>空间复杂度</span><b>{{ detail.aiReview.spaceComplexity ?? '—' }}</b></div>
+          </div>
+          <!-- 各维度评分 -->
+          <div v-if="detail.aiReview.dimensionScores && Object.keys(detail.aiReview.dimensionScores).length" class="dimensions">
+            <div class="dim-title">维度评分</div>
+            <div class="dim-grid">
+              <div v-for="(score, dim) in detail.aiReview.dimensionScores" :key="dim" class="dim-item">
+                <span class="dim-name">{{ dimensionNames[dim] || dim }}</span>
+                <div class="dim-bar-wrap">
+                  <div class="dim-bar" :style="{ width: score + '%', background: barColor(score) }"></div>
+                </div>
+                <span class="dim-score">{{ score }}</span>
+              </div>
+            </div>
           </div>
           <ul v-if="detail.aiReview.feedback && detail.aiReview.feedback.length" class="feedback">
             <li v-for="(f, i) in detail.aiReview.feedback" :key="i">{{ f }}</li>
           </ul>
+
+          <div v-if="detail.aiReview.summary" class="summary">
+            <div class="summary-title">总评</div>
+            <p class="summary-text">{{ detail.aiReview.summary }}</p>
+          </div>
         </div>
         <p v-else class="hint">暂无 AI 反馈</p>
       </div>
@@ -87,19 +124,60 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { getSubmissionResult, listExamScores } from '../../api/student'
 import { judgeStatusText } from '../../utils/format'
 
 const exams = ref([])
+const page = ref(0)
+const size = ref(5)
+const keyword = ref('')
 const expanded = ref(null)
 const loading = ref(false)
 const error = ref('')
+
+// 维度ID → 中文名映射
+const dimensionNames = {
+  algorithm_efficiency: '算法效率',
+  boundary_handling: '边界处理',
+  readability: '可读性',
+  code_structure: '代码结构',
+  robustness: '鲁棒性',
+  best_practices: '最佳实践'
+}
+
+// 根据分数返回进度条颜色
+function barColor(score) {
+  if (score >= 90) return '#16a34a'
+  if (score >= 75) return '#2563eb'
+  if (score >= 60) return '#d97706'
+  return '#dc2626'
+}
 
 const selectedId = ref(null)
 const detail = ref(null)
 const detailLoading = ref(false)
 const detailError = ref('')
+
+// 按考试名称 / 题目名称过滤
+const filteredExams = computed(() => {
+  const kw = keyword.value.trim().toLowerCase()
+  if (!kw) return exams.value
+  return exams.value.filter((g) => {
+    if ((g.examTitle || '').toLowerCase().includes(kw)) return true
+    return (g.questions || []).some((q) => (q.questionTitle || '').toLowerCase().includes(kw))
+  })
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredExams.value.length / size.value)))
+const pagedExams = computed(() => {
+  const start = page.value * size.value
+  return filteredExams.value.slice(start, start + size.value)
+})
+
+watch(keyword, () => {
+  page.value = 0
+})
 
 async function load() {
   loading.value = true
@@ -150,6 +228,10 @@ function closeDetail() {
   detail.value = null
 }
 
+function changePage(p) {
+  page.value = p
+}
+
 function statusClass(status) {
   if (status === 'RUN_COMPLETED') return 'done'
   if (status === 'COMPILE_ERROR') return 'err'
@@ -169,6 +251,26 @@ onMounted(load)
 .page .desc {
   color: #6b7280;
   margin-bottom: 20px;
+}
+
+.search-bar {
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 360px;
+  padding: 8px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .hint {
@@ -402,9 +504,133 @@ onMounted(load)
   font-size: 18px;
 }
 
+.complexity {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.cx {
+  color: #374151;
+  font-size: 14px;
+}
+
+.cx b {
+  color: #1f2937;
+}
+
+.explain {
+  color: #374151;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
 .feedback {
   padding-left: 20px;
   line-height: 1.8;
+  color: #374151;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #6b7280;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.page-btn {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dimensions {
+  margin: 12px 0;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.dim-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #374151;
+}
+
+.dim-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dim-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dim-name {
+  width: 120px;
+  font-size: 13px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.dim-bar-wrap {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dim-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.dim-score {
+  width: 32px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.summary {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.summary-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #16a34a;
+}
+
+.summary-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
   color: #374151;
 }
 </style>

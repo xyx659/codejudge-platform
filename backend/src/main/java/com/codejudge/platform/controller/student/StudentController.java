@@ -9,6 +9,8 @@ import com.codejudge.platform.dto.ExamSubmitRequest;
 import com.codejudge.platform.dto.ExamSubmitResult;
 import com.codejudge.platform.dto.QuestionDetail;
 import com.codejudge.platform.dto.QuestionSummary;
+import com.codejudge.platform.dto.RunRequest;
+import com.codejudge.platform.dto.RunResult;
 import com.codejudge.platform.dto.StudentExamDetail;
 import com.codejudge.platform.dto.StudentExamScore;
 import com.codejudge.platform.dto.StudentExamSummary;
@@ -20,6 +22,7 @@ import com.codejudge.platform.dto.SubmissionResult;
 import com.codejudge.platform.dto.SubmissionSummary;
 import com.codejudge.platform.dto.UpdateProfileRequest;
 import com.codejudge.platform.service.RateLimitService;
+import com.codejudge.platform.service.RunService;
 import com.codejudge.platform.service.StudentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -46,11 +49,14 @@ public class StudentController {
 
     private final StudentService studentService;
     private final RateLimitService rateLimitService;
+    private final RunService runService;
 
     public StudentController(StudentService studentService,
-                             RateLimitService rateLimitService) {
+                             RateLimitService rateLimitService,
+                             RunService runService) {
         this.studentService = studentService;
         this.rateLimitService = rateLimitService;
+        this.runService = runService;
     }
 
     /**
@@ -233,6 +239,28 @@ public class StudentController {
                 username,
                 ClientIpUtil.resolve(servletRequest));
         return ApiResponse.ok(studentService.submit(request));
+    }
+
+    /**
+     * 样例自测接口：后端 Docker 真实编译运行样例用例（不写提交记录、不触发 AI 评审）。
+     *
+     * <pre>
+     * POST /api/student/run
+     * { "questionId": "...", "sourceCode": "public class Solution { ... }",
+     *   "testCases": [ { "name": "...", "input": "...", "expected": "..." } ] }
+     * </pre>
+     *
+     * @param request 自测请求（题目 ID + 源码 + 待运行用例）
+     * @return 编译错误，或逐用例运行结果
+     */
+    @PostMapping("/run")
+    public ApiResponse<RunResult> run(@Valid @RequestBody RunRequest request,
+                                      HttpServletRequest servletRequest) {
+        String username = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+        rateLimitService.checkRun(username, ClientIpUtil.resolve(servletRequest));
+        return ApiResponse.ok(runService.run(request));
     }
 
     /**

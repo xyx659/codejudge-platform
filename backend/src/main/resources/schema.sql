@@ -158,3 +158,6 @@ VALUES
     ('limit.submit.per_minute.global', '600', 'INT', 0, '代码提交全局每分钟限流'),
     ('limit.submit.per_minute.per_user', '60', 'INT', 0, '代码提交单用户每分钟限流'),
     ('limit.submit.per_minute.per_ip', '120', 'INT', 0, '代码提交单 IP 每分钟限流');
+
+-- 修复 encrypted 标志：INSERT IGNORE 不会更新已有行，这里补一次 UPDATE 确保与枚举定义一致
+UPDATE system_configs SET encrypted = 1 WHERE config_key = 'ai.api_key' AND encrypted = 0;

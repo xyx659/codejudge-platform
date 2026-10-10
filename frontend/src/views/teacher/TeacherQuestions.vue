@@ -113,22 +113,44 @@
             <button type="button" class="ai-btn" :disabled="aiGenerating || !form.description" @click="aiGenerate">
               {{ aiGenerating ? 'AI 生成中...' : '✨ AI 生成测试用例' }}
             </button>
-            <span class="ai-hint">根据标题和描述自动生成方法签名、难度、标签、20 个测试用例</span>
+            <span class="ai-hint">根据标题和描述自动生成方法签名、难度、标签、10 个测试用例</span>
+          </div>
+          <div v-if="aiGenerating && aiProgress" class="ai-progress">
+            <div class="ai-progress-bar"></div>
+            <span class="ai-progress-text">生成中... {{ aiProgress.length }} 字符</span>
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>判题模式</span>
+              <select v-model="form.judgeMode">
+                <option value="METHOD">METHOD（普通方法题）</option>
+                <option value="DESIGN">DESIGN（设计题）</option>
+                <option value="STDIO">STDIO（标准输入输出）</option>
+              </select>
+            </label>
           </div>
           <div class="field-row">
             <label class="field">
               <span>方法名（如 sum）</span>
               <input v-model.trim="form.methodName" type="text" maxlength="50" />
             </label>
-            <label class="field">
+            <label v-if="form.judgeMode !== 'DESIGN'" class="field">
               <span>方法签名（如 int[] twoSum(int[], int)）</span>
               <input v-model.trim="form.methodSignature" type="text" maxlength="200" />
             </label>
           </div>
+          <div v-if="form.judgeMode === 'DESIGN'" class="field">
+            <span>方法定义列表（每行一个）</span>
+            <textarea v-model="form.designMethodsText" rows="4" placeholder="void LRUCache(int)&#10;int get(int)&#10;void put(int,int)"></textarea>
+          </div>
           <div class="field-row">
             <label class="field">
               <span>编程语言</span>
-              <input v-model.trim="form.language" type="text" maxlength="20" />
+              <select v-model="form.language">
+                <option value="Java">Java</option>
+                <option value="Python">Python</option>
+                <option value="Go">Go</option>
+              </select>
             </label>
             <label class="field">
               <span>难度</span>
@@ -203,6 +225,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   aiGenerateQuestion,
+  aiGenerateQuestionStream,
   createQuestion,
   deleteQuestion,
   getQuestion,
@@ -235,6 +258,8 @@ const form = reactive({
   description: '',
   methodName: '',
   methodSignature: '',
+  judgeMode: 'METHOD',
+  designMethodsText: '',
   language: 'Java',
   difficulty: '简单',
   categoryId: '',
@@ -244,6 +269,7 @@ const form = reactive({
 })
 const formError = ref('')
 const aiGenerating = ref(false)
+const aiProgress = ref('')
 
 function extractJson(text) {
   let s = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
@@ -256,28 +282,55 @@ function extractJson(text) {
   return null
 }
 
+function applyAiResult(data) {
+  if (data.judgeMode) form.judgeMode = data.judgeMode
+  if (data.methodSignature) form.methodSignature = data.methodSignature
+  if (data.methodName) form.methodName = data.methodName
+  if (data.difficulty) form.difficulty = data.difficulty
+  if (data.tags) form.tagsStr = data.tags.join(', ')
+  if (data.designMethods && data.designMethods.length) {
+    form.designMethodsText = data.designMethods.join('\n')
+  }
+  if (data.testCases && data.testCases.length) {
+    form.testCases = data.testCases.map(tc => ({
+      name: tc.name || '',
+      input: tc.input || '',
+      expected: tc.expected || ''
+    }))
+  }
+}
+
 async function aiGenerate() {
   if (!form.description) return
   aiGenerating.value = true
+  aiProgress.value = ''
   try {
-    const res = await aiGenerateQuestion({ title: form.title, description: form.description })
-    const data = extractJson(res.data)
-    if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
-    if (data.methodSignature) form.methodSignature = data.methodSignature
-    if (data.methodName) form.methodName = data.methodName
-    if (data.difficulty) form.difficulty = data.difficulty
-    if (data.tags) form.tagsStr = data.tags.join(', ')
-    if (data.testCases && data.testCases.length) {
-      form.testCases = data.testCases.map(tc => ({
-        name: tc.name || '',
-        input: tc.input || '',
-        expected: tc.expected || ''
-      }))
+    let finalData = null
+    await aiGenerateQuestionStream(
+      { title: form.title, description: form.description, language: form.language },
+      (chunk) => {
+        aiProgress.value = chunk.length > 100 ? '...' + chunk.slice(-100) : chunk
+        const parsed = extractJson(chunk)
+        if (parsed && parsed.testCases) finalData = parsed
+      }
+    )
+    if (!finalData && aiProgress.value) {
+      finalData = extractJson(aiProgress.value)
     }
+    if (!finalData) throw new Error('AI 返回的内容无法解析为 JSON')
+    applyAiResult(finalData)
   } catch (e) {
-    alert('AI 生成失败：' + (e.message || '请检查 AI 配置'))
+    try {
+      const res = await aiGenerateQuestion({ title: form.title, description: form.description, language: form.language })
+      const data = extractJson(res.data)
+      if (!data) throw new Error('AI 返回的内容无法解析为 JSON')
+      applyAiResult(data)
+    } catch (e2) {
+      alert('AI 生成失败：' + (e2.message || '请检查 AI 配置'))
+    }
   } finally {
     aiGenerating.value = false
+    aiProgress.value = ''
   }
 }
 const submitting = ref(false)
@@ -366,6 +419,8 @@ function resetForm() {
   form.description = ''
   form.methodName = ''
   form.methodSignature = ''
+  form.judgeMode = 'METHOD'
+  form.designMethodsText = ''
   form.language = 'Java'
   form.difficulty = '简单'
   form.categoryId = ''
@@ -392,6 +447,8 @@ async function openEdit(q) {
     form.description = d.description || ''
     form.methodName = d.methodName || ''
     form.methodSignature = d.methodSignature || ''
+    form.judgeMode = d.judgeMode || 'METHOD'
+    form.designMethodsText = (d.designMethods || []).join('\n')
     form.language = d.language || 'Java'
     form.difficulty = d.difficulty || '简单'
     form.categoryId = d.categoryId || ''
@@ -426,9 +483,16 @@ function validateForm() {
     formError.value = '题目描述不能为空'
     return false
   }
-  if (!form.methodName) {
-    formError.value = '方法名不能为空'
-    return false
+  if (form.judgeMode === 'DESIGN') {
+    if (!form.designMethodsText.trim()) {
+      formError.value = '设计题必须填写方法定义列表'
+      return false
+    }
+  } else {
+    if (!form.methodName) {
+      formError.value = '方法名不能为空'
+      return false
+    }
   }
   return true
 }
@@ -438,11 +502,17 @@ async function submitForm() {
   submitting.value = true
   formError.value = ''
   try {
+    const judgeMode = form.judgeMode || 'METHOD'
+    const designMethods = judgeMode === 'DESIGN'
+      ? form.designMethodsText.split('\n').map(s => s.trim()).filter(Boolean)
+      : []
     const payload = {
       title: form.title,
       description: form.description,
       methodName: form.methodName,
       methodSignature: form.methodSignature,
+      judgeMode,
+      designMethods,
       language: form.language,
       difficulty: form.difficulty,
       categoryId: form.categoryId || null,
@@ -837,4 +907,9 @@ th {
   color: #6b7280;
   font-size: 13px;
 }
+.ai-progress { margin-bottom: 14px; padding: 8px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; display: flex; align-items: center; gap: 10px; }
+.ai-progress-bar { width: 40px; height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; position: relative; }
+.ai-progress-bar::after { content: ''; position: absolute; top: 0; left: -40px; width: 40px; height: 100%; background: #059669; animation: ai-slide 1s linear infinite; }
+@keyframes ai-slide { to { transform: translateX(80px); } }
+.ai-progress-text { color: #059669; font-size: 12px; }
 </style>

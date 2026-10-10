@@ -41,6 +41,12 @@ public class TeacherQuestion {
     /** 方法签名（如 int[] twoSum(int[], int)），容器判题生成 Main 包装类时使用 */
     private String methodSignature;
 
+    /** 判题模式：METHOD / DESIGN / STDIO */
+    private String judgeMode = "METHOD";
+
+    /** 设计题方法定义列表（仅 DESIGN 模式），每项如 "void put(int,int)" */
+    private List<String> designMethods = new ArrayList<String>();
+
     /** 编程语言（如 Java） */
     private String language;
 
@@ -99,6 +105,22 @@ public class TeacherQuestion {
 
     public void setMethodSignature(String methodSignature) {
         this.methodSignature = methodSignature;
+    }
+
+    public String getJudgeMode() {
+        return judgeMode;
+    }
+
+    public void setJudgeMode(String judgeMode) {
+        this.judgeMode = judgeMode;
+    }
+
+    public List<String> getDesignMethods() {
+        return designMethods;
+    }
+
+    public void setDesignMethods(List<String> designMethods) {
+        this.designMethods = designMethods;
     }
 
     public String getLanguage() {

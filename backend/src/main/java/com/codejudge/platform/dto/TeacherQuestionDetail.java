@@ -13,6 +13,8 @@ import java.util.List;
  * @param description     题目描述
  * @param methodName      方法名
  * @param methodSignature 方法签名（如 int[] twoSum(int[], int)），容器判题使用
+ * @param judgeMode       判题模式：METHOD / DESIGN / STDIO
+ * @param designMethods   设计题方法定义列表（仅 DESIGN 模式）
  * @param language        编程语言
  * @param difficulty      难度
  * @param tags            标签列表
@@ -26,6 +28,8 @@ public record TeacherQuestionDetail(
         String description,
         String methodName,
         String methodSignature,
+        String judgeMode,
+        List<String> designMethods,
         String language,
         String difficulty,
         List<String> tags,
@@ -41,6 +45,8 @@ public record TeacherQuestionDetail(
                 q.getDescription(),
                 q.getMethodName(),
                 q.getMethodSignature(),
+                q.getJudgeMode(),
+                q.getDesignMethods(),
                 q.getLanguage(),
                 q.getDifficulty(),
                 q.getTags(),

@@ -215,9 +215,50 @@ public class AdminQuestionController {
     public ApiResponse<String> aiGenerate(@RequestBody java.util.Map<String, String> body) {
         String title = body.getOrDefault("title", "");
         String description = body.getOrDefault("description", "");
+        String language = body.getOrDefault("language", "Java");
         if (description.isBlank()) {
             throw new com.codejudge.platform.common.BadRequestException("题目描述不能为空");
         }
-        return ApiResponse.ok(aiReviewService.generateQuestion(title, description));
+        return ApiResponse.ok(aiReviewService.generateQuestion(title, description, language));
+    }
+
+    /**
+     * AI 流式生成（SSE）：实时返回生成进度，前端可逐步展示。
+     */
+    @PostMapping(value = "/ai-generate-stream", produces = "text/event-stream;charset=UTF-8")
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter aiGenerateStream(
+            @RequestBody java.util.Map<String, String> body) {
+        String title = body.getOrDefault("title", "");
+        String description = body.getOrDefault("description", "");
+        String language = body.getOrDefault("language", "Java");
+        if (description.isBlank()) {
+            throw new com.codejudge.platform.common.BadRequestException("题目描述不能为空");
+        }
+
+        var emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(120_000L);
+        var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        executor.submit(() -> {
+            try {
+                var config = aiReviewService.currentConfig();
+                var prompt = aiReviewService.buildGeneratePrompt(title, description, language);
+                String result = aiReviewService.streamGenerate(config, prompt, chunk -> {
+                    try {
+                        emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                                .data(chunk)
+                                .name("chunk"));
+                    } catch (Exception ignored) {
+                    }
+                });
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .data(result)
+                        .name("done"));
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            } finally {
+                executor.shutdown();
+            }
+        });
+        return emitter;
     }
 }

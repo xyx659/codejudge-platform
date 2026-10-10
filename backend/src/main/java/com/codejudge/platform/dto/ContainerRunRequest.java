@@ -11,6 +11,7 @@ import java.util.List;
  * @param timeoutMs  单次执行超时（毫秒）
  * @param memoryMb   内存上限（MB）
  * @param cpus       CPU 上限（如 1.0）
+ * @param pidsLimit  进程数上限（防 fork bomb）：编译阶段需放宽（Go 标准库并发编译），运行阶段保持严格
  */
 public record ContainerRunRequest(
         List<String> command,
@@ -18,5 +19,6 @@ public record ContainerRunRequest(
         byte[] workDirTar,
         long timeoutMs,
         int memoryMb,
-        double cpus) {
+        double cpus,
+        long pidsLimit) {
 }
