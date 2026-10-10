@@ -413,6 +413,8 @@ public class QuestionService {
                 .toLowerCase(Locale.ROOT);
         return switch (value) {
             case "java" -> "Java";
+            case "c" -> "C";
+            case "c++", "cpp" -> "C++";
             case "python", "python3", "py" -> "Python";
             case "go", "golang" -> "Go";
             default -> throw new BadRequestException("暂不支持的编程语言：" + language);

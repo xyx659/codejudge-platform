@@ -31,7 +31,7 @@ public class LanguageHandlerRegistry {
     /**
      * 按题目语言取处理器。
      *
-     * <p>{@code null}/空串按历史数据回退到 Java；显式设置了不支持的语言（如 C++）则抛
+     * <p>{@code null}/空串按历史数据回退到 Java；显式设置了不支持的语言（如 Ruby）则抛
      * {@link BadRequestException}，避免被静默误判。</p>
      */
     public LanguageHandler get(String language) {

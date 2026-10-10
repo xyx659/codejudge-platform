@@ -229,13 +229,15 @@ public class TeacherQuestionService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    /** 归一化编程语言名，仅接受 Java / Python / Go。 */
+    /** 归一化编程语言名，接受 Java / C / C++ / Python / Go 五种判题语言。 */
     private String normalizeLanguage(String language) {
         if (language == null || language.isBlank()) {
             throw new BadRequestException("编程语言不能为空");
         }
         return switch (language.toLowerCase(Locale.ROOT)) {
             case "java" -> "Java";
+            case "c" -> "C";
+            case "c++", "cpp" -> "C++";
             case "python", "python3", "py" -> "Python";
             case "go", "golang" -> "Go";
             default -> throw new BadRequestException("暂不支持的编程语言：" + language);

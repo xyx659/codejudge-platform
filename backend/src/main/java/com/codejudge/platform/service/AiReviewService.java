@@ -484,6 +484,8 @@ public class AiReviewService {
             return "Java";
         }
         return switch (language.toLowerCase(Locale.ROOT)) {
+            case "c" -> "C";
+            case "c++", "cpp" -> "C++";
             case "python", "python3", "py" -> "Python";
             case "go", "golang" -> "Go";
             default -> "Java";

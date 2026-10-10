@@ -148,6 +148,8 @@
               <span>编程语言</span>
               <select v-model="form.language">
                 <option value="Java">Java</option>
+                <option value="C">C</option>
+                <option value="C++">C++</option>
                 <option value="Python">Python</option>
                 <option value="Go">Go</option>
               </select>
