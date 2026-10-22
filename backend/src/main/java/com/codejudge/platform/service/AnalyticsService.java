@@ -2,33 +2,40 @@ package com.codejudge.platform.service;
 
 import com.codejudge.platform.common.NotFoundException;
 import com.codejudge.platform.common.PageResult;
+import com.codejudge.platform.dto.AbilityDimension;
 import com.codejudge.platform.dto.AbilityItem;
+import com.codejudge.platform.dto.DiagnosisReport;
 import com.codejudge.platform.dto.ExamAnalytics;
 import com.codejudge.platform.dto.ScoreBucket;
 import com.codejudge.platform.dto.ScoreStats;
 import com.codejudge.platform.dto.StudentExamAnswer;
 import com.codejudge.platform.dto.StudentScoreItem;
+import com.codejudge.platform.entity.Category;
 import com.codejudge.platform.entity.Exam;
 import com.codejudge.platform.entity.ExamQuestion;
 import com.codejudge.platform.entity.Student;
 import com.codejudge.platform.entity.Submission;
 import com.codejudge.platform.entity.SubmissionDetail;
+import com.codejudge.platform.entity.TeacherQuestion;
 import com.codejudge.platform.repository.ExamRepository;
 import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.SubmissionDetailRepository;
 import com.codejudge.platform.repository.SubmissionQueryRepository;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 学情分析业务逻辑。
  *
- * <p>对一场考试做三类分析：成绩统计、分数段分布、逐题掌握度；
- * 同时支持「学生成绩明细」（逐人得分分页）与「学生答卷」（逐题源码/评测/AI 评审）。
+ * <p>对一场考试做学情分析：成绩统计、分数段分布、能力画像（逐题 / 按难度 / 按知识点）
+ * 与教学诊断报告；同时支持「学生成绩明细」（逐人得分分页）与「学生答卷」（逐题源码/评测/AI 评审）。
  * 分数计算规则与监考模块一致：每题取最佳得分并封顶为该题分值，再累加。</p>
  */
 @Service
@@ -38,18 +45,21 @@ public class AnalyticsService {
     private final StudentRepository studentRepository;
     private final SubmissionQueryRepository submissionQueryRepository;
     private final SubmissionDetailRepository submissionDetailRepository;
+    private final MongoTemplate mongoTemplate;
 
     public AnalyticsService(ExamRepository examRepository,
                             StudentRepository studentRepository,
                             SubmissionQueryRepository submissionQueryRepository,
-                            SubmissionDetailRepository submissionDetailRepository) {
+                            SubmissionDetailRepository submissionDetailRepository,
+                            MongoTemplate mongoTemplate) {
         this.examRepository = examRepository;
         this.studentRepository = studentRepository;
         this.submissionQueryRepository = submissionQueryRepository;
         this.submissionDetailRepository = submissionDetailRepository;
+        this.mongoTemplate = mongoTemplate;
     }
 
-    /** 分析一场考试，返回统计指标 + 分布 + 逐题掌握度 */
+    /** 分析一场考试，返回统计指标 + 分布 + 逐题掌握度 + 能力画像（难度/知识点） */
     public ExamAnalytics analyze(String examId) {
         Exam exam = examRepository.findById(examId)
                 .orElseThrow(() -> new NotFoundException("考试不存在"));
@@ -88,7 +98,15 @@ public class AnalyticsService {
         // 3. 逐题掌握度
         List<AbilityItem> abilities = buildAbilities(questions, students, bestByStudent);
 
-        return new ExamAnalytics(stats, distribution, abilities);
+        // 4. 能力画像：按难度维度聚合（难度取自组卷快照）
+        List<AbilityDimension> difficultyAbilities =
+                buildDifficultyAbilities(questions, students, bestByStudent);
+
+        // 5. 能力画像：按知识点（题目分类名）维度聚合
+        List<AbilityDimension> knowledgeAbilities =
+                buildKnowledgeAbilities(questions, students, bestByStudent);
+
+        return new ExamAnalytics(stats, distribution, abilities, difficultyAbilities, knowledgeAbilities);
     }
 
     /**
@@ -202,6 +220,32 @@ public class AnalyticsService {
         return result;
     }
 
+    /** 生成一场考试的教学诊断报告（规则化，不依赖大模型）。 */
+    public DiagnosisReport diagnose(String examId) {
+        ExamAnalytics analytics = analyze(examId);
+        ScoreStats stats = analytics.stats();
+
+        String conclusion = buildConclusion(stats);
+
+        List<String> weakDimensions = analytics.knowledgeAbilities().stream()
+                .sorted(Comparator.comparingDouble(AbilityDimension::avgScoreRate))
+                .limit(3)
+                .map(d -> d.name() + "（得分率 " + d.avgScoreRate() + "%）")
+                .toList();
+
+        List<String> weakQuestions = analytics.abilities().stream()
+                .sorted(Comparator.comparingDouble(this::scoreRate))
+                .limit(3)
+                .map(a -> a.questionTitle() + "（得分率 " + round1(scoreRate(a)) + "%）")
+                .toList();
+
+        List<String> lowScoreStudents = buildLowScoreStudents(examId);
+
+        List<String> suggestions = buildSuggestions(stats, weakDimensions, weakQuestions);
+
+        return new DiagnosisReport(conclusion, weakDimensions, weakQuestions, lowScoreStudents, suggestions);
+    }
+
     /** 按 5 个分数段统计人数 */
     private List<ScoreBucket> buildDistribution(List<Integer> scores) {
         int[][] ranges = {{0, 59}, {60, 69}, {70, 79}, {80, 89}, {90, 100}};
@@ -241,6 +285,79 @@ public class AnalyticsService {
         return items;
     }
 
+    /** 按难度维度聚合能力画像（简单 / 中等 / 困难），难度取自组卷快照。 */
+    private List<AbilityDimension> buildDifficultyAbilities(List<ExamQuestion> questions,
+                                                            List<Student> students,
+                                                            Map<Long, Map<String, Integer>> bestByStudent) {
+        Map<String, List<ExamQuestion>> groups = new LinkedHashMap<String, List<ExamQuestion>>();
+        for (ExamQuestion q : questions) {
+            String difficulty = q.getDifficulty() == null || q.getDifficulty().isBlank()
+                    ? "未标注" : q.getDifficulty();
+            groups.computeIfAbsent(difficulty, k -> new ArrayList<ExamQuestion>()).add(q);
+        }
+        return buildDimensions(groups, students, bestByStudent);
+    }
+
+    /** 按知识点（题目分类名）维度聚合能力画像，分类名实时回查题目。 */
+    private List<AbilityDimension> buildKnowledgeAbilities(List<ExamQuestion> questions,
+                                                           List<Student> students,
+                                                           Map<Long, Map<String, Integer>> bestByStudent) {
+        Map<String, List<ExamQuestion>> groups = new LinkedHashMap<String, List<ExamQuestion>>();
+        for (ExamQuestion q : questions) {
+            String category = resolveCategoryName(q.getQuestionId());
+            groups.computeIfAbsent(category, k -> new ArrayList<ExamQuestion>()).add(q);
+        }
+        return buildDimensions(groups, students, bestByStudent);
+    }
+
+    /** 把按维度分好组的题目聚合为一行 AbilityDimension。 */
+    private List<AbilityDimension> buildDimensions(Map<String, List<ExamQuestion>> groups,
+                                                   List<Student> students,
+                                                   Map<Long, Map<String, Integer>> bestByStudent) {
+        List<AbilityDimension> result = new ArrayList<AbilityDimension>();
+        for (Map.Entry<String, List<ExamQuestion>> e : groups.entrySet()) {
+            List<ExamQuestion> qs = e.getValue();
+            int fullScoreSum = 0;
+            double avgScoreSum = 0.0;
+            int attempts = 0;
+            for (ExamQuestion q : qs) {
+                int cap = q.getScore() == null ? 0 : q.getScore();
+                int attempted = 0;
+                double sum = 0.0;
+                for (Student student : students) {
+                    Map<String, Integer> best = bestByStudent.getOrDefault(student.getId(), Map.of());
+                    Integer score = best.get(q.getQuestionId());
+                    if (score != null) {
+                        sum += Math.min(score, cap);
+                        attempted++;
+                    }
+                }
+                fullScoreSum += cap;
+                avgScoreSum += attempted == 0 ? 0 : sum / attempted;
+                attempts += attempted;
+            }
+            double avgScoreRate = fullScoreSum == 0 ? 0 : round1(avgScoreSum / fullScoreSum * 100);
+            double completionRate = (students.isEmpty() || qs.isEmpty())
+                    ? 0 : round1(attempts * 100.0 / (students.size() * qs.size()));
+            result.add(new AbilityDimension(e.getKey(), avgScoreRate, qs.size(), completionRate));
+        }
+        return result;
+    }
+
+    /** 回查题目所属分类名（题目 → categoryId → Category.name），查不到归「未分类」。 */
+    private String resolveCategoryName(String questionId) {
+        try {
+            TeacherQuestion question = mongoTemplate.findById(questionId, TeacherQuestion.class);
+            if (question == null || question.getCategoryId() == null || question.getCategoryId().isBlank()) {
+                return "未分类";
+            }
+            Category category = mongoTemplate.findById(question.getCategoryId(), Category.class);
+            return category == null ? "未分类" : category.getName();
+        } catch (Exception e) {
+            return "未分类";
+        }
+    }
+
     /** 计算每个学生在各题的最佳得分（只统计分数非空的提交，取最大值） */
     private Map<Long, Map<String, Integer>> computeBestScores(List<ExamQuestion> questions) {
         Map<Long, Map<String, Integer>> result = new HashMap<Long, Map<String, Integer>>();
@@ -276,6 +393,65 @@ public class AnalyticsService {
     /** 提交得分，未出分为 -1（保证有分的提交优先作为每题代表） */
     private int scoreOf(Submission s) {
         return s.getScore() == null ? -1 : s.getScore();
+    }
+
+    /** 逐题得分率（0~100）。 */
+    private double scoreRate(AbilityItem item) {
+        return item.fullScore() == 0 ? 0 : item.avgScore() * 100.0 / item.fullScore();
+    }
+
+    /** 未及格学生中得分最低的 3 名（用于报告里的「重点关注学生」）。 */
+    private List<String> buildLowScoreStudents(String examId) {
+        PageResult<StudentScoreItem> failed = listStudentScores(examId, 0, 100, null, null, false);
+        return failed.list().stream()
+                .filter(StudentScoreItem::submitted)
+                .sorted(Comparator.comparingInt(StudentScoreItem::achievedScore))
+                .limit(3)
+                .map(s -> s.name() + "（" + s.achievedScore() + " 分）")
+                .toList();
+    }
+
+    /** 总体结论（一段话）。 */
+    private String buildConclusion(ScoreStats stats) {
+        if (stats.submittedCount() == 0) {
+            return "本场考试暂无人交卷，待有学生交卷后再生成诊断报告。";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("本场考试应考 ").append(stats.totalStudents()).append(" 人，交卷 ")
+          .append(stats.submittedCount()).append(" 人；平均分 ").append(stats.avgScore())
+          .append("，最高 ").append(stats.maxScore()).append("，最低 ").append(stats.minScore())
+          .append("，及格率 ").append(stats.passRate()).append("%（≥").append(stats.passScore()).append(" 分）。");
+        if (stats.passRate() < 60) {
+            sb.append("整体成绩偏低，多数学生未达到及格线，需加强基础巩固。");
+        } else if (stats.passRate() >= 85) {
+            sb.append("整体掌握良好，及格率较高，可适当拔高难度。");
+        } else {
+            sb.append("整体成绩中等，存在一定分化，需关注后进学生。");
+        }
+        return sb.toString();
+    }
+
+    /** 教学建议（若干条）。 */
+    private List<String> buildSuggestions(ScoreStats stats,
+                                          List<String> weakDimensions,
+                                          List<String> weakQuestions) {
+        List<String> suggestions = new ArrayList<String>();
+        if (!weakDimensions.isEmpty()) {
+            suggestions.add("针对薄弱知识点（" + String.join("、", weakDimensions) + "）安排专题讲解与专项练习。");
+        }
+        if (!weakQuestions.isEmpty()) {
+            suggestions.add("对得分率较低的题目（" + String.join("、", weakQuestions) + "）进行讲评，梳理易错点。");
+        }
+        if (stats.submittedCount() > 0 && stats.passRate() < 60) {
+            suggestions.add("及格率偏低，建议对未及格学生安排补测或一对一辅导。");
+        }
+        if (stats.submittedCount() < stats.totalStudents()) {
+            suggestions.add("尚有 " + (stats.totalStudents() - stats.submittedCount()) + " 名学生未交卷，建议及时跟进催促。");
+        }
+        if (suggestions.isEmpty()) {
+            suggestions.add("整体表现较好，可保持当前教学节奏。");
+        }
+        return suggestions;
     }
 
     /** 忽略大小写判断字符串是否包含关键字 */

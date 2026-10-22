@@ -103,6 +103,10 @@ export function listStudentScores(examId, params = {}) {
 export function getStudentAnswers(examId, studentId) {
   return get(`/teacher/analytics/${examId}/students/${studentId}/answers`)
 }
+// 教学诊断报告（规则生成）
+export function getDiagnosisReport(examId) {
+  return get(`/teacher/analytics/${examId}/report`)
+}
 
 // ===== 个人信息 =====
 export function getProfile() {

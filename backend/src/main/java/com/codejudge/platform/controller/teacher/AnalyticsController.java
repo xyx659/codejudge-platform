@@ -2,6 +2,7 @@ package com.codejudge.platform.controller.teacher;
 
 import com.codejudge.platform.common.ApiResponse;
 import com.codejudge.platform.common.PageResult;
+import com.codejudge.platform.dto.DiagnosisReport;
 import com.codejudge.platform.dto.ExamAnalytics;
 import com.codejudge.platform.dto.StudentExamAnswer;
 import com.codejudge.platform.dto.StudentScoreItem;
@@ -27,7 +28,7 @@ public class AnalyticsController {
         this.analyticsService = analyticsService;
     }
 
-    /** 一场考试的学情分析（成绩统计 + 分数段分布 + 逐题掌握度） */
+    /** 一场考试的学情分析（成绩统计 + 分数段分布 + 逐题掌握度 + 能力画像） */
     @GetMapping("/{examId}")
     public ApiResponse<ExamAnalytics> analyze(@PathVariable String examId) {
         return ApiResponse.ok(analyticsService.analyze(examId));
@@ -52,5 +53,11 @@ public class AnalyticsController {
             @PathVariable String examId,
             @PathVariable Long studentId) {
         return ApiResponse.ok(analyticsService.studentAnswers(examId, studentId));
+    }
+
+    /** 生成一场考试的教学诊断报告（规则化） */
+    @GetMapping("/{examId}/report")
+    public ApiResponse<DiagnosisReport> report(@PathVariable String examId) {
+        return ApiResponse.ok(analyticsService.diagnose(examId));
     }
 }
