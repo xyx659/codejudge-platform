@@ -209,11 +209,13 @@ function renderDistribution() {
 
 function renderRadar() {
   if (!radarRef.value || knowledgeAbilities.value.length < 3) return
+  // 标签维度可能较多，雷达图只取命中题数最多的前 8 个知识点，保持可读
+  const dims = knowledgeAbilities.value.slice(0, 8)
   const chart = initChart(radarRef.value)
   chart.setOption({
     tooltip: {},
     radar: {
-      indicator: knowledgeAbilities.value.map((d) => ({ name: d.name, max: 100 })),
+      indicator: dims.map((d) => ({ name: d.name, max: 100 })),
       radius: '65%',
       axisName: { color: '#4b5563' },
       splitLine: { lineStyle: { color: '#e5e7eb' } },
@@ -224,7 +226,7 @@ function renderRadar() {
         type: 'radar',
         data: [
           {
-            value: knowledgeAbilities.value.map((d) => d.avgScoreRate),
+            value: dims.map((d) => d.avgScoreRate),
             name: '得分率',
             areaStyle: { color: 'rgba(5, 150, 105, 0.2)' },
             lineStyle: { color: '#059669' },

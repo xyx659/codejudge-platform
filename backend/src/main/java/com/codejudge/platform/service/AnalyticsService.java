@@ -10,18 +10,20 @@ import com.codejudge.platform.dto.ScoreBucket;
 import com.codejudge.platform.dto.ScoreStats;
 import com.codejudge.platform.dto.StudentExamAnswer;
 import com.codejudge.platform.dto.StudentScoreItem;
-import com.codejudge.platform.entity.Category;
 import com.codejudge.platform.entity.Exam;
 import com.codejudge.platform.entity.ExamQuestion;
 import com.codejudge.platform.entity.Student;
 import com.codejudge.platform.entity.Submission;
 import com.codejudge.platform.entity.SubmissionDetail;
-import com.codejudge.platform.entity.TeacherQuestion;
 import com.codejudge.platform.repository.ExamRepository;
 import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.SubmissionDetailRepository;
 import com.codejudge.platform.repository.SubmissionQueryRepository;
+import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -298,16 +300,26 @@ public class AnalyticsService {
         return buildDimensions(groups, students, bestByStudent);
     }
 
-    /** 按知识点（题目分类名）维度聚合能力画像，分类名实时回查题目。 */
+    /** 按知识点（题目标签）维度聚合能力画像；一道题可命中多个标签，标签实时回查题目。 */
     private List<AbilityDimension> buildKnowledgeAbilities(List<ExamQuestion> questions,
                                                            List<Student> students,
                                                            Map<Long, Map<String, Integer>> bestByStudent) {
         Map<String, List<ExamQuestion>> groups = new LinkedHashMap<String, List<ExamQuestion>>();
         for (ExamQuestion q : questions) {
-            String category = resolveCategoryName(q.getQuestionId());
-            groups.computeIfAbsent(category, k -> new ArrayList<ExamQuestion>()).add(q);
+            List<String> tags = resolveTags(q.getQuestionId());
+            if (tags.isEmpty()) {
+                groups.computeIfAbsent("未分类", k -> new ArrayList<ExamQuestion>()).add(q);
+            } else {
+                for (String tag : tags) {
+                    groups.computeIfAbsent(tag, k -> new ArrayList<ExamQuestion>()).add(q);
+                }
+            }
         }
-        return buildDimensions(groups, students, bestByStudent);
+        // 按命中题数降序排序，便于前端雷达图取前若干维度展示
+        return buildDimensions(groups, students, bestByStudent).stream()
+                .sorted(Comparator.comparingInt(AbilityDimension::questionCount).reversed()
+                        .thenComparing(AbilityDimension::name))
+                .toList();
     }
 
     /** 把按维度分好组的题目聚合为一行 AbilityDimension。 */
@@ -344,17 +356,31 @@ public class AnalyticsService {
         return result;
     }
 
-    /** 回查题目所属分类名（题目 → categoryId → Category.name），查不到归「未分类」。 */
-    private String resolveCategoryName(String questionId) {
+    /**
+     * 回查题目的标签列表。
+     *
+     * <p>{@code questions} 集合里同时存放 {@code Question}（导入题）与 {@code TeacherQuestion}（教师自建题），
+     * 两者都有 {@code tags} 字段，且 {@code _class} 不同会导致按实体类型回查失败，因此这里直接读原始
+     * 文档的 {@code tags}，避开类型映射。</p>
+     */
+    private List<String> resolveTags(String questionId) {
         try {
-            TeacherQuestion question = mongoTemplate.findById(questionId, TeacherQuestion.class);
-            if (question == null || question.getCategoryId() == null || question.getCategoryId().isBlank()) {
-                return "未分类";
+            Document doc = mongoTemplate.findOne(
+                    Query.query(Criteria.where("_id").is(new ObjectId(questionId))),
+                    Document.class, "questions");
+            if (doc == null) {
+                return List.of();
             }
-            Category category = mongoTemplate.findById(question.getCategoryId(), Category.class);
-            return category == null ? "未分类" : category.getName();
+            Object tags = doc.get("tags");
+            if (tags instanceof List<?> list) {
+                return list.stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .toList();
+            }
+            return List.of();
         } catch (Exception e) {
-            return "未分类";
+            return List.of();
         }
     }
 
