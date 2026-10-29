@@ -1,5 +1,10 @@
 package com.codejudge.platform.service;
 
+import com.codejudge.platform.dto.AbilityDimension;
+import com.codejudge.platform.dto.AbilityItem;
+import com.codejudge.platform.dto.DiagnosisReport;
+import com.codejudge.platform.dto.ExamAnalytics;
+import com.codejudge.platform.dto.ScoreStats;
 import com.codejudge.platform.entity.AiReview;
 import com.codejudge.platform.entity.TestCaseResult;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -89,6 +94,112 @@ public class AiReviewService {
     }
 
     /**
+     * 用大模型根据学情数据生成教学诊断报告。
+     *
+     * @return 诊断报告；未配置 Key、调用失败或解析失败时返回 {@code null}（调用方回退规则报告）
+     */
+    public DiagnosisReport generateDiagnosis(ExamAnalytics analytics, DiagnosisReport ruleBased) {
+        AiRuntimeConfig config = currentConfig();
+        if (config.apiKey() == null || config.apiKey().isBlank()) {
+            return null;
+        }
+        try {
+            String prompt = buildDiagnosisPrompt(analytics, ruleBased);
+            String content = callChatCompletions(config, prompt, "high");
+            DiagnosisReport report = parseDiagnosis(content);
+            if (report.conclusion() == null || report.conclusion().isBlank()) {
+                return null;
+            }
+            return report;
+        } catch (Exception e) {
+            log.warn("AI 诊断报告生成失败，回退规则报告：{}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 组装教学诊断报告的 Prompt：学情数据 + 规则初稿 + 要求只回 JSON。 */
+    private String buildDiagnosisPrompt(ExamAnalytics analytics, DiagnosisReport ruleBased) {
+        ScoreStats stats = analytics.stats();
+        StringBuilder sb = new StringBuilder();
+        sb.append("你是一位教学数据分析专家，请根据下面的考试学情数据生成一份教学诊断报告。\n\n");
+
+        sb.append("【成绩统计】\n");
+        sb.append("应考 ").append(stats.totalStudents()).append(" 人，交卷 ")
+          .append(stats.submittedCount()).append(" 人；平均分 ").append(stats.avgScore())
+          .append("，最高 ").append(stats.maxScore()).append("，最低 ").append(stats.minScore())
+          .append("，及格率 ").append(stats.passRate()).append("%（≥").append(stats.passScore()).append(" 分）。\n\n");
+
+        sb.append("【逐题掌握度】\n");
+        for (AbilityItem a : analytics.abilities()) {
+            sb.append("- ").append(a.questionTitle()).append("：满分 ").append(a.fullScore())
+              .append("，平均 ").append(a.avgScore())
+              .append("，得分率 ").append(roundRate(a)).append("%，完成率 ")
+              .append(a.completionRate()).append("%\n");
+        }
+
+        sb.append("\n【能力画像 · 知识点】\n");
+        for (AbilityDimension d : analytics.knowledgeAbilities()) {
+            sb.append("- ").append(d.name()).append("：得分率 ").append(d.avgScoreRate())
+              .append("%，题数 ").append(d.questionCount())
+              .append("，完成率 ").append(d.completionRate()).append("%\n");
+        }
+
+        sb.append("\n【能力画像 · 难度】\n");
+        for (AbilityDimension d : analytics.difficultyAbilities()) {
+            sb.append("- ").append(d.name()).append("：得分率 ").append(d.avgScoreRate())
+              .append("%，题数 ").append(d.questionCount()).append("\n");
+        }
+
+        sb.append("\n【规则初稿参考（可据实改写，不要生硬照抄）】\n");
+        sb.append("结论：").append(nullToEmpty(ruleBased.conclusion())).append('\n');
+        sb.append("薄弱知识点：").append(String.join("、", ruleBased.weakDimensions())).append('\n');
+        sb.append("薄弱题目：").append(String.join("、", ruleBased.weakQuestions())).append('\n');
+        sb.append("低分学生：").append(String.join("、", ruleBased.lowScoreStudents())).append('\n');
+        sb.append("建议：").append(String.join("；", ruleBased.suggestions())).append("\n\n");
+
+        sb.append("请只输出一个 JSON 对象，不要包含任何额外文字或 Markdown 代码块标记。\n");
+        sb.append("=== 输出格式（严格按此结构，不得省略字段）===\n");
+        sb.append("{\n");
+        sb.append("  \"conclusion\": \"一段总体结论，概括成绩水平与主要问题\",\n");
+        sb.append("  \"weakDimensions\": [\"薄弱知识点（得分率 X%）\", ...],  // 最多3个，得分率从低到高\n");
+        sb.append("  \"weakQuestions\": [\"薄弱题目标题（得分率 X%）\", ...],  // 最多3个\n");
+        sb.append("  \"lowScoreStudents\": [\"姓名（X 分）\", ...],  // 最多3个，取未及格且得分最低\n");
+        sb.append("  \"suggestions\": [\"具体可执行的教学建议1\", \"建议2\", ...]  // 3~5条\n");
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    /** 解析 AI 输出的诊断报告 JSON，字段缺失用空列表占位。 */
+    private DiagnosisReport parseDiagnosis(String content) throws Exception {
+        String json = extractJsonObject(content);
+        JsonNode node = objectMapper.readTree(json);
+        return new DiagnosisReport(
+                node.path("conclusion").asText(null),
+                stringList(node, "weakDimensions"),
+                stringList(node, "weakQuestions"),
+                stringList(node, "lowScoreStudents"),
+                stringList(node, "suggestions"));
+    }
+
+    private List<String> stringList(JsonNode node, String field) {
+        List<String> list = new ArrayList<>();
+        JsonNode arr = node.get(field);
+        if (arr != null && arr.isArray()) {
+            for (JsonNode item : arr) {
+                if (item != null && item.isTextual()) {
+                    list.add(item.asText());
+                }
+            }
+        }
+        return list;
+    }
+
+    /** 逐题得分率（0~100，满分 0 时记 0）。 */
+    private double roundRate(AbilityItem item) {
+        return item.fullScore() == 0 ? 0 : Math.round(item.avgScore() * 1000.0 / item.fullScore()) / 10.0;
+    }
+
+    /**
      * 根据题目描述 AI 生成：测试用例（20 个）、标签、难度、方法名、方法签名。
      *
      * @param title       题目标题
@@ -102,8 +213,8 @@ public class AiReviewService {
         }
         String prompt = buildGeneratePrompt(title, description, language);
         try {
-            // forGeneration=true：跳过 thinking 模式，加速生成
-            return callChatCompletions(config, prompt, true);
+            // 生成也开思考（low 档），在“数据正确”和“生成速度”之间取平衡
+            return callChatCompletions(config, prompt, "low");
         } catch (Exception e) {
             log.error("AI 生成题目失败：{}", e.getMessage());
             throw new IllegalStateException("AI 生成失败：" + e.getMessage());
@@ -218,17 +329,17 @@ public class AiReviewService {
         return sb.toString();
     }
 
-    /** 调用 OpenAI 兼容 Chat Completions，返回首个 choice 的文本内容。 */
+    /** 调用 OpenAI 兼容 Chat Completions，返回首个 choice 的文本内容（评审用，思考强度 high）。 */
     private String callChatCompletions(AiRuntimeConfig config, String prompt) throws Exception {
-        return callChatCompletions(config, prompt, false);
+        return callChatCompletions(config, prompt, "high");
     }
 
     /**
      * 调用 OpenAI 兼容 Chat Completions。
      *
-     * @param forGeneration true=生成题目用（跳过thinking，更快）; false=评审用（保留thinking）
+     * @param reasoningEffort 思考强度：{@code null}=关闭思考；{@code "low"/"high"}=开启 thinking 并指定强度
      */
-    private String callChatCompletions(AiRuntimeConfig config, String prompt, boolean forGeneration) throws Exception {
+    private String callChatCompletions(AiRuntimeConfig config, String prompt, String reasoningEffort) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", config.model());
         body.put("temperature", 0.2);
@@ -236,11 +347,11 @@ public class AiReviewService {
         body.put("messages", List.of(
                 Map.of("role", "system", "content", "你是一位严谨的编程评审老师。"),
                 Map.of("role", "user", "content", prompt)));
-        // deepseek-v4-pro 需要 thinking 和 reasoning_effort 参数
-        // 生成题目时跳过 thinking 以加速（评审时保留）
-        if (!forGeneration && config.model() != null && config.model().contains("v4-pro")) {
+        // deepseek-v4-pro 需要 thinking 和 reasoning_effort 参数；
+        // 评审/诊断用 high，生成用例用 low（兼顾质量与速度）
+        if (reasoningEffort != null && config.model() != null && config.model().contains("v4-pro")) {
             body.put("thinking", Map.of("type", "enabled"));
-            body.put("reasoning_effort", "high");
+            body.put("reasoning_effort", reasoningEffort);
         }
 
         String url = config.baseUrl().replaceAll("/+$", "") + "/chat/completions";
@@ -303,6 +414,11 @@ public class AiReviewService {
         body.put("messages", List.of(
                 Map.of("role", "system", "content", "你是一位严谨的编程评审老师。"),
                 Map.of("role", "user", "content", prompt)));
+        // 流式生成同样开启 thinking（low 档），保证判题数据正确性
+        if (config.model() != null && config.model().contains("v4-pro")) {
+            body.put("thinking", Map.of("type", "enabled"));
+            body.put("reasoning_effort", "low");
+        }
 
         String url = config.baseUrl().replaceAll("/+$", "") + "/chat/completions";
         HttpRequest request = HttpRequest.newBuilder()
@@ -315,6 +431,7 @@ public class AiReviewService {
                 .build();
 
         StringBuilder fullContent = new StringBuilder();
+        StringBuilder reasoningContent = new StringBuilder();
         HttpResponse<java.io.InputStream> response = httpClient.send(request,
                 HttpResponse.BodyHandlers.ofInputStream());
 
@@ -334,10 +451,16 @@ public class AiReviewService {
                     if ("[DONE]".equals(data)) break;
                     try {
                         JsonNode node = objectMapper.readTree(data);
-                        JsonNode delta = node.path("choices").path(0).path("delta").path("content");
-                        if (!delta.isMissingNode() && !delta.isNull()) {
-                            fullContent.append(delta.asText());
+                        JsonNode delta = node.path("choices").path(0).path("delta");
+                        JsonNode content = delta.path("content");
+                        if (!content.isMissingNode() && !content.isNull()) {
+                            fullContent.append(content.asText());
                             onChunk.accept(fullContent.toString());
+                        }
+                        // 部分 thinking 模型把内容放在 reasoning_content，收集做兜底
+                        JsonNode reasoning = delta.path("reasoning_content");
+                        if (!reasoning.isMissingNode() && !reasoning.isNull()) {
+                            reasoningContent.append(reasoning.asText());
                         }
                     } catch (Exception ignored) {
                         // 跳过无法解析的行
@@ -345,7 +468,8 @@ public class AiReviewService {
                 }
             }
         }
-        return fullContent.toString();
+        // content 为空时回退 reasoning_content（兼容 thinking 模型）
+        return fullContent.length() == 0 ? reasoningContent.toString() : fullContent.toString();
     }
 
     // 各维度权重（与 prompt 中一致，6 维度）

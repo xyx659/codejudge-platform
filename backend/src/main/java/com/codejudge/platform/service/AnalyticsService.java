@@ -43,22 +43,27 @@ import java.util.Map;
 @Service
 public class AnalyticsService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AnalyticsService.class);
+
     private final ExamRepository examRepository;
     private final StudentRepository studentRepository;
     private final SubmissionQueryRepository submissionQueryRepository;
     private final SubmissionDetailRepository submissionDetailRepository;
     private final MongoTemplate mongoTemplate;
+    private final AiReviewService aiReviewService;
 
     public AnalyticsService(ExamRepository examRepository,
                             StudentRepository studentRepository,
                             SubmissionQueryRepository submissionQueryRepository,
                             SubmissionDetailRepository submissionDetailRepository,
-                            MongoTemplate mongoTemplate) {
+                            MongoTemplate mongoTemplate,
+                            AiReviewService aiReviewService) {
         this.examRepository = examRepository;
         this.studentRepository = studentRepository;
         this.submissionQueryRepository = submissionQueryRepository;
         this.submissionDetailRepository = submissionDetailRepository;
         this.mongoTemplate = mongoTemplate;
+        this.aiReviewService = aiReviewService;
     }
 
     /** 分析一场考试，返回统计指标 + 分布 + 逐题掌握度 + 能力画像（难度/知识点） */
@@ -222,9 +227,23 @@ public class AnalyticsService {
         return result;
     }
 
-    /** 生成一场考试的教学诊断报告（规则化，不依赖大模型）。 */
+    /** 生成一场考试的教学诊断报告：优先大模型，失败回退规则报告。 */
     public DiagnosisReport diagnose(String examId) {
         ExamAnalytics analytics = analyze(examId);
+        DiagnosisReport ruleBased = buildRuleBasedReport(analytics, examId);
+        try {
+            DiagnosisReport ai = aiReviewService.generateDiagnosis(analytics, ruleBased);
+            if (ai != null) {
+                return ai;
+            }
+        } catch (Exception e) {
+            log.warn("AI 诊断报告不可用，回退规则报告：{}", e.getMessage());
+        }
+        return ruleBased;
+    }
+
+    /** 规则化诊断报告（大模型不可用时的兜底，保持原有逻辑）。 */
+    private DiagnosisReport buildRuleBasedReport(ExamAnalytics analytics, String examId) {
         ScoreStats stats = analytics.stats();
 
         String conclusion = buildConclusion(stats);
