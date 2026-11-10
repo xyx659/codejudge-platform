@@ -9,6 +9,7 @@ import com.codejudge.platform.dto.StudentScoreItem;
 import com.codejudge.platform.service.AnalyticsService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -55,9 +56,15 @@ public class AnalyticsController {
         return ApiResponse.ok(analyticsService.studentAnswers(examId, studentId));
     }
 
-    /** 生成一场考试的教学诊断报告（规则化） */
+    /** 获取一场考试的教学诊断报告（返回已保存的报告快照，没有则现场生成并保存） */
     @GetMapping("/{examId}/report")
     public ApiResponse<DiagnosisReport> report(@PathVariable String examId) {
         return ApiResponse.ok(analyticsService.diagnose(examId));
+    }
+
+    /** 手动重新生成并保存教学诊断报告（覆盖已有报告快照） */
+    @PostMapping("/{examId}/report/regenerate")
+    public ApiResponse<DiagnosisReport> regenerateReport(@PathVariable String examId) {
+        return ApiResponse.ok(analyticsService.generateAndSaveReport(examId));
     }
 }

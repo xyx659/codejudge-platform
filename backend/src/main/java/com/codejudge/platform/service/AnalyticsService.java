@@ -10,28 +10,35 @@ import com.codejudge.platform.dto.ScoreBucket;
 import com.codejudge.platform.dto.ScoreStats;
 import com.codejudge.platform.dto.StudentExamAnswer;
 import com.codejudge.platform.dto.StudentScoreItem;
+import com.codejudge.platform.entity.DiagnosisReportDoc;
 import com.codejudge.platform.entity.Exam;
 import com.codejudge.platform.entity.ExamQuestion;
 import com.codejudge.platform.entity.Student;
 import com.codejudge.platform.entity.Submission;
 import com.codejudge.platform.entity.SubmissionDetail;
+import com.codejudge.platform.repository.DiagnosisReportRepository;
 import com.codejudge.platform.repository.ExamRepository;
 import com.codejudge.platform.repository.StudentRepository;
 import com.codejudge.platform.repository.SubmissionDetailRepository;
 import com.codejudge.platform.repository.SubmissionQueryRepository;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 学情分析业务逻辑。
@@ -43,12 +50,16 @@ import java.util.Map;
 @Service
 public class AnalyticsService {
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AnalyticsService.class);
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsService.class);
+
+    /** 报告宽限分钟数：考试结束后等待判题落库，再自动生成正式报告快照。 */
+    private static final long REPORT_GRACE_MINUTES = 2;
 
     private final ExamRepository examRepository;
     private final StudentRepository studentRepository;
     private final SubmissionQueryRepository submissionQueryRepository;
     private final SubmissionDetailRepository submissionDetailRepository;
+    private final DiagnosisReportRepository diagnosisReportRepository;
     private final MongoTemplate mongoTemplate;
     private final AiReviewService aiReviewService;
 
@@ -56,12 +67,14 @@ public class AnalyticsService {
                             StudentRepository studentRepository,
                             SubmissionQueryRepository submissionQueryRepository,
                             SubmissionDetailRepository submissionDetailRepository,
+                            DiagnosisReportRepository diagnosisReportRepository,
                             MongoTemplate mongoTemplate,
                             AiReviewService aiReviewService) {
         this.examRepository = examRepository;
         this.studentRepository = studentRepository;
         this.submissionQueryRepository = submissionQueryRepository;
         this.submissionDetailRepository = submissionDetailRepository;
+        this.diagnosisReportRepository = diagnosisReportRepository;
         this.mongoTemplate = mongoTemplate;
         this.aiReviewService = aiReviewService;
     }
@@ -227,19 +240,36 @@ public class AnalyticsService {
         return result;
     }
 
-    /** 生成一场考试的教学诊断报告：优先大模型，失败回退规则报告。 */
+    /**
+     * 获取一场考试的教学诊断报告（优先返回已保存的报告快照）。
+     *
+     * <p>有已保存报告直接返回，避免每次打开报告页都重新计算导致「下次打开就没了」；
+     * 否则现场生成并落库（向后兼容：历史考试或未到宽限期的考试首次打开也能拿到报告）。</p>
+     */
     public DiagnosisReport diagnose(String examId) {
+        Optional<DiagnosisReportDoc> saved = diagnosisReportRepository.findById(examId);
+        if (saved.isPresent()) {
+            return saved.get().toReport();
+        }
+        return generateAndSaveReport(examId);
+    }
+
+    /** 强制生成并保存一份报告快照（供定时任务与手动「重新生成」调用，覆盖已有报告）。 */
+    public DiagnosisReport generateAndSaveReport(String examId) {
+        // analyze 内部会校验考试是否存在（不存在抛 NotFoundException）
         ExamAnalytics analytics = analyze(examId);
         DiagnosisReport ruleBased = buildRuleBasedReport(analytics, examId);
+        DiagnosisReport report = ruleBased;
         try {
             DiagnosisReport ai = aiReviewService.generateDiagnosis(analytics, ruleBased);
             if (ai != null) {
-                return ai;
+                report = ai;
             }
         } catch (Exception e) {
             log.warn("AI 诊断报告不可用，回退规则报告：{}", e.getMessage());
         }
-        return ruleBased;
+        diagnosisReportRepository.save(DiagnosisReportDoc.of(examId, report, LocalDateTime.now()));
+        return report;
     }
 
     /** 规则化诊断报告（大模型不可用时的兜底，保持原有逻辑）。 */
@@ -265,6 +295,43 @@ public class AnalyticsService {
         List<String> suggestions = buildSuggestions(stats, weakDimensions, weakQuestions);
 
         return new DiagnosisReport(conclusion, weakDimensions, weakQuestions, lowScoreStudents, suggestions);
+    }
+
+    /**
+     * 定时扫描：已发布考试结束后（endTime + 宽限）自动生成并保存报告。
+     *
+     * <p>每 60 秒扫一次。宽限期用于等待判题结果落库，避免在考试刚结束、
+     * 判题还没跑完时过早生成一份「没人交卷」的空报告。</p>
+     */
+    @Scheduled(fixedDelay = 60_000)
+    public void autoGenerateEndedExamReports() {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            List<Exam> ended = examRepository.findByStatus("PUBLISHED").stream()
+                    .filter(e -> e.getEndTime() != null
+                            && !now.isBefore(e.getEndTime().plusMinutes(REPORT_GRACE_MINUTES)))
+                    .toList();
+            for (Exam exam : ended) {
+                try {
+                    generateReportForEndedExam(exam);
+                } catch (Exception e) {
+                    log.warn("自动生成诊断报告失败：examId={}", exam.getId(), e);
+                }
+            }
+        } catch (Exception e) {
+            log.error("扫描已结束考试生成诊断报告失败", e);
+        }
+    }
+
+    /** 已结束考试：无报告则生成；报告若在考试结束前生成（提前预览），则覆盖为正式快照。 */
+    private void generateReportForEndedExam(Exam exam) {
+        Optional<DiagnosisReportDoc> existing = diagnosisReportRepository.findById(exam.getId());
+        if (existing.isPresent()
+                && existing.get().getGeneratedAt() != null
+                && !existing.get().getGeneratedAt().isBefore(exam.getEndTime())) {
+            return; // 已有考试结束后生成的正式快照，跳过
+        }
+        generateAndSaveReport(exam.getId());
     }
 
     /** 按 5 个分数段统计人数 */
